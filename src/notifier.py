@@ -253,35 +253,96 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
     }
 
 
-def push_to_feishu(webhook_url: str | None = None,
-                    secret: str | None = None,
-                    dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app/") -> dict:
-    """推送今日简报到飞书群。"""
-    webhook = webhook_url or os.getenv("FEISHU_WEBHOOK_URL", "")
-    if not webhook:
-        return {"ok": False, "error": "FEISHU_WEBHOOK_URL 未配置"}
-    sec = secret if secret is not None else os.getenv("FEISHU_SECRET", "")
+def _load_groups() -> list[dict]:
+    """扫 env, 返回所有配置的飞书群 [{name, url, secret}, ...]。
 
-    payload = _build_card(dashboard_url)
+    支持两种写法:
+      1. 多群索引式:
+         FEISHU_GROUP_1_URL=...
+         FEISHU_GROUP_1_SECRET=...   (可选)
+         FEISHU_GROUP_1_NAME=投研群   (可选, 默认 Group-1)
+         FEISHU_GROUP_2_URL=...
+         ...
+      2. 单群兼容式 (老配置):
+         FEISHU_WEBHOOK_URL=...
+         FEISHU_SECRET=...
+    """
+    groups = []
+    # 扫索引式
+    idx = 1
+    while True:
+        url = os.getenv(f"FEISHU_GROUP_{idx}_URL", "").strip()
+        if not url:
+            break
+        groups.append({
+            "name": os.getenv(f"FEISHU_GROUP_{idx}_NAME", f"Group-{idx}"),
+            "url": url,
+            "secret": os.getenv(f"FEISHU_GROUP_{idx}_SECRET", "").strip(),
+        })
+        idx += 1
+    # 单群兼容 (若未写索引式时)
+    if not groups:
+        url = os.getenv("FEISHU_WEBHOOK_URL", "").strip()
+        if url:
+            groups.append({
+                "name": os.getenv("FEISHU_GROUP_NAME", "Default"),
+                "url": url,
+                "secret": os.getenv("FEISHU_SECRET", "").strip(),
+            })
+    return groups
 
-    # 签名 (如果设了 secret)
-    if sec:
+
+def _push_one(payload: dict, group: dict) -> dict:
+    """推单个群, 返回 {ok, error, group_name}。"""
+    url, secret, name = group["url"], group["secret"], group["name"]
+    msg = dict(payload)  # shallow copy, don't mutate caller
+    if secret:
         ts = str(int(time.time()))
-        payload["timestamp"] = ts
-        payload["sign"] = _sign(ts, sec)
-
+        msg["timestamp"] = ts
+        msg["sign"] = _sign(ts, secret)
     try:
-        r = httpx.post(webhook, json=payload, timeout=20)
+        r = httpx.post(url, json=msg, timeout=20)
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return {"ok": False, "error": f"HTTP 推送失败: {e}"}
-
+        return {"ok": False, "error": f"HTTP 错误: {e}", "group_name": name}
     if data.get("code") not in (0, None):
-        return {"ok": False, "error": f"飞书返回错误: {data}"}
+        return {"ok": False, "error": f"飞书返回: {data}", "group_name": name}
+    return {"ok": True, "group_name": name, "response": data}
 
-    log.info(f"Feishu push OK: {data}")
-    return {"ok": True, "response": data}
+
+def push_to_feishu(webhook_url: str | None = None,
+                    secret: str | None = None,
+                    dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app/") -> dict:
+    """推送今日简报到所有配置的飞书群。
+
+    如果显式传 webhook_url, 只推那一个 (兼容老调用)。
+    否则从 env 扫所有群, 逐个推送。
+    """
+    # 显式单群 (测试用)
+    if webhook_url:
+        groups = [{"name": "Explicit", "url": webhook_url, "secret": secret or ""}]
+    else:
+        groups = _load_groups()
+
+    if not groups:
+        return {"ok": False, "error": "未配置飞书群 (FEISHU_GROUP_N_URL 或 FEISHU_WEBHOOK_URL)",
+                "pushed": 0}
+
+    payload = _build_card(dashboard_url)
+    results = [_push_one(payload, g) for g in groups]
+    ok_count = sum(1 for r in results if r["ok"])
+    err_count = len(results) - ok_count
+
+    overall_ok = err_count == 0
+    log.info(f"Feishu push: {ok_count}/{len(results)} OK")
+    return {
+        "ok": overall_ok,
+        "pushed": ok_count,
+        "failed": err_count,
+        "groups": [{"name": r["group_name"], "ok": r["ok"],
+                    "error": r.get("error")} for r in results],
+    }
 
 
 def push_test_message(webhook_url: str, secret: str = "") -> dict:

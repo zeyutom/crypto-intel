@@ -81,15 +81,32 @@ def main() -> None:
         result = push_to_feishu()
         console.print_json(data=result)
     elif cmd == "test-feishu":
+        # 对所有配置的群发测试消息
         import os
-        url = os.getenv("FEISHU_WEBHOOK_URL", "")
-        secret = os.getenv("FEISHU_SECRET", "")
-        if not url:
-            console.print("[red]✗ FEISHU_WEBHOOK_URL 未配置[/]")
+        from .notifier import _load_groups, push_test_message
+        groups = _load_groups()
+        if not groups:
+            console.print("[red]✗ 没有配置任何飞书群 (FEISHU_GROUP_N_URL)[/]")
             sys.exit(1)
-        from .notifier import push_test_message
-        result = push_test_message(url, secret)
-        console.print_json(data=result)
+        results = []
+        for g in groups:
+            r = push_test_message(g["url"], g["secret"])
+            r["group_name"] = g["name"]
+            results.append(r)
+            tag = "[green]✓[/]" if r.get("ok") else "[red]✗[/]"
+            console.print(f"{tag} {g['name']}: {r.get('error') or 'OK'}")
+        console.print_json(data={"groups_tested": len(groups),
+                                  "ok": sum(1 for r in results if r.get('ok'))})
+    elif cmd == "list-feishu":
+        from .notifier import _load_groups
+        groups = _load_groups()
+        if not groups:
+            console.print("[yellow](没有配置任何飞书群)[/]")
+        else:
+            console.print(f"[cyan]已配置 {len(groups)} 个飞书群:[/]")
+            for i, g in enumerate(groups, 1):
+                has_sec = "✓签名" if g["secret"] else "无签名"
+                console.print(f"  [{i}] {g['name']} ({has_sec}) - {g['url'][:60]}...")
     elif cmd == "serve":
         from .scheduler.runner import start
         start()
