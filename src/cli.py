@@ -9,7 +9,9 @@
     python -m src.cli all            一键跑全流程 (含 LLM 简报, 走 API key)
     python -m src.cli all-no-llm     全流程但不调 LLM (云端 GitHub Actions 用)
     python -m src.cli llm-local      用 Claude Code CLI 生成简报 (Max 订阅, 不走 API)
-    python -m src.cli daily-local    一键跑: ingest+factor+review+llm-local+report (本地 cron 用)
+    python -m src.cli daily-local    一键跑: ingest+factor+review+llm-local+report+feishu-push (本地 cron 用)
+    python -m src.cli push-feishu    把最新简报推送到飞书群 (需配 FEISHU_WEBHOOK_URL)
+    python -m src.cli test-feishu    发一条测试消息到飞书群
     python -m src.cli serve          启动 APScheduler 常驻
 """
 import sys
@@ -57,19 +59,37 @@ def main() -> None:
             console.print(f"[red]✗ {result.get('error')}[/]")
         console.print_json(data={k: v for k, v in result.items() if k != "markdown"})
     elif cmd == "daily-local":
-        # 本地完整一日流: data + Claude CLI 简报 + 报告
+        # 本地完整一日流: data + Claude CLI 简报 + 报告 + 飞书推送
         ing = run_ingest_all()
         fac = run_factors_all()
         rev = run_reviews_all()
         from .llm_brief_local import run_local_brief
         llm = run_local_brief()
         path = run_report()
+        # 自动推飞书 (若已配 FEISHU_WEBHOOK_URL)
+        from .notifier import push_to_feishu
+        fs = push_to_feishu()
         console.print_json(data={
             "ingest": ing, "factor": fac, "review": rev,
             "llm_local": {"ok": llm.get("ok"), "error": llm.get("error"),
                           "chars": llm.get("usage", {}).get("output_chars")},
+            "feishu": {"ok": fs.get("ok"), "error": fs.get("error")},
             "report_path": str(path),
         })
+    elif cmd == "push-feishu":
+        from .notifier import push_to_feishu
+        result = push_to_feishu()
+        console.print_json(data=result)
+    elif cmd == "test-feishu":
+        import os
+        url = os.getenv("FEISHU_WEBHOOK_URL", "")
+        secret = os.getenv("FEISHU_SECRET", "")
+        if not url:
+            console.print("[red]✗ FEISHU_WEBHOOK_URL 未配置[/]")
+            sys.exit(1)
+        from .notifier import push_test_message
+        result = push_test_message(url, secret)
+        console.print_json(data=result)
     elif cmd == "serve":
         from .scheduler.runner import start
         start()
