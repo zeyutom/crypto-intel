@@ -27,10 +27,10 @@ jobs:
           pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run pipeline (ingest → factors → review → report)
+      - name: Run data pipeline (no LLM - LLM 由本地 Claude CLI 跑, 见 daily.command)
         run: |
           python -m src.cli init
-          python -m src.cli all
+          python -m src.cli all-no-llm
 
       - name: Commit data updates
         run: |

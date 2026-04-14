@@ -13,3 +13,5 @@ lxml>=5.0
 streamlit>=1.32
 plotly>=5.20
 altair>=5.2
+anthropic>=0.34
+yfinance>=0.2.50

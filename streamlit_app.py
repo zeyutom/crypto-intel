@@ -37,7 +37,27 @@ sidebar_branding()
 page_header("📋 PM 早会简报",
             "今日多空论据 · Regime · 行动建议")
 
-# === 简报 ===
+# === Claude Opus 智能简报 (v0.4) ===
+from src.llm_brief import latest_brief
+ai_brief = latest_brief()
+if ai_brief and ai_brief.get("markdown"):
+    with st.container(border=True):
+        cols = st.columns([5, 1])
+        with cols[0]:
+            st.markdown(f"### 🤖 Claude Opus 智能简报")
+            st.caption(f"生成于 {ai_brief['ts'][:16].replace('T',' ')} UTC · 含 web search 最新事件")
+        with cols[1]:
+            st.markdown(f"<div style='text-align:right; padding-top:6px;'>"
+                        f"<span style='background:rgba(168,132,255,0.18); color:#a884ff; "
+                        f"padding:3px 10px; border-radius:999px; font-size:11px;'>AI 增强</span></div>",
+                        unsafe_allow_html=True)
+        st.markdown(ai_brief["markdown"])
+    st.divider()
+else:
+    st.info("⏳ Claude Opus 简报尚未生成 (需配置 ANTHROPIC_API_KEY 后下次运行 pipeline 会生成)。"
+            "下方展示规则版简报。")
+
+# === 规则版简报 (v0.3, 兜底) ===
 fact_df = latest_factors()
 sig_df = load_signals()
 src_status = load_source_status()

@@ -71,10 +71,42 @@ def run_report():
     return path
 
 
-def run_all_once() -> dict:
-    """一键跑: ingest → factor → review → report。"""
+def run_llm_brief() -> dict:
+    """生成 Claude Opus 智能简报 (需要 ANTHROPIC_API_KEY)。"""
+    try:
+        from .llm_brief import generate_brief, save_brief
+    except Exception as e:
+        log.warning("[llm] import failed: %s", e)
+        return {"ok": False, "error": str(e)}
+    try:
+        brief = generate_brief()
+        if brief.get("ok"):
+            save_brief(brief)
+            log.info("[llm] brief saved (%d output tokens)",
+                     brief["usage"].get("output_tokens", 0))
+        else:
+            log.warning("[llm] brief failed: %s", brief.get("error"))
+        return brief
+    except Exception as e:
+        log.warning("[llm] FAILED: %s", e)
+        return {"ok": False, "error": str(e)}
+
+
+def run_all_once(skip_llm: bool = False) -> dict:
+    """一键跑: ingest → factor → review → llm brief → report。"""
     ing = run_ingest_all()
     fac = run_factors_all()
     rev = run_reviews_all()
+    llm_meta = {"skipped": True}
+    if not skip_llm:
+        llm = run_llm_brief()
+        llm_meta = {
+            "ok": llm.get("ok", False),
+            "model": llm.get("model"),
+            "tokens_in": llm.get("usage", {}).get("input_tokens"),
+            "tokens_out": llm.get("usage", {}).get("output_tokens"),
+            "error": llm.get("error"),
+        }
     path = run_report()
-    return {"ingest": ing, "factor": fac, "review": rev, "report_path": str(path)}
+    return {"ingest": ing, "factor": fac, "review": rev,
+            "llm_brief": llm_meta, "report_path": str(path)}

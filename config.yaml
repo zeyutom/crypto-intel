@@ -40,6 +40,15 @@ sources:
   okx:
     enabled: true
     base_url: "https://www.okx.com"
+  coinglass:
+    enabled: true
+    base_url: "https://fapi.coinglass.com"
+  cg_global:
+    enabled: true
+  cg_trending:
+    enabled: true
+  yfinance_macro:
+    enabled: true
   coinbase:
     enabled: true
     base_url: "https://api.exchange.coinbase.com"

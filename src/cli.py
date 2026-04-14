@@ -6,7 +6,10 @@
     python -m src.cli factors        计算因子 + 合成信号
     python -m src.cli review         跑复核检查
     python -m src.cli report         生成日报 HTML
-    python -m src.cli all            一键跑全流程并生成日报
+    python -m src.cli all            一键跑全流程 (含 LLM 简报, 走 API key)
+    python -m src.cli all-no-llm     全流程但不调 LLM (云端 GitHub Actions 用)
+    python -m src.cli llm-local      用 Claude Code CLI 生成简报 (Max 订阅, 不走 API)
+    python -m src.cli daily-local    一键跑: ingest+factor+review+llm-local+report (本地 cron 用)
     python -m src.cli serve          启动 APScheduler 常驻
 """
 import sys
@@ -42,6 +45,31 @@ def main() -> None:
     elif cmd == "all":
         result = run_all_once()
         console.print_json(data=result)
+    elif cmd == "all-no-llm":
+        result = run_all_once(skip_llm=True)
+        console.print_json(data=result)
+    elif cmd == "llm-local":
+        from .llm_brief_local import run_local_brief
+        result = run_local_brief()
+        if result.get("ok"):
+            console.print(f"[green]✓ Brief saved ({result['usage']['output_chars']} chars)[/]")
+        else:
+            console.print(f"[red]✗ {result.get('error')}[/]")
+        console.print_json(data={k: v for k, v in result.items() if k != "markdown"})
+    elif cmd == "daily-local":
+        # 本地完整一日流: data + Claude CLI 简报 + 报告
+        ing = run_ingest_all()
+        fac = run_factors_all()
+        rev = run_reviews_all()
+        from .llm_brief_local import run_local_brief
+        llm = run_local_brief()
+        path = run_report()
+        console.print_json(data={
+            "ingest": ing, "factor": fac, "review": rev,
+            "llm_local": {"ok": llm.get("ok"), "error": llm.get("error"),
+                          "chars": llm.get("usage", {}).get("output_chars")},
+            "report_path": str(path),
+        })
     elif cmd == "serve":
         from .scheduler.runner import start
         start()
