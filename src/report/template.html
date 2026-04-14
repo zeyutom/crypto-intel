@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Crypto Intel 日报 · {{ date }}</title>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#131933; --panel2:#1b2347; --line:#2a3464;
+    --text:#e6e8f4; --muted:#9aa3c7; --soft:#c8cdec; --accent:#5ee0c1;
+    --warn:#ffb454; --alert:#ff6b8b; --ok:#58d68d; --blue:#6aa6ff; --purple:#a884ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(900px 500px at 90% -10%, rgba(106,166,255,0.12), transparent), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px 60px; }
+  h1 { margin: 0; font-size: 28px;
+       background: linear-gradient(90deg,#6aa6ff,#5ee0c1,#a884ff);
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 13px; }
+  .section { margin-top: 32px; }
+  .section h2 { font-size: 18px; margin: 0 0 14px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .section h2 .hint { font-weight: normal; color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+
+  /* PM Briefing */
+  .briefing {
+    margin-top: 18px;
+    background: linear-gradient(135deg, rgba(94,224,193,0.08), rgba(168,132,255,0.08));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .briefing .headline { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .briefing .regime-line { color: var(--soft); font-size: 13px; margin-bottom: 18px; }
+  .briefing .regime-line b { color: var(--accent); }
+  .briefing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .briefing-col { background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .briefing-col h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .briefing-col h4 .icon { margin-right: 4px; }
+  .briefing-col ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--soft); }
+  .briefing-col li { margin-bottom: 6px; }
+  .briefing-col.bull h4 { color: var(--ok); }
+  .briefing-col.bear h4 { color: var(--alert); }
+  .briefing-col.risk h4 { color: var(--warn); }
+  .briefing-col.action h4 { color: var(--accent); }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .card .label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .label .cn { color: var(--soft); text-transform: none; margin-left: 6px; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .card .meta { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+
+  .bull { color: var(--ok); } .bear { color: var(--alert); } .neutral { color: var(--muted); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+  th { background: var(--panel2); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill.BULL, .pill.bull { background: rgba(88,214,141,0.15); color: var(--ok); }
+  .pill.BEAR, .pill.bear { background: rgba(255,107,139,0.15); color: var(--alert); }
+  .pill.NEUTRAL, .pill.neutral { background: rgba(154,163,199,0.15); color: var(--muted); }
+  .pill.OK { background: rgba(88,214,141,0.15); color: var(--ok); }
+  .pill.WARN { background: rgba(255,180,84,0.18); color: var(--warn); }
+  .pill.ALERT { background: rgba(255,107,139,0.18); color: var(--alert); }
+
+  /* Factor cards (核心改造) */
+  .factor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
+  .factor-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .factor-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .factor-card .name { font-size: 14px; font-weight: 600; }
+  .factor-card .cat { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .factor-card .value-box { text-align: right; }
+  .factor-card .value-box .v { font-size: 22px; font-weight: 600; }
+  .factor-card .value-box .u { color: var(--muted); font-size: 11px; }
+  .factor-card .one-line { color: var(--soft); font-size: 12.5px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
+  .factor-card .reading { font-size: 13px; }
+  .factor-card .reading b { color: var(--accent); }
+  .factor-card .action { font-size: 12.5px; color: var(--soft); padding: 8px 10px; background: rgba(94,224,193,0.06); border-left: 2px solid var(--accent); border-radius: 4px; }
+  .factor-card .meta-row { display: flex; gap: 12px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+  .factor-card .multi-assets { font-size: 11.5px; color: var(--muted); }
+  .factor-card .multi-assets span { display: inline-block; margin-right: 10px; }
+
+  /* ETF bars */
+  .bars-row { display: flex; gap: 10px; align-items: flex-end; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-height: 110px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+  .bar-col .bar-wrap { height: 60px; display: flex; align-items: flex-end; }
+  .bar-col .bar { width: 22px; background: var(--ok); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .bar-col .bar.neg { background: var(--alert); }
+  .bar-col .lbl { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+  .bar-col .val { font-size: 11px; margin-top: 2px; }
+
+  /* Source status */
+  .src-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .src-cell { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .src-cell.ok { border-left: 3px solid var(--ok); }
+  .src-cell.fail { border-left: 3px solid var(--alert); opacity: 0.7; }
+  .src-cell .name { font-weight: 500; }
+  .src-cell .meta { color: var(--muted); font-size: 10.5px; }
+
+  /* Glossary */
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-top: 12px; }
+  details summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--soft); }
+  details summary:hover { color: var(--accent); }
+  .glossary-list { margin-top: 12px; }
+  .glossary-item { padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+  .glossary-item:last-child { border-bottom: none; }
+  .glossary-item b { color: var(--accent); }
+  .glossary-item span { color: var(--soft); margin-left: 8px; }
+
+  footer { margin-top: 50px; color: var(--muted); font-size: 11.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Crypto Intel 日报 · {{ date }}</h1>
+  <div class="sub">
+    {{ generated_at }} ·
+    数据源 {{ source_count }}/6 ·
+    因子 {{ factor_count }} ·
+    Regime: <b>{{ regime_cn }}</b> ({{ regime }})
+  </div>
+
+  {% if is_demo %}
+  <div style="margin-top:14px; padding:10px 14px; background: rgba(255,180,84,0.12); border:1px solid #ffb454; border-radius:8px; color:#ffb454; font-size:12.5px;">
+    ⚠ DEMO 数据 — 本报告使用 seed_demo.py 注入的示例数据。真实数据请在本地运行 <code>python -m src.cli all</code>。
+  </div>
+  {% endif %}
+
+  <!-- ========== ⭐ PM 早会简报 ========== -->
+  <div class="briefing">
+    <div class="headline">📋 {{ briefing.headline }}</div>
+    <div class="regime-line">
+      当前市场状态: <b>{{ briefing.regime_cn }}</b> — {{ briefing.regime_explain }}
+    </div>
+
+    {% if briefing.coverage_warning %}
+    <div style="padding:8px 12px; background: rgba(255,180,84,0.1); border-radius:6px; color:var(--warn); font-size:12px; margin-bottom:14px;">
+      {{ briefing.coverage_warning }}
+    </div>
+    {% endif %}
+
+    <div class="briefing-grid">
+      {% if briefing.bull_points %}
+      <div class="briefing-col bull">
+        <h4><span class="icon">📈</span>看多论据 ({{ briefing.bull_points|length }})</h4>
+        <ul>{% for p in briefing.bull_points %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if briefing.bear_points %}
+      <div class="briefing-col bear">
+        <h4><span class="icon">📉</span>看空论据 ({{ briefing.bear_points|length }})</h4>
+        <ul>{% for p in briefing.bear_points %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if briefing.risk_warnings %}
+      <div class="briefing-col risk">
+        <h4><span class="icon">⚠️</span>风险提示</h4>
+        <ul>{% for p in briefing.risk_warnings %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if briefing.pm_actions %}
+      <div class="briefing-col action">
+        <h4><span class="icon">🎯</span>给 PM 的行动建议</h4>
+        <ul>{% for p in briefing.pm_actions %}<li>{{ p }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ========== ① 行情快照 ========== -->
+  <section class="section">
+    <h2>① 行情快照 <span class="hint">(Binance 报价)</span></h2>
+    <div class="card-grid">
+      {% for s in snapshot %}
+      <div class="card">
+        <div class="label">{{ s.symbol }}<span class="cn">{{ s.cn_name }}</span></div>
+        <div class="value">${{ '{:,.2f}'.format(s.price) }}</div>
+        <div class="meta {% if s.change_24h and s.change_24h > 0 %}bull{% elif s.change_24h and s.change_24h < 0 %}bear{% else %}neutral{% endif %}">
+          24h: {{ '{:+.2f}'.format(s.change_24h) if s.change_24h is not none else 'N/A' }}%
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ========== ② 多因子合成信号 ========== -->
+  <section class="section">
+    <h2>② 多因子合成信号 <span class="hint">(因子加权后的方向 + 置信度)</span></h2>
+    <table>
+      <thead><tr>
+        <th>资产</th><th>方向</th><th>合成分</th><th>置信度</th><th>市场状态</th><th>关键贡献因子</th>
+      </tr></thead>
+      <tbody>
+        {% for sig in signals %}
+        <tr>
+          <td><b>{{ sig.asset_cn }}</b></td>
+          <td><span class="pill {{ sig.direction }}">{{ sig.direction }}</span></td>
+          <td>{{ '{:+.3f}'.format(sig.composite) }}</td>
+          <td>{{ '{:.0%}'.format(sig.confidence) }}</td>
+          <td>{{ sig.regime_cn }}</td>
+          <td style="color:var(--muted); font-size: 11.5px;">{{ sig.top_drivers }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div style="font-size:11.5px; color:var(--muted); margin-top:6px; padding-left:4px;">
+      合成分: > +0.2 看多 / < -0.2 看空 / 之间为中性 · 置信度 = 实际贡献的因子权重 / 全部因子权重
+    </div>
+  </section>
+
+  <!-- ========== ③ 因子卡片 (核心) ========== -->
+  <section class="section">
+    <h2>③ 因子详解 <span class="hint">(每个因子: 是什么 → 现在多少 → 该怎么读 → PM 怎么做)</span></h2>
+    <div class="factor-grid">
+      {% for f in factor_cards %}
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">{{ f.cn_name }}</div>
+            <div class="cat">{{ f.category }}</div>
+          </div>
+          <div class="value-box">
+            <div class="v">{{ f.raw_value_fmt }}</div>
+            <div class="u">{{ f.fmt_unit }}</div>
+            <div style="margin-top:4px;">
+              {% if f.signal == 1 %}<span class="pill BULL">看多 +1</span>
+              {% elif f.signal == -1 %}<span class="pill BEAR">看空 -1</span>
+              {% else %}<span class="pill NEUTRAL">中性 0</span>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">{{ f.one_line }}</div>
+
+        {% if f.how_to_read %}
+        <div class="reading"><b>📖 怎么读:</b> {{ f.how_to_read }}</div>
+        {% endif %}
+
+        {% if f.pm_action %}
+        <div class="action"><b>🎯 PM 建议:</b> {{ f.pm_action }}</div>
+        {% endif %}
+
+        {% if f.multi_assets %}
+        <div class="multi-assets">
+          <b style="color:var(--muted)">分资产:</b>
+          {% for ma in f.multi_assets %}
+          <span>{{ ma.asset }}: {{ ma.raw }}
+            {% if ma.signal == 1 %}<span style="color:var(--ok)">↑</span>
+            {% elif ma.signal == -1 %}<span style="color:var(--alert)">↓</span>{% endif %}
+          </span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="meta-row">
+          <span>置信度: {{ '{:.0%}'.format(f.confidence) if f.confidence else 'N/A' }}</span>
+          {% if f.why_matters %}
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ {{ f.why_matters[:60] }}{% if f.why_matters|length > 60 %}...{% endif %}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ========== ④ ETF 净流入历史 ========== -->
+  {% if etf_history %}
+  <section class="section">
+    <h2>④ BTC 现货 ETF 近 10 日净流入 <span class="hint">(单位: 百万美元)</span></h2>
+    <div class="bars-row">
+      {% for e in etf_history %}
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar {% if e.value < 0 %}neg{% endif %}" style="height: {{ e.height }}px;"></div></div>
+        <div class="lbl">{{ e.date }}</div>
+        <div class="val {% if e.value > 0 %}bull{% elif e.value < 0 %}bear{% endif %}">{{ '{:+.0f}'.format(e.value) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="font-size:11.5px; color:var(--muted); margin-top:6px; padding-left:4px;">
+      绿色 = 净流入(机构买入), 红色 = 净流出(机构赎回)。连续多日同色是显著趋势信号。
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ========== ⑤ 数据源覆盖度 ========== -->
+  <section class="section">
+    <h2>⑤ 数据源覆盖度 <span class="hint">(本次哪些源采到 / 哪些挂了)</span></h2>
+    <div class="src-grid">
+      {% for s in src_status %}
+      <div class="src-cell {% if s.ok %}ok{% else %}fail{% endif %}">
+        <div>
+          <div class="name">{{ s.source }}</div>
+          <div class="meta">{{ '✔ 采到 ' ~ s.n ~ ' 行' if s.ok else '✘ 未采到' }}</div>
+        </div>
+        <div class="meta">{{ s.last_ts }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- ========== ⑥ 复核 ========== -->
+  <section class="section">
+    <h2>⑥ 复核状态 <span class="hint">(数据真实性 + 因子有效性)</span></h2>
+    <table>
+      <thead><tr><th>检查项</th><th>对象</th><th>等级</th><th>解读</th></tr></thead>
+      <tbody>
+        {% for r in reviews %}
+        <tr>
+          <td>{{ r.check_cn }}</td>
+          <td>{{ r.subject_cn }}</td>
+          <td><span class="pill {{ r.severity }}">{{ r.severity }}</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">{{ r.explanation }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========== ⑦ 术语词典 (折叠) ========== -->
+  <details>
+    <summary>📚 术语词典 (点击展开 / 不熟悉某个名词时翻这里)</summary>
+    <div class="glossary-list">
+      {% for term, defn in glossary %}
+      <div class="glossary-item"><b>{{ term }}</b><span>{{ defn }}</span></div>
+      {% endfor %}
+    </div>
+  </details>
+
+  <footer>
+    Crypto Intel v{{ version }} · 工作流自动生成 · 仅供投资经理参考, <b>非投资建议</b><br>
+    数据源详见 <code>config.yaml</code> · 因子定义见 <code>src/factors/_metadata.py</code>
+  </footer>
+</div>
+</body>
+</html>

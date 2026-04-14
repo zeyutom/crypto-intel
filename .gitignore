@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.env
+*.log
+.venv/
+venv/
+.DS_Store
+.streamlit/secrets.toml
+
+# 注意: data/intel.db 与 data/reports 现在 commit 到 git
+# 因为 GitHub Actions 把刷新后的数据 push 回来给 Streamlit Cloud 用

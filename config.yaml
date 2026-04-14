@@ -1,0 +1,94 @@
+# ============================================================
+# Crypto Intel · 配置中心
+# 所有可变参数集中在此,adapter/factor 不硬编码
+# ============================================================
+
+# 监控的币种(PoC 阶段保持精简;扩到 Top50 只需加 id)
+universe:
+  # key: 内部统一 ID;value: 各平台映射
+  - id: bitcoin
+    coingecko: bitcoin
+    binance: BTCUSDT
+    coinbase: BTC-USD
+    symbol: BTC
+  - id: ethereum
+    coingecko: ethereum
+    binance: ETHUSDT
+    coinbase: ETH-USD
+    symbol: ETH
+  - id: solana
+    coingecko: solana
+    binance: SOLUSDT
+    coinbase: SOL-USD
+    symbol: SOL
+  - id: bnb
+    coingecko: binancecoin
+    binance: BNBUSDT
+    coinbase: null  # Coinbase 未上 BNB
+    symbol: BNB
+
+# 数据源开关与端点
+sources:
+  coingecko:
+    enabled: true
+    base_url: "https://api.coingecko.com/api/v3"
+    rate_limit_per_min: 25  # 免费版保守设置
+  binance:
+    enabled: true
+    spot_base: "https://api.binance.com"
+    fapi_base: "https://fapi.binance.com"
+  coinbase:
+    enabled: true
+    base_url: "https://api.exchange.coinbase.com"
+  defillama:
+    enabled: true
+    stablecoins_base: "https://stablecoins.llama.fi"
+    main_base: "https://api.llama.fi"
+  feargreed:
+    enabled: true
+    base_url: "https://api.alternative.me/fng"
+  farside_etf:
+    enabled: true
+    url: "https://farside.co.uk/bitcoin-etf-flow-all-data/"
+  cryptopanic:
+    enabled: false   # 需要 API key,默认关闭
+    base_url: "https://cryptopanic.com/api/v1"
+
+# 因子配置
+factors:
+  funding_composite:
+    weights: {BTCUSDT: 0.4, ETHUSDT: 0.3, SOLUSDT: 0.2, BNBUSDT: 0.1}
+    extreme_high: 0.0001     # 单期资金费率阈值 (8h)
+    extreme_low: -0.00005
+  coinbase_premium:
+    extreme_pct: 0.002       # 0.2% 视为异常
+  stablecoin_mint:
+    window_days: 7
+    assets: [USDT, USDC]
+  fear_greed_reversal:
+    buy_below: 25
+    sell_above: 75
+  etf_flow:
+    sum_window_days: 5
+
+# 复核机制
+review:
+  price_cross_check:
+    max_deviation_pct: 0.01  # 1% 偏离触发告警
+  ic_monitor:
+    rolling_window: 30       # 滚动 IC 窗口(天)
+    ir_floor: 0.3            # IR 下限;低于则因子降权
+
+# 调度 (cron 格式: 分 时 日 月 周)
+schedule:
+  ingest_high_freq: "*/15 * * * *"  # 15min
+  ingest_daily: "5 0 * * *"         # 每日 UTC 00:05
+  compute_factors: "10 * * * *"     # 每小时 10 分
+  review: "0 23 * * *"              # 每日 UTC 23:00
+  daily_report: "0 1 * * *"         # 每日 UTC 01:00
+
+# 输出
+output:
+  report_dir: "data/reports"
+  db_path: "data/intel.db"
+  log_level: INFO

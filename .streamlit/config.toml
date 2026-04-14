@@ -1,0 +1,16 @@
+# Streamlit theme - matches the daily HTML report's dark style
+[theme]
+base = "dark"
+primaryColor = "#5ee0c1"
+backgroundColor = "#0b1020"
+secondaryBackgroundColor = "#131933"
+textColor = "#e6e8f4"
+font = "sans serif"
+
+[server]
+headless = true
+runOnSave = false
+fileWatcherType = "none"
+
+[browser]
+gatherUsageStats = false
