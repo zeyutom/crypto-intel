@@ -18,15 +18,20 @@ def compute() -> list[dict]:
     lo = CFG["factors"]["funding_composite"]["extreme_low"]
 
     # 取每个币种最近一笔 funding_rate_8h
+    # 数据源优先级: binance > okx (binance 在 US 机房会被 451, OKX 是替代源)
     df = query_df(
-        """SELECT r.asset_id AS asset_id, r.value AS value
+        """SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src
            FROM raw_metrics r
            JOIN (SELECT asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
-                 WHERE source='binance' AND metric='funding_rate_8h'
+                 WHERE source IN ('binance','okx') AND metric='funding_rate_8h'
                  GROUP BY asset_id) m
            ON r.asset_id = m.a_ AND r.ts = m.mts
-           WHERE r.source='binance' AND r.metric='funding_rate_8h'"""
+           WHERE r.source IN ('binance','okx') AND r.metric='funding_rate_8h'"""
     )
+    # 同 asset 多源时, 优先 binance, 其次 okx
+    if not df.empty:
+        df = df.sort_values("src", ascending=True)  # 'binance' < 'okx' alphabetically
+        df = df.drop_duplicates(subset=["asset_id"], keep="first")
     if df.empty:
         return []
 

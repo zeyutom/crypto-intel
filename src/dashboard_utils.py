@@ -195,20 +195,26 @@ def load_signals() -> pd.DataFrame:
 @st.cache_data(ttl=60)
 def load_snapshot() -> pd.DataFrame:
     snap = query_df(
-        """SELECT r.asset_id AS asset_id, r.value AS price FROM raw_metrics r
-           JOIN (SELECT asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
-                 WHERE source='binance' AND metric='price_usd'
-                 GROUP BY asset_id) m
-           ON r.asset_id=m.a_ AND r.ts=m.mts
-           WHERE r.source='binance' AND r.metric='price_usd'"""
+        """SELECT asset_id, value AS price FROM (
+              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
+                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
+                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
+                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
+                                r.ts DESC) AS rn
+              FROM raw_metrics r
+              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
+            ) WHERE rn = 1"""
     )
     chg = query_df(
-        """SELECT r.asset_id AS asset_id, r.value AS change_24h FROM raw_metrics r
-           JOIN (SELECT asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
-                 WHERE source='binance' AND metric='change_24h_pct'
-                 GROUP BY asset_id) m
-           ON r.asset_id=m.a_ AND r.ts=m.mts
-           WHERE r.source='binance' AND r.metric='change_24h_pct'"""
+        """SELECT asset_id, value AS change_24h FROM (
+              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
+                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
+                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
+                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
+                                r.ts DESC) AS rn
+              FROM raw_metrics r
+              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
+            ) WHERE rn = 1"""
     )
     if snap.empty:
         return pd.DataFrame()

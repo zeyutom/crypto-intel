@@ -1,6 +1,6 @@
-"""因子: Coinbase Premium = (CB价 - Binance价) / Binance价。
+"""因子: Coinbase Premium = (CB价 - 国际所价) / 国际所价。
 
-美区资金主导识别,与 ETF 净流入共振时信号更强。
+美区资金主导识别。国际所优先 Binance, 没有则用 OKX (覆盖云端 Binance 451 场景)。
 """
 import json
 from ..config import CFG
@@ -17,25 +17,27 @@ def compute() -> list[dict]:
     for asset in CFG["universe"]:
         if not asset.get("coinbase"):
             continue
-        # 取两侧最近价格
+        # 取 coinbase + (binance|okx) 最近价格
         df = query_df(
             """SELECT r.source AS source, r.value AS value FROM raw_metrics r
                JOIN (SELECT source AS s_, asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
                      WHERE metric='price_usd' AND asset_id=?
-                     AND source IN ('coinbase','binance')
+                     AND source IN ('coinbase','binance','okx')
                      GROUP BY source, asset_id) m
                ON r.source=m.s_ AND r.asset_id=m.a_ AND r.ts=m.mts
                WHERE r.metric='price_usd' AND r.asset_id=?""",
             (asset["id"], asset["id"]),
         )
-        if len(df) < 2:
+        if df.empty:
             continue
         prices = dict(zip(df["source"], df["value"]))
         cb = prices.get("coinbase")
-        bn = prices.get("binance")
-        if not cb or not bn or bn == 0:
+        # 国际所: 优先 binance, 没有则 okx
+        intl = prices.get("binance") or prices.get("okx")
+        intl_name = "binance" if prices.get("binance") else "okx"
+        if not cb or not intl or intl == 0:
             continue
-        premium = (cb - bn) / bn
+        premium = (cb - intl) / intl
         if premium >= extreme:
             signal = 1
         elif premium <= -extreme:
@@ -46,6 +48,7 @@ def compute() -> list[dict]:
             "ts": ts, "asset_id": asset["id"], "factor": FACTOR,
             "raw_value": premium, "zscore": None, "signal": signal,
             "confidence": 0.8,
-            "meta": json.dumps({"cb_price": cb, "binance_price": bn}),
+            "meta": json.dumps({"cb_price": cb, "intl_price": intl,
+                                 "intl_source": intl_name}),
         })
     return rows

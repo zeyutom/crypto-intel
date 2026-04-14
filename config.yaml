@@ -37,6 +37,9 @@ sources:
     enabled: true
     spot_base: "https://api.binance.com"
     fapi_base: "https://fapi.binance.com"
+  okx:
+    enabled: true
+    base_url: "https://www.okx.com"
   coinbase:
     enabled: true
     base_url: "https://api.exchange.coinbase.com"

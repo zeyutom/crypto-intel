@@ -56,22 +56,28 @@ def generate(output_path: str | Path | None = None) -> Path:
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape())
     tmpl = env.get_template("template.html")
 
-    # --- 1. 行情快照 (Binance 主源 + CoinGecko 24h 涨跌) ---
+    # --- 1. 行情快照 (优先 binance > okx > coingecko) ---
     snap_df = query_df(
-        """SELECT r.asset_id AS asset_id, r.value AS price FROM raw_metrics r
-           JOIN (SELECT asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
-                 WHERE source='binance' AND metric='price_usd'
-                 GROUP BY asset_id) m
-           ON r.asset_id=m.a_ AND r.ts=m.mts
-           WHERE r.source='binance' AND r.metric='price_usd'"""
+        """SELECT asset_id, value AS price FROM (
+              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
+                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
+                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
+                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
+                                r.ts DESC) AS rn
+              FROM raw_metrics r
+              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
+            ) WHERE rn = 1"""
     )
     chg_df = query_df(
-        """SELECT r.asset_id AS asset_id, r.value AS change_24h FROM raw_metrics r
-           JOIN (SELECT asset_id AS a_, MAX(ts) AS mts FROM raw_metrics
-                 WHERE source='binance' AND metric='change_24h_pct'
-                 GROUP BY asset_id) m
-           ON r.asset_id=m.a_ AND r.ts=m.mts
-           WHERE r.source='binance' AND r.metric='change_24h_pct'"""
+        """SELECT asset_id, value AS change_24h FROM (
+              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
+                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
+                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
+                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
+                                r.ts DESC) AS rn
+              FROM raw_metrics r
+              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
+            ) WHERE rn = 1"""
     )
     merged = snap_df.merge(chg_df, on="asset_id", how="left")
     snap_rows = []
