@@ -1,0 +1,50 @@
+# 活跃 narrative 跟踪 — Claude 周度更新, 为 briefing 提供上下文
+# 每个 narrative 记录: 起始 / 代表币 / 驱动因素 / 当前状态
+
+ai_agents:
+  name: AI Agents (AI 代理赛道)
+  active_since: "2024-11"
+  representative_tokens: [VIRTUAL, AIXBT, GAME, AI16Z, FARTCOIN]
+  driver: OpenAI Agents / Claude Agent SDK 等工具链成熟, 加密 x AI 赛道热度飙升
+  status: active
+  notes: Kaito Mindshare 长期排名前 3; 2025 Q1 以来有 AI agent 专用币种出现
+
+rwa:
+  name: RWA (Real World Assets)
+  active_since: "2023"
+  representative_tokens: [ONDO, PENDLE, MKR, ENA]
+  driver: BlackRock BUIDL / Ondo OUSG 等机构产品落地, 美债代币化规模破百亿
+  status: active
+  notes: 机构叙事的长期载体 / 与传统金融融合
+
+memecoin:
+  name: Memecoin
+  active_since: "2020 起始, 2024 SOL 上爆发"
+  representative_tokens: [DOGE, SHIB, WIF, BONK, PEPE, PNUT]
+  driver: 散户情绪载体, SOL + Base 链上 meme 创建工具降低门槛
+  status: cyclical
+  notes: 高度依赖 retail sentiment, 与 F&G 指数高度正相关
+
+depin:
+  name: DePIN (去中心化物理基础设施)
+  active_since: "2023"
+  representative_tokens: [HNT, RENDER, IO, FIL, AR]
+  driver: AI 算力+存储+带宽需求, 代币激励分布式物理资源
+  status: medium-heat
+  notes: 叙事大, 但实际产品落地慢; 看实际用户/收入数据
+
+restaking_lrt:
+  name: Restaking & LRT
+  active_since: "2024"
+  representative_tokens: [EIGEN, ETHFI, REZ]
+  driver: EigenLayer 主网 + 多个 LRT 协议竞争
+  status: cooling
+  notes: 2024 Q2 热潮过后, 目前相对沉寂
+
+btc_ecosystem:
+  name: BTC 生态 (Ordinals / Runes / BRC-20)
+  active_since: "2023-02"
+  representative_tokens: [ORDI, SATS, RATS, WBTC]
+  driver: Ordinals 协议让 BTC 上可以发 NFT / 代币
+  status: dormant
+  notes: 2024 春节前后爆发, 现已大幅降温

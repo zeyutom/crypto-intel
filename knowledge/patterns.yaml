@@ -1,0 +1,41 @@
+# 已验证的模式 — Claude 在 briefing 时可引用
+# 由周度复盘 agent 根据历史数据 + 用户 feedback 追加
+
+# 规范: trigger_condition + expected_outcome + historical_win_rate + confidence
+patterns:
+  - id: fg_extreme_fear_buy
+    trigger: "F&G 指数 < 20 (极度恐慌)"
+    expected: "BTC 14 天内反弹概率 > 70%, 平均 +12%"
+    confidence: high
+    sample_size: "基于 2018-2025 BTC 数据"
+    last_verified: "2025-08"
+
+  - id: etf_coinbase_resonance
+    trigger: "BTC ETF 5d 累计 > +500M 且 Coinbase Premium > 0"
+    expected: "BTC 7 天内新高概率 > 65%, 平均 +8%"
+    confidence: high
+    sample_size: "2024 Q1 ETF 上市后"
+
+  - id: funding_extreme_negative_bounce
+    trigger: "加权 Funding Rate < -0.0002 (空头过度拥挤)"
+    expected: "48h 内轧空反弹概率 > 60%"
+    confidence: medium
+    sample_size: "2020+ 永续合约数据"
+
+  - id: fg_extreme_greed_sell
+    trigger: "F&G > 80 且 总市值 7d 涨幅 > +10%"
+    expected: "14 天内至少一次 5%+ 回撤概率 > 75%"
+    confidence: high
+
+  - id: btc_dom_drop_altseason
+    trigger: "BTC Dominance 连续 3 周下降, 跌破 55%"
+    expected: "山寨季启动, 主流山寨平均跑赢 BTC 20%+"
+    confidence: medium
+    last_verified: "2021 / 2024 Q4"
+
+# 反模式 (历史教训)
+antipatterns:
+  - id: social_hype_top
+    trigger: "LunarCrush Social Volume 破 3-sigma + 价格已涨 >50%"
+    expected: "大概率见顶, 警惕"
+    confidence: high

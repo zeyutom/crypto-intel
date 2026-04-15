@@ -137,11 +137,29 @@ def _build_user_prompt() -> str:
         "## 全部因子值\n" + _gather_factor_summary() + "\n",
         "## ETF 资金流\n" + _gather_etf_recent() + "\n",
         "## 当前热门叙事\n" + _gather_trending() + "\n",
-        "\n---\n",
-        "请基于以上数据 + web_search 工具搜索过去 24-48h 的关键加密事件 "
-        "(监管动态、CEX 上市公告、协议 hack、宏观会议/数据), "
-        "为 PM 写一份完整简报。",
     ]
+    # v0.5: 注入 knowledge graph + 近期 PM 反馈
+    try:
+        from .knowledge import render_for_llm as kg_render
+        kg = kg_render()
+        if kg:
+            parts.append("\n" + kg + "\n")
+    except Exception:
+        pass
+    try:
+        from .feedback import render_for_llm as fb_render
+        fb = fb_render(14)
+        if fb:
+            parts.append("\n" + fb + "\n")
+    except Exception:
+        pass
+    parts.extend([
+        "\n---\n",
+        "请基于以上数据 + 知识库 + web_search 工具搜索过去 24-48h 的关键加密事件 "
+        "(监管动态、CEX 上市公告、协议 hack、宏观会议/数据), "
+        "为 PM 写一份完整简报。如有模式匹配 (patterns.yaml), 显式引用。"
+        "如 PM 近期给过反馈, 调整你的风格和重点。",
+    ])
     return "\n".join(parts)
 
 

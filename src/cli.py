@@ -107,6 +107,34 @@ def main() -> None:
             for i, g in enumerate(groups, 1):
                 has_sec = "✓签名" if g["secret"] else "无签名"
                 console.print(f"  [{i}] {g['name']} ({has_sec}) - {g['url'][:60]}...")
+    elif cmd == "snapshot":
+        from .snapshot import take_daily_snapshot
+        n = take_daily_snapshot()
+        console.print(f"[green]Snapshot: {n} rows[/]")
+    elif cmd == "backtest":
+        from .review.backtest import run_backtest_all
+        n = run_backtest_all()
+        console.print(f"[green]Backtest: {n} performance rows[/]")
+    elif cmd == "weekly-review":
+        from .evolution.weekly_review import run_weekly_review
+        r = run_weekly_review()
+        console.print_json(data=r)
+    elif cmd == "propose-factors":
+        from .evolution.factor_proposer import run_factor_proposal
+        r = run_factor_proposal()
+        console.print_json(data=r)
+    elif cmd == "discover-sources":
+        from .evolution.source_discoverer import run_source_discovery
+        r = run_source_discovery()
+        console.print_json(data=r)
+    elif cmd == "evolve-prompt":
+        from .evolution.prompt_evolver import run_prompt_evolution
+        r = run_prompt_evolution()
+        console.print_json(data=r)
+    elif cmd == "track-narratives":
+        from .evolution.narrative_tracker import run_narrative_tracking
+        r = run_narrative_tracking()
+        console.print_json(data=r)
     elif cmd == "serve":
         from .scheduler.runner import start
         start()

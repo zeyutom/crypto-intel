@@ -52,9 +52,31 @@ if ai_brief and ai_brief.get("markdown"):
                         f"padding:3px 10px; border-radius:999px; font-size:11px;'>AI 增强</span></div>",
                         unsafe_allow_html=True)
         st.markdown(ai_brief["markdown"])
+
+        # === PM 反馈 widget (v0.5) ===
+        st.divider()
+        from src.feedback import submit as submit_feedback, stats as fb_stats
+        fb_s = fb_stats()
+        st.markdown(f"**📮 这条简报给个反馈** · 累计 👍 {fb_s['thumbs_up']} · 👎 {fb_s['thumbs_down']}")
+        c1, c2, c3 = st.columns([1, 1, 5])
+        with c1:
+            if st.button("👍 有帮助", key=f"up_{ai_brief['ts']}", use_container_width=True):
+                submit_feedback(ai_brief["ts"], 1,
+                                st.session_state.get(f"cm_{ai_brief['ts']}", ""))
+                st.success("已记录, 下次 Claude 会参考")
+        with c2:
+            if st.button("👎 需改进", key=f"down_{ai_brief['ts']}", use_container_width=True):
+                submit_feedback(ai_brief["ts"], -1,
+                                st.session_state.get(f"cm_{ai_brief['ts']}", ""))
+                st.warning("已记录, 请在下方评论里写具体哪里不满意")
+        with c3:
+            st.text_input("评论 (可选)",
+                          key=f"cm_{ai_brief['ts']}",
+                          placeholder="例: 希望多点链上细节 / 少点叙事炒作 / ...",
+                          label_visibility="collapsed")
     st.divider()
 else:
-    st.info("⏳ Claude Opus 简报尚未生成 (需配置 ANTHROPIC_API_KEY 后下次运行 pipeline 会生成)。"
+    st.info("⏳ Claude 简报尚未生成 (请双击 2_本地AI日报+推送.command 跑一次)。"
             "下方展示规则版简报。")
 
 # === 规则版简报 (v0.3, 兜底) ===
