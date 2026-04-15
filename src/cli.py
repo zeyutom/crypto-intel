@@ -29,8 +29,9 @@ def main() -> None:
         console.print(__doc__)
         sys.exit(1)
     cmd = sys.argv[1]
+    # v0.5: 任何命令前都自动 init_db (确保 schema 与新版代码一致, 避免 "no such table")
+    init_db()
     if cmd == "init":
-        init_db()
         console.print("[green]DB initialized.[/]")
     elif cmd == "ingest":
         stats = run_ingest_all()
