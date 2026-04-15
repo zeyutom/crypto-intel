@@ -22,20 +22,27 @@ log = setup_logger("narrative_tracker", "INFO")
 
 SYSTEM = """你是 crypto narrative 分析师。每日任务: 给现有 narrative 打热度分 + 识别新 narrative。
 
-输出严格 JSON 格式 (没别的):
+输出**严格合法的 JSON** (只有 JSON, 没有任何 markdown / 文字说明 / 代码块围栏):
 {
   "narratives": [
-    {"name": "AI Agents", "heat_score": 78, "delta_7d": +12,
+    {"name": "AI Agents", "heat_score": 78, "delta_7d": 12,
      "top_tokens": ["VIRTUAL", "AIXBT", "FARTCOIN"],
-     "trigger_events": ["Virtual Protocol 推出 V2", "Warren Buffett 公开讨论 AI 代币"]},
-    ...
+     "trigger_events": ["Virtual Protocol 推出 V2"]},
+    {"name": "RWA", "heat_score": 60, "delta_7d": -3,
+     "top_tokens": ["ONDO", "ENA"], "trigger_events": []}
   ]
 }
 
+JSON 合法性要求 (重要!):
+- 数字不能有 +号 (正确: 12, 错误: +12)
+- 所有字符串用双引号
+- 数组最后一个元素后不带逗号
+- 不要用 markdown 代码块围栏 (```) — 直接输出裸 JSON
+
 规则:
-- heat_score: 0-100, 100 = 现象级 (Memecoin 2024 Q4), 0 = 无人关注
-- delta_7d: 与 7 天前热度的 +/- 百分点变化
-- 覆盖至少 6 个 narrative (包括不在我既有列表里的新发现的)
+- heat_score: 0-100 整数, 100 = 现象级, 0 = 无人关注
+- delta_7d: 整数, 可以为负 (例: -5), 不要带 +号
+- 覆盖至少 6 个 narrative (包括新发现的)
 - 用 web_search 查过去 7 天 Twitter/Reddit/Kaito 数据做判断"""
 
 
@@ -73,17 +80,33 @@ def run_narrative_tracking() -> dict:
     if not result["ok"]:
         return result
 
-    # 解析 JSON (Claude 可能带 markdown 代码块)
+    # 解析 JSON, 尽量容错 Claude 输出的瑕疵
     raw = result["markdown"]
-    # 提取第一个 { ... } 段
-    start = raw.find("{")
-    end = raw.rfind("}")
+
+    # 1. 去掉 markdown 代码块围栏
+    import re as _re
+    cleaned = _re.sub(r"```(?:json)?\s*", "", raw).replace("```", "")
+
+    # 2. 提取最外层 {...}
+    start = cleaned.find("{")
+    end = cleaned.rfind("}")
     if start < 0 or end < 0:
         return {"ok": False, "error": "Claude 输出不含 JSON", "raw": raw[:500]}
+    json_text = cleaned[start:end+1]
+
+    # 3. 常见 JSON 瑕疵修复
+    # 3a. 数字前的 + (JSON 不允许)
+    json_text = _re.sub(r":\s*\+(\d)", r": \1", json_text)
+    # 3b. 尾随逗号
+    json_text = _re.sub(r",(\s*[}\]])", r"\1", json_text)
+    # 3c. 单引号包裹字符串 -> 双引号 (粗暴但多数情况有效)
+    # 不轻易改引号 (中文里有单引号), 跳过
+
     try:
-        data = json.loads(raw[start:end+1])
+        data = json.loads(json_text)
     except Exception as e:
-        return {"ok": False, "error": f"JSON 解析失败: {e}", "raw": raw[:500]}
+        return {"ok": False, "error": f"JSON 解析失败: {e}",
+                "raw": raw[:500], "cleaned": json_text[:500]}
 
     narratives = data.get("narratives", [])
     if not narratives:
