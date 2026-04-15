@@ -65,6 +65,30 @@ def run_reviews_all() -> dict[str, int]:
     return stats
 
 
+def run_snapshot() -> int:
+    """v0.5: 每日因子快照 (为 IC/IR 回测提供基础)。"""
+    try:
+        from .snapshot import take_daily_snapshot
+        n = take_daily_snapshot()
+        log.info("[snapshot] took %d factor snapshots today", n)
+        return n
+    except Exception as e:
+        log.warning("[snapshot] FAILED: %s", e)
+        return 0
+
+
+def run_backtest() -> int:
+    """v0.5: 跑 IC/IR 回测 (通常在 snapshot 之后)。"""
+    try:
+        from .review.backtest import run_backtest_all
+        n = run_backtest_all()
+        log.info("[backtest] computed %d performance rows", n)
+        return n
+    except Exception as e:
+        log.warning("[backtest] FAILED: %s", e)
+        return 0
+
+
 def run_report():
     path = generate_report()
     log.info("[report] generated: %s", path)
@@ -93,9 +117,11 @@ def run_llm_brief() -> dict:
 
 
 def run_all_once(skip_llm: bool = False) -> dict:
-    """一键跑: ingest → factor → review → llm brief → report。"""
+    """一键跑: ingest → factor → snapshot → backtest → review → llm brief → report。"""
     ing = run_ingest_all()
     fac = run_factors_all()
+    snap = run_snapshot()        # v0.5: 每日快照
+    bt = run_backtest()          # v0.5: 真实 IC/IR
     rev = run_reviews_all()
     llm_meta = {"skipped": True}
     if not skip_llm:
@@ -108,5 +134,5 @@ def run_all_once(skip_llm: bool = False) -> dict:
             "error": llm.get("error"),
         }
     path = run_report()
-    return {"ingest": ing, "factor": fac, "review": rev,
-            "llm_brief": llm_meta, "report_path": str(path)}
+    return {"ingest": ing, "factor": fac, "snapshot": snap, "backtest": bt,
+            "review": rev, "llm_brief": llm_meta, "report_path": str(path)}

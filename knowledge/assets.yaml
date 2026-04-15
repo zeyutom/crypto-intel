@@ -1,0 +1,41 @@
+# 资产知识库 — Claude 在每次 briefing 前读取注入 context
+# 由 Claude 周度复盘时自动追加, 也可人工编辑
+# format: id -> {symbol, category, narrative, key_people, key_events, notes}
+
+bitcoin:
+  symbol: BTC
+  category: 原生货币
+  narrative: 数字黄金 / 储备资产 / 机构入场 (2024+ ETF)
+  key_events:
+    - "2024-01: BTC 现货 ETF 在美获批"
+    - "2024-04: 第 4 次减半"
+  current_thesis: |
+    机构化程度最高的加密资产。价格主要被 ETF 资金流 + 宏观流动性 (DXY) 驱动。
+    短周期看 Coinbase Premium + CME 期货 COT, 中长期看 MVRV Z / 减半周期。
+
+ethereum:
+  symbol: ETH
+  category: Smart Contract Platform
+  narrative: DeFi 底层 / 现货 ETF (2024) / L2 生态
+  key_events:
+    - "2022-09: 合并 (The Merge), 转 PoS"
+    - "2024-07: ETH 现货 ETF 在美获批"
+  current_thesis: |
+    DeFi 和 L2 的基石。比 BTC 多一个基本面维度: 协议收入 + Gas 消耗。
+    与 BTC 对比时看 ETH/BTC 比价, 作山寨季强弱的总阀门。
+
+solana:
+  symbol: SOL
+  category: High-Perf L1
+  narrative: 高性能公链 / Meme 宿主 / DePIN 承载
+  current_thesis: |
+    2023-2025 最大黑马。生态活跃度高 (MEME/DePIN)。
+    看 SOL 的风险主要是: 单点故障 (历史停机过) + 代币经济学 (解锁压力)。
+
+bnb:
+  symbol: BNB
+  category: CEX Token
+  narrative: 币安生态 / BNB Chain
+  current_thesis: |
+    与币安监管风险高度绑定。适合作为"CEX 敞口"代理,
+    但不建议作为主要持仓 (集中化风险)。

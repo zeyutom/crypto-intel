@@ -10,14 +10,52 @@ from ..db import query_df, latest_factors, upsert_signal
 from ..utils import now_iso
 
 
-# 因子权重(可后续改为由 IR 动态决定)
-FACTOR_WEIGHTS = {
+# 默认因子权重 (v0.3 手工设定, 作 fallback)
+DEFAULT_WEIGHTS = {
     "funding_composite": 1.0,
     "coinbase_premium": 1.2,
     "stablecoin_mint_7d": 1.5,
     "fear_greed_reversal": 0.8,
     "etf_flow_5d": 1.8,
+    # v0.4 新因子 (默认权重保守, 等数据多了由 IR 接管)
+    "open_interest_change": 0.8,
+    "liquidation_heat": 0.6,
+    "long_short_ratio": 0.5,
+    "btc_dominance_trend": 0.8,
+    "total_mcap_momentum": 1.0,
+    "defi_tvl_momentum": 0.6,
+    "trending_score": 0.4,
+    "btc_nasdaq_corr": 0.5,
+    "btc_gold_corr": 0.4,
+    "dxy_inverse": 0.7,
 }
+
+
+def _effective_weights() -> dict:
+    """v0.5: 优先用 backtest 得到的 IR 权重, 其次用默认权重。
+       每个因子取 max(default, IR_weight)。"""
+    try:
+        from ..review.backtest import get_latest_ir_weights
+        ir_w = get_latest_ir_weights()
+    except Exception:
+        ir_w = {}
+    if not ir_w:
+        return dict(DEFAULT_WEIGHTS)
+    # 每个因子: 对所有 asset 的 IR 取平均, 与 default 取 max
+    merged = dict(DEFAULT_WEIGHTS)
+    from collections import defaultdict
+    factor_irs = defaultdict(list)
+    for (factor, _aid), w in ir_w.items():
+        factor_irs[factor].append(w)
+    for factor, irs in factor_irs.items():
+        avg_ir = sum(irs) / len(irs) if irs else 0
+        # IR > 0.5 = 显著有效, 加权; IR < 0 会被 filter 掉 (get_latest_ir_weights 已过滤)
+        merged[factor] = max(merged.get(factor, 0.3), avg_ir)
+    return merged
+
+
+# 向后兼容
+FACTOR_WEIGHTS = DEFAULT_WEIGHTS
 
 
 def _detect_regime() -> str:
@@ -52,6 +90,7 @@ def compose() -> list[dict]:
 
     ts = now_iso()
     regime = _detect_regime()
+    weights = _effective_weights()   # v0.5: 动态从 backtest 拉, 缺省用 DEFAULT
     results = []
 
     # 按 asset_id 聚合
@@ -61,7 +100,7 @@ def compose() -> list[dict]:
         breakdown = {}
         for _, row in grp.iterrows():
             fname = row["factor"]
-            w = FACTOR_WEIGHTS.get(fname, 0.5)
+            w = weights.get(fname, 0.5)
             sig = row["signal"] or 0
             conf = row["confidence"] or 0.5
             num += sig * conf * w

@@ -70,6 +70,70 @@ CREATE TABLE IF NOT EXISTS events (
     meta TEXT,
     PRIMARY KEY (ts, source, title)
 );
+
+-- ============ v0.5 自我进化层 ============
+
+-- 因子快照: 每日 snapshot, 为 IC/IR 回测提供历史基准
+-- 记录: 当日每个因子的 raw_value + signal + 对应 asset 的 current_price
+CREATE TABLE IF NOT EXISTS factor_snapshots (
+    date TEXT NOT NULL,          -- YYYY-MM-DD (UTC)
+    factor TEXT NOT NULL,
+    asset_id TEXT,
+    raw_value REAL,
+    signal INTEGER,
+    current_price REAL,          -- 快照时的价格 (用于回算未来收益)
+    meta TEXT,
+    PRIMARY KEY (date, factor, asset_id)
+);
+CREATE INDEX IF NOT EXISTS idx_snap_factor ON factor_snapshots(factor, date);
+
+-- 因子有效性: 滚动 IC/IR 计算结果 (每日重算)
+CREATE TABLE IF NOT EXISTS factor_performance (
+    date TEXT NOT NULL,           -- 计算日期
+    factor TEXT NOT NULL,
+    asset_id TEXT,
+    window_days INTEGER,          -- 回看窗口 (30/90/180)
+    forward_days INTEGER,         -- 前瞻收益窗口 (1/7/30)
+    ic REAL,                      -- Information Coefficient
+    ir REAL,                      -- Information Ratio
+    n_obs INTEGER,                -- 有效观测数
+    mean_return REAL,             -- 信号=1 时的平均未来收益
+    PRIMARY KEY (date, factor, asset_id, window_days, forward_days)
+);
+CREATE INDEX IF NOT EXISTS idx_perf_factor ON factor_performance(factor, date);
+
+-- PM 反馈: 仪表盘上 👍/👎/评论
+CREATE TABLE IF NOT EXISTS brief_feedback (
+    ts TEXT NOT NULL,             -- 反馈时间
+    brief_ts TEXT NOT NULL,       -- 对应哪一条 briefing
+    rating INTEGER,               -- 1 = 👍, -1 = 👎, 0 = 中性
+    comment TEXT,                 -- 自由文本
+    source TEXT,                  -- streamlit / feishu / manual
+    PRIMARY KEY (ts, brief_ts)
+);
+
+-- 自我进化日志: 周复盘 / 因子提议 / 源发现 / prompt 迭代的记录
+CREATE TABLE IF NOT EXISTS evolution_log (
+    ts TEXT NOT NULL,
+    kind TEXT NOT NULL,           -- weekly_review / factor_proposal / source_discovery / prompt_evolve
+    title TEXT,
+    content TEXT,                 -- Markdown
+    action TEXT,                  -- accepted / rejected / pending
+    meta TEXT,                    -- JSON
+    PRIMARY KEY (ts, kind, title)
+);
+CREATE INDEX IF NOT EXISTS idx_evo_kind ON evolution_log(kind, ts);
+
+-- 活跃 narrative 追踪: 由 Claude 维护, 仪表盘可视化
+CREATE TABLE IF NOT EXISTS narratives (
+    date TEXT NOT NULL,           -- 观测日期
+    narrative TEXT NOT NULL,      -- AI / RWA / Memecoin / DePIN / ...
+    heat_score REAL,              -- 0-100, 热度分
+    top_tokens TEXT,              -- JSON array of representative tokens
+    trigger_events TEXT,          -- 最近的助推事件 JSON
+    delta_7d REAL,                -- 近 7 日热度变化
+    PRIMARY KEY (date, narrative)
+);
 """
 
 
@@ -195,3 +259,74 @@ def recent_events(limit: int = 20) -> pd.DataFrame:
     return query_df(
         "SELECT * FROM events ORDER BY ts DESC LIMIT ?", (limit,)
     )
+
+
+# ============ v0.5 快照/反馈/进化日志 写入 ============
+
+def upsert_factor_snapshot(rows) -> int:
+    rows = list(rows)
+    if not rows:
+        return 0
+    with get_conn() as c:
+        c.executemany(
+            """INSERT OR REPLACE INTO factor_snapshots
+               (date, factor, asset_id, raw_value, signal, current_price, meta)
+               VALUES (:date, :factor, :asset_id, :raw_value, :signal, :current_price, :meta)""",
+            rows,
+        )
+    return len(rows)
+
+
+def upsert_factor_performance(rows) -> int:
+    rows = list(rows)
+    if not rows:
+        return 0
+    with get_conn() as c:
+        c.executemany(
+            """INSERT OR REPLACE INTO factor_performance
+               (date, factor, asset_id, window_days, forward_days, ic, ir, n_obs, mean_return)
+               VALUES (:date, :factor, :asset_id, :window_days, :forward_days,
+                       :ic, :ir, :n_obs, :mean_return)""",
+            rows,
+        )
+    return len(rows)
+
+
+def insert_feedback(brief_ts: str, rating: int, comment: str,
+                    source: str = "streamlit") -> None:
+    from datetime import datetime, timezone
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with get_conn() as c:
+        c.execute(
+            """INSERT OR REPLACE INTO brief_feedback
+               (ts, brief_ts, rating, comment, source)
+               VALUES (?, ?, ?, ?, ?)""",
+            (ts, brief_ts, int(rating), comment or "", source),
+        )
+
+
+def insert_evolution_log(kind: str, title: str, content: str,
+                         action: str = "pending", meta: str = "{}") -> None:
+    from datetime import datetime, timezone
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    with get_conn() as c:
+        c.execute(
+            """INSERT OR REPLACE INTO evolution_log
+               (ts, kind, title, content, action, meta)
+               VALUES (?, ?, ?, ?, ?, ?)""",
+            (ts, kind, title, content, action, meta),
+        )
+
+
+def upsert_narratives(rows) -> int:
+    rows = list(rows)
+    if not rows:
+        return 0
+    with get_conn() as c:
+        c.executemany(
+            """INSERT OR REPLACE INTO narratives
+               (date, narrative, heat_score, top_tokens, trigger_events, delta_7d)
+               VALUES (:date, :narrative, :heat_score, :top_tokens, :trigger_events, :delta_7d)""",
+            rows,
+        )
+    return len(rows)
