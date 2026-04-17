@@ -32,14 +32,42 @@ jobs:
           python -m src.cli init
           python -m src.cli all-no-llm
 
-      - name: Commit data updates
+      - name: Commit data updates (with rebase retry on race)
         run: |
           git config user.email "actions@github.com"
           git config user.name "Crypto Intel Daily Refresh"
           git add data/intel.db data/reports/ || true
           if git diff --staged --quiet; then
             echo "No changes to commit."
-          else
-            git commit -m "🔄 Daily data refresh $(date -u +%Y-%m-%d_%H:%M)"
-            git push
+            exit 0
           fi
+          git commit -m "🔄 Daily data refresh $(date -u +%Y-%m-%d_%H:%M)"
+
+          # 最多重试 5 次: 每次 push 前先 pull --rebase, 防止本地 force push 造成的 race
+          for i in 1 2 3 4 5; do
+            echo "▶ Push attempt $i..."
+            if git push; then
+              echo "✔ push OK"
+              exit 0
+            fi
+            echo "  push rejected, pulling latest..."
+            git fetch origin main
+            # --rebase: 把我们的 commit 放在远程最新之上
+            # --strategy-option=theirs: 如果 data/ 冲突, 远程优先 (因为远程可能是用户本地跑的更全数据)
+            if ! git pull --rebase --strategy-option=theirs origin main; then
+              echo "  rebase 冲突, 放弃"
+              git rebase --abort || true
+              # 回退: 重置到远程, 重新应用我们的 data 更改
+              git reset --hard origin/main
+              git add data/intel.db data/reports/ || true
+              if git diff --staged --quiet; then
+                echo "  远程已有更新数据, 本次 Action 无需再推"
+                exit 0
+              fi
+              git commit -m "🔄 Daily data refresh (retry) $(date -u +%Y-%m-%d_%H:%M)"
+            fi
+            sleep 3
+          done
+
+          echo "❌ 5 次 push 都失败, 放弃"
+          exit 1
