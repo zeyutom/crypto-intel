@@ -26,25 +26,29 @@ def today_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10),
-       retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)))
 def http_get_json(url: str, params: dict | None = None, headers: dict | None = None,
-                  timeout: float = 20.0) -> Any:
-    h = {"User-Agent": "CryptoIntel/0.1 (+research)"}
-    if headers:
-        h.update(headers)
-    r = httpx.get(url, params=params, headers=h, timeout=timeout, follow_redirects=True)
-    r.raise_for_status()
-    return r.json()
+                  timeout: float = 20.0, ttl=None) -> Any:
+    """Forward 到统一 HttpClient (v0.9 W2-S3).
+
+    保留旧签名以兼容现有调用方; 内部走 token-bucket + 双层缓存.
+    失败时抛 RuntimeError (旧版抛 HTTPError, 行为基本对齐).
+    """
+    from .http_client import http
+    data = http.get_json(url, params=params, headers=headers,
+                         timeout=timeout, ttl=ttl)
+    if data is None:
+        raise RuntimeError(f"http_get_json failed: {url}")
+    return data
 
 
-@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=1, max=10),
-       retry=retry_if_exception_type((httpx.HTTPError, httpx.TimeoutException)))
 def http_get_text(url: str, params: dict | None = None, headers: dict | None = None,
-                  timeout: float = 20.0) -> str:
-    h = {"User-Agent": "Mozilla/5.0 CryptoIntel/0.1 (+research)"}
+                  timeout: float = 20.0, ttl=None) -> str:
+    """Forward 到统一 HttpClient (text 模式)."""
+    from .http_client import http
+    h = {"User-Agent": "Mozilla/5.0 CryptoIntel/0.9 (+research)"}
     if headers:
         h.update(headers)
-    r = httpx.get(url, params=params, headers=h, timeout=timeout, follow_redirects=True)
-    r.raise_for_status()
-    return r.text
+    data = http.get_text(url, params=params, headers=h, timeout=timeout, ttl=ttl)
+    if data is None:
+        raise RuntimeError(f"http_get_text failed: {url}")
+    return data

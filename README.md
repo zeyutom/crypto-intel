@@ -5,6 +5,114 @@
 
 **🚀 想直接上线? 看 [DEPLOY.md](DEPLOY.md) — 30 分钟手把手指南**
 
+## v0.8 DefiLlama 完整免费 API (2026-05-15)
+
+完整对接 [DefiLlama 免费 API](https://api-docs.defillama.com/) 全部 **31 个端点** + 4 个衍生因子。无需 API key。
+
+**新增模块**
+- [`src/adapters/defillama_full.py`](src/adapters/defillama_full.py) — 31 端点 + 6 个高级聚合函数
+- [`src/factors/defillama_factors.py`](src/factors/defillama_factors.py) — 4 个链上原生因子
+
+**31 个免费端点分类**
+
+| 大类 | 端点数 | 代表函数 |
+|------|--------|---------|
+| TVL | 6 | `list_protocols` / `protocol_history` / `chain_tvl_history` |
+| Coins / Prices | 7 | `current_prices` / `price_chart` / `price_percentage` |
+| Stablecoins | 6 | `list_stablecoins` / `stable_detail` / `stable_prices` |
+| Yields | 2 | `list_yield_pools` / `pool_apy_history` |
+| DEX / Options | 6 | `dex_overview` / `options_overview` / `dex_summary` |
+| Perp OI | 1 | `open_interest_overview` |
+| Fees / Revenue | 3 | `fees_overview` / `fees_summary` |
+
+**4 个衍生因子**
+
+| 因子 | 用途 | 数据源 |
+|------|------|--------|
+| **TVL Momentum 7d** | 哪个协议在吸/抽资金 | `/protocol/{slug}` |
+| **DEX Volume Growth** | 突然放量预示叙事/事件 | `/overview/dexs` |
+| **Stable Peg Deviation** | USDT/USDC 加权脱锚 = 流动性紧张 | `/stablecoins` |
+| **Yield Spike Regime** | 稳定币池中位 APY = 资金成本 | `/pools` |
+
+**CLI 用法**
+
+```bash
+python -m src.cli defillama health          # 4 个 base URL 健康度
+python -m src.cli defillama chains          # 各链 TVL Top 15
+python -m src.cli defillama protocols       # Top 20 协议
+python -m src.cli defillama stables         # 稳定币脱锚检测
+python -m src.cli defillama dex             # 各链 DEX 成交量份额
+python -m src.cli defillama perp            # Perp DEX 持仓量
+python -m src.cli defillama yields --stable # 高 APY 稳定币池子
+python -m src.cli defillama factors         # 一键算 4 个衍生因子
+python -m src.cli defillama clear-cache     # 清空缓存
+```
+
+**内置 2 级缓存**: 内存 (Module-level dict) + 磁盘 (`data/cache/defillama/*.json`), 热数据 TTL 60s, 历史数据 1h, 极慢数据 24h。
+
+控制中心 (Streamlit) 也加了 **📡 DefiLlama 数据** tab, 8 个子按钮全图形化。
+
+---
+
+## v0.7 OSS 集成 全工程完成 (2026-05-15)
+
+按 [docs/opensource_landscape.html](docs/opensource_landscape.html) 调研报告, 落地了 8 个 OSS 集成 (Phase 1+2+3)。所有模块都是**软依赖** + **优雅降级**——未装可选依赖时主流程不中断, 自动 fallback。
+
+### Phase 1 · 因子+情绪+链上 (3 件)
+| 模块 | 来源 | 文件 | 用途 |
+|------|------|------|------|
+| **CryptoBERT 情绪** | [ElKulako/cryptobert](https://huggingface.co/ElKulako/cryptobert) | `src/research/sentiment_bert.py` | BERT 替换关键词词典, 文本情绪三分类 |
+| **Alpha158 风格因子库** | 移植自 [microsoft/qlib](https://github.com/microsoft/qlib) | `src/research/alpha158_features.py` | 148 个手工技术因子, 元学习的原料库 |
+| **cryo 链上 adapter** | [paradigmxyz/cryo](https://github.com/paradigmxyz/cryo) | `src/adapters/cryo_onchain.py` | EVM 链地址级粒度: CEX inflow/outflow |
+
+### Phase 2 · 引擎升级 (3 件)
+| 模块 | 来源 | 文件 | 用途 |
+|------|------|------|------|
+| **vectorbt 回测内核** | [vectorbt](https://vectorbt.dev/) | `src/research/portfolio_backtest_vbt.py` | 秒级参数扫描, 兼容 portfolio_backtest API |
+| **LangGraph DAG** | [LangGraph](https://github.com/langchain-ai/langgraph) | `src/evolution/graph.py` | 编排 5 个 evolution agent, 可观测/可重试 |
+| **ccxt 统一交易所** | [ccxt/ccxt](https://github.com/ccxt/ccxt) | `src/adapters/ccxt_exchange.py` | 5+ 交易所 fallback, 替换 binance/okx/coinbase |
+
+### Phase 3 · 长程能力 (2 件)
+| 模块 | 来源 | 文件 | 用途 |
+|------|------|------|------|
+| **RD-Agent skeleton** | 借鉴 [microsoft/RD-Agent-Quant](https://github.com/microsoft/RD-Agent) | `src/research/rd_agent.py` | 假设→实验→评估→反馈 自演化循环 |
+| **cryo 数据仓库 + DuckDB** | [paradigmxyz/cryo](https://github.com/paradigmxyz/cryo) + [DuckDB](https://duckdb.org/) | `src/adapters/cryo_warehouse.py` | 按月分区采集 + cross-table 查询 |
+
+### 一键诊断与冒烟测试
+```bash
+# 健康检查 (8 个模块状态一览)
+python -m src.cli oss-check
+
+# 完整冒烟测试 (8 个 case)
+python scripts/smoke_oss_integrations.py
+```
+
+### 新 CLI 子命令
+| 命令 | 用途 |
+|------|------|
+| `oss-check` | 健康检查 (Phase 1+2+3 全部模块) |
+| `backtest-vbt [--sweep]` | vectorbt 回测 / 参数扫描 |
+| `evolve-graph` | 跑一轮 LangGraph evolution DAG |
+| `ccxt-health` | ccxt 各交易所连通性 |
+| `rd-agent [--rounds N] [--llm] [--resume]` | 跑 R&D 自演化 |
+| `warehouse <stats\|ingest TOKEN\|flow TOKEN\|whales TOKEN>` | cryo 仓库管理 |
+
+### 可选安装 (按需开启更深功能)
+```bash
+# CryptoBERT (~120MB)
+pip install transformers torch --break-system-packages
+
+# Phase 2 三件套
+pip install vectorbt langgraph ccxt --break-system-packages
+
+# Phase 3 (cryo 仓库需要 DuckDB)
+pip install duckdb --break-system-packages
+
+# cryo 二进制 (链上数据)
+brew install paradigmxyz/cryo/cryo
+echo 'ETHEREUM_RPC_URL=https://eth.llamarpc.com' >> .env
+```
+
 ## v0.3 新增
 
 - ⭐ Streamlit 多页面交互仪表盘 (6 页: 简报/因子/信号/历史/数据/词典)

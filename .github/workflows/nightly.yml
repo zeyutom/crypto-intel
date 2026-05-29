@@ -1,0 +1,86 @@
+name: Nightly Auto-Run
+
+# 每天 UTC 19:00 = 北京 03:00 = 美东 14:00 (亚洲收盘后, 美股开市前)
+on:
+  schedule:
+    - cron: '0 19 * * *'
+  workflow_dispatch:  # 也允许手动触发
+
+permissions:
+  contents: write   # 让它能 commit 回 data/
+
+jobs:
+  nightly:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      CRYPTO_INTEL_USE_BERT: "0"    # 加速, 不下载 120MB 模型
+      MAX_TOKENS_PER_DAY: "200000"
+      # 飞书 webhook 通过 GitHub Secrets 注入
+      FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
+      FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
+      FEISHU_GROUP_1_NAME: ${{ secrets.FEISHU_GROUP_1_NAME }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: crypto-intel/requirements.txt
+
+      - name: Install deps
+        working-directory: crypto-intel
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run nightly pipeline
+        working-directory: crypto-intel
+        run: bash scripts/nightly_run.sh
+        continue-on-error: true   # 单步失败不阻塞整个 workflow
+
+      - name: Show today's log tail
+        if: always()
+        working-directory: crypto-intel
+        run: |
+          TODAY=$(date +%Y-%m-%d)
+          if [ -f "data/nightly_logs/$TODAY.log" ]; then
+            echo "::group::Nightly log $TODAY (last 200 lines)"
+            tail -200 "data/nightly_logs/$TODAY.log"
+            echo "::endgroup::"
+          fi
+          if [ -f "data/nightly_logs/$TODAY.failures.json" ]; then
+            echo "::group::Failures"
+            cat "data/nightly_logs/$TODAY.failures.json"
+            echo "::endgroup::"
+          fi
+
+      - name: Commit data updates
+        if: github.ref == 'refs/heads/main'
+        working-directory: crypto-intel
+        run: |
+          git config --local user.email "nightly-bot@cryptointel"
+          git config --local user.name "Crypto Intel Nightly"
+          git add data/meta/snapshot_*.json data/nightly_logs/ data/rd_agent/ 2>/dev/null || true
+          if ! git diff --cached --quiet; then
+            git commit -m "🌙 nightly $(date +%Y-%m-%d) — auto-run results"
+            git push origin main
+          else
+            echo "no data changes"
+          fi
+        continue-on-error: true
+
+      - name: Upload nightly logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-logs-${{ github.run_number }}
+          path: crypto-intel/data/nightly_logs/
+          retention-days: 14

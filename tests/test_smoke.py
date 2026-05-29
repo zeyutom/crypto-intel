@@ -24,11 +24,13 @@ def test_init_db():
 
 
 def test_adapters_loaded():
-    assert len(ALL_ADAPTERS) == 6
+    # v0.4 起扩到 11+, 老 assert len==6 早过时 → 改成下限
+    assert len(ALL_ADAPTERS) >= 6
 
 
 def test_factors_loaded():
-    assert len(ALL_FACTORS) == 5
+    # v0.4 扩到 15 个, 老 assert len==5 过时 → 改成下限
+    assert len(ALL_FACTORS) >= 5
 
 
 if __name__ == "__main__":

@@ -55,9 +55,15 @@ def _parse_money(x: str) -> float | None:
 
 
 def _try_farside() -> list[dict]:
-    """Primary: farside.co.uk"""
+    """Primary: farside.co.uk (常被 Cloudflare 403, 优雅返回 [])."""
     url = CFG["sources"]["farside_etf"]["url"]
-    html = http_get_text(url, headers=BROWSER_HEADERS, timeout=30)
+    try:
+        html = http_get_text(url, headers=BROWSER_HEADERS, timeout=30)
+    except Exception as e:
+        log.warning("Farside primary 不可达 (Cloudflare 403/网络): %s", str(e)[:80])
+        return []
+    if not html:
+        return []
     soup = BeautifulSoup(html, "lxml")
     tables = soup.find_all("table")
     if not tables:
@@ -93,15 +99,23 @@ def _try_farside() -> list[dict]:
 
 
 def _try_coinglass() -> list[dict]:
-    """Fallback: CoinGlass ETF history (公开 endpoint, 不需 key)。"""
+    """Fallback: CoinGlass ETF history.
+
+    v0.9: CoinGlass 已改为 API-key 模式 (404), 此 fallback 实际已死.
+    保留函数避免破坏调用方, 始终返回 [].
+    若你有 CoinGlass API key, 改用 open-api.coinglass.com/public/v2/etf
+    并在 .env 配 COINGLASS_API_KEY.
+    """
     try:
         data = http_get_json(
             "https://fapi.coinglass.com/api/etf/bitcoin/historicalInflowChart",
             headers={"User-Agent": BROWSER_HEADERS["User-Agent"], "Accept": "application/json"},
             timeout=20,
         )
-    except Exception as e:
-        log.warning("CoinGlass ETF fallback also failed: %s", e)
+    except Exception:
+        # 已知端点 404, 静默
+        return []
+    if not data or not isinstance(data, dict):
         return []
 
     rows = []

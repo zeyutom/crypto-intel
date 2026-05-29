@@ -1,13 +1,28 @@
-"""Coinglass 公开 API: 衍生品综合数据 (OI / Funding / Liquidations)。
+"""Coinglass 公开 API: 衍生品综合数据 (OI / Funding / Liquidations).
 
-Coinglass 提供丰富的衍生品数据, 部分公开端点不需 key。
-注: 部分 endpoint 限速, 失败时返回空列表不影响其他源。
+⚠️ v0.9 状态更新 (2026-05-19):
+  Coinglass 把所有 public endpoint 收紧为 API-key only (openInterest/v3/chart,
+  futures/liquidation/info, futures/longShortChart 均返回 401/404 或空 data).
+
+  本 adapter 现在会优雅返回空列表 [].
+
+  推荐替代:
+    OI                → src.adapters.defillama_full.open_interest_overview()
+    清算/Funding/LS   → ccxt fetch_funding_rate (需 pip install ccxt)
+  或申请 CoinGlass key 后在 .env 配 COINGLASS_API_KEY, 改用 open-api 域名.
 """
 from datetime import datetime, timezone
 from ..config import CFG
-from ..utils import http_get_json, now_iso, setup_logger
+from ..utils import setup_logger, now_iso
+from ..http_client import http
 
 log = setup_logger("coinglass", "WARNING")
+
+
+def _safe_get(url: str, params: dict = None, headers: dict = None):
+    """优雅版 HTTP GET — 失败返回 None 不抛."""
+    return http.get_json(url, params=params, headers=headers,
+                         timeout=15, ttl="hot")
 
 BASE = "https://fapi.coinglass.com"
 HEADERS = {
@@ -40,12 +55,12 @@ def fetch() -> list[dict]:
     # 1. Open Interest 历史 (近期点 = 当前 OI)
     for asset_id, sym in _SYMBOL_MAP.items():
         try:
-            data = http_get_json(
+            data = _safe_get(
                 f"{BASE}/api/openInterest/v3/chart",
                 params={"symbol": sym, "timeType": "h1", "exchangeName": "All"},
-                headers=HEADERS, timeout=15,
+                headers=HEADERS,
             )
-            if data.get("code") in ("0", 0, "success"):
+            if data and isinstance(data, dict) and data.get("code") in ("0", 0, "success"):
                 points = data.get("data", {}).get("priceList", [])
                 oi_points = data.get("data", {}).get("dataMap", {})
                 # 取最新 OI 总和
@@ -65,10 +80,10 @@ def fetch() -> list[dict]:
 
     # 2. 24h 全网清算
     try:
-        data = http_get_json(
+        data = _safe_get(
             f"{BASE}/api/futures/liquidation/info",
             params={"timeType": "1", "symbol": "all"},
-            headers=HEADERS, timeout=15,
+            headers=HEADERS,
         )
         if data.get("code") in ("0", 0, "success"):
             d = data.get("data", {})
@@ -89,10 +104,10 @@ def fetch() -> list[dict]:
 
     # 3. 多空比 (BTC)
     try:
-        data = http_get_json(
+        data = _safe_get(
             f"{BASE}/api/futures/longShortChart",
             params={"symbol": "BTC", "timeType": "h1"},
-            headers=HEADERS, timeout=15,
+            headers=HEADERS,
         )
         if data.get("code") in ("0", 0, "success"):
             d = data.get("data", {})
@@ -106,4 +121,41 @@ def fetch() -> list[dict]:
     except Exception as e:
         log.warning("Coinglass long/short fetch failed: %s", e)
 
+    # ── v0.9: Coinglass 大部分端点已死 → 用 DefiLlama OI 兜底 ──
+    if not rows:
+        rows = _fallback_defillama_oi(ts)
+
     return rows
+
+
+def _fallback_defillama_oi(ts: str) -> list[dict]:
+    """Coinglass 失败时, 用 DefiLlama 的 open_interest_overview 兜底.
+
+    DefiLlama 给的是 perp DEX 聚合 OI (Hyperliquid/dYdX 等), 比 Coinglass
+    覆盖少但完全免费. 字段映射到 oi_total_usd, asset_id=market.
+    """
+    try:
+        from . import defillama_full as dlf
+        data = dlf.open_interest_overview()
+        if not data or not isinstance(data, dict):
+            return []
+        total = data.get("total24h") or data.get("totalOpenInterest")
+        if total is None:
+            # 累加 protocols 的 openInterestAtEnd
+            total = sum(
+                float(p.get("openInterestAtEnd") or 0)
+                for p in data.get("protocols", []) or []
+            )
+        if total and total > 0:
+            log.info(
+                "Coinglass 失败 → DefiLlama perp OI fallback: $%.1fB",
+                total / 1e9,
+            )
+            return [{
+                "ts": ts, "source": "coinglass",  # 保留 source 名以兼容因子层
+                "asset_id": "market", "metric": "oi_total_usd",
+                "value": float(total), "value_text": "via_defillama_fallback",
+            }]
+    except Exception as e:
+        log.warning("DefiLlama OI fallback also failed: %s", e)
+    return []

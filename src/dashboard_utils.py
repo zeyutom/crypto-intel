@@ -26,14 +26,22 @@ COLOR = {
 
 # ============ 密码门 ============
 def require_password() -> bool:
-    """放在每个 page 的最顶部, 未登录则展示密码框并停在这里。"""
+    """放在每个 page 的最顶部, 未登录则展示密码框并停在这里。
+
+    v0.7: 本地无密码配置 (secrets.toml 不存在或为空) → 自动放行,
+    方便不写代码的用户跑本地版。线上部署仍然需要 secrets。
+    """
     if st.session_state.get("authenticated"):
         return True
     try:
         pw_correct = st.secrets.get("dashboard_password", "")
     except Exception:
-        # 本地无 secrets.toml 时, 显示提示
         pw_correct = ""
+
+    # 本地零摩擦: 没配密码 → 直接放行
+    if not pw_correct:
+        st.session_state["authenticated"] = True
+        return True
 
     st.markdown(f"""
     <div style='max-width: 380px; margin: 80px auto; text-align: center;'>

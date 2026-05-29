@@ -1,14 +1,25 @@
-"""Alternative.me Crypto Fear & Greed Index (免费)。"""
+"""Alternative.me Crypto Fear & Greed Index (免费).
+
+v0.9: 顶层 http_get_json 失败时 graceful.
+"""
 from ..config import CFG
-from ..utils import http_get_json
+from ..utils import http_get_json, setup_logger
 from datetime import datetime, timezone
+
+log = setup_logger("feargreed_adapter", "WARNING")
 
 
 def fetch() -> list[dict]:
     if not CFG["sources"]["feargreed"]["enabled"]:
         return []
     base = CFG["sources"]["feargreed"]["base_url"]
-    data = http_get_json(base, params={"limit": 30, "format": "json"})
+    try:
+        data = http_get_json(base, params={"limit": 30, "format": "json"})
+    except Exception as e:
+        log.warning("Fear&Greed fetch 失败: %s", str(e)[:100])
+        return []
+    if not isinstance(data, dict):
+        return []
     items = data.get("data", [])
     rows = []
     for item in items:

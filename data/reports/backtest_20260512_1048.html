@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walk-forward 回测报告</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+         background: #0f172a; color: #e2e8f0; padding: 24px; }
+  .header { text-align: center; margin-bottom: 32px; }
+  .header h1 { font-size: 28px; color: #f8fafc; }
+  .header p { color: #94a3b8; margin-top: 8px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px; margin-bottom: 32px; }
+  .stat { background: #1e293b; border-radius: 12px; padding: 16px; text-align: center; }
+  .stat .label { font-size: 12px; color: #94a3b8; text-transform: uppercase; }
+  .stat .value { font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .card { background: #1e293b; border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .card h2 { font-size: 18px; color: #f8fafc; margin-bottom: 16px; }
+  canvas { max-height: 300px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; padding: 8px 12px; color: #94a3b8; border-bottom: 1px solid #334155; }
+  td { padding: 8px 12px; border-bottom: 1px solid #1e293b; }
+  .footer { text-align: center; color: #475569; font-size: 12px; margin-top: 32px; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>Walk-forward 组合回测</h1>
+    <p>Top-100 等权 · 7天换仓 · 2026-05-08 ~ 2026-05-12</p>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="label">总收益</div>
+      <div class="value" style="color:#22c55e">+5.28%</div>
+    </div>
+    <div class="stat">
+      <div class="label">年化收益</div>
+      <div class="value" style="color:#22c55e">+1365.08%</div>
+    </div>
+    <div class="stat">
+      <div class="label">Sharpe</div>
+      <div class="value">0.00</div>
+    </div>
+    <div class="stat">
+      <div class="label">Sortino</div>
+      <div class="value">0.00</div>
+    </div>
+    <div class="stat">
+      <div class="label">Max Drawdown</div>
+      <div class="value" style="color:#ef4444">0.00%</div>
+    </div>
+    <div class="stat">
+      <div class="label">Calmar</div>
+      <div class="value">0.00</div>
+    </div>
+    <div class="stat">
+      <div class="label">胜率</div>
+      <div class="value">100%</div>
+    </div>
+    <div class="stat">
+      <div class="label">vs BTC</div>
+      <div class="value" style="color:#22c55e">+3.11%</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>净值曲线</h2>
+    <canvas id="equityChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>各期收益</h2>
+    <canvas id="returnsChart"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>最近持仓记录</h2>
+    <table>
+      <thead><tr><th>入场</th><th>出场</th><th>持仓</th><th>收益</th></tr></thead>
+      <tbody>
+        <tr>
+            <td>2026-05-08</td>
+            <td>2026-05-12</td>
+            <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis">JTO, CFG, PENDLE, SPK, TON, DYDX, STRK, AXL +92</td>
+            <td style="color:#22c55e;font-weight:600">+5.28%</td>
+        </tr></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    CryptoIntel Walk-forward Backtest · Generated 2026-05-12 10:48
+  </div>
+
+<script>
+const dates = ["2026-05-12"];
+const equity = [10528.32];
+const returns = [5.28];
+
+// 净值曲线
+new Chart(document.getElementById('equityChart'), {
+  type: 'line',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '组合净值 ($)',
+      data: equity,
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59,130,246,0.1)',
+      fill: true,
+      tension: 0.3,
+      pointRadius: 3,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8' } } },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+      y: { ticks: { color: '#94a3b8', callback: v => '$' + v.toLocaleString() },
+            grid: { color: '#1e293b' } },
+    },
+  }
+});
+
+// 各期收益柱状图
+new Chart(document.getElementById('returnsChart'), {
+  type: 'bar',
+  data: {
+    labels: dates,
+    datasets: [{
+      label: '期间收益 (%)',
+      data: returns,
+      backgroundColor: returns.map(r => r >= 0 ? 'rgba(34,197,94,0.7)' : 'rgba(239,68,68,0.7)'),
+      borderRadius: 4,
+    }]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#94a3b8' } } },
+    scales: {
+      x: { ticks: { color: '#94a3b8' }, grid: { color: '#1e293b' } },
+      y: { ticks: { color: '#94a3b8', callback: v => v.toFixed(1) + '%' },
+            grid: { color: '#1e293b' } },
+    },
+  }
+});
+</script>
+</body>
+</html>

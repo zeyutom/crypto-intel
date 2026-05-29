@@ -10,3 +10,19 @@ venv/
 # 注意: data/intel.db 与 data/reports 现在 commit 到 git
 # 因为 GitHub Actions 把刷新后的数据 push 回来给 Streamlit Cloud 用
 data/launchd_logs/
+
+# ===== v0.6+ 运行时产物 — 体积大/频繁变动, 不入库 =====
+data/cache/
+data/nightly_logs/
+data/research/
+data/proposals/
+data/rd_agent/
+data/alpha_candidates/
+data/reviews/
+data/evolution_state.json
+data/llm_ledger.json
+data/watchdog_state.json
+data/alerts.log
+.fuse_hidden*
+*.fuse_hidden*
+# 保留入库供学习循环/看板: data/intel.db, data/reports/, data/meta/(因子快照+权重)

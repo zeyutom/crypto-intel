@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Crypto Intel · 开源生态调研 v1 (2026-05)</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #131a26; --border: #2a3548;
+    --text: #e6ecf3; --dim: #8b97a8; --accent: #6ee7b7;
+    --warn: #fbbf24; --bad: #f87171; --link: #93c5fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--text);
+    margin: 0; padding: 32px; line-height: 1.6;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  h1 { font-size: 28px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 32px 0 12px; border-left: 4px solid var(--accent); padding-left: 10px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; color: var(--accent); }
+  .sub { color: var(--dim); font-size: 14px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 20px; margin: 12px 0;
+  }
+  table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 14px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: #1b2433; color: var(--accent); font-weight: 600; }
+  tr:hover td { background: rgba(255,255,255,0.02); }
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; margin-right: 4px; }
+  .p-pri { background: rgba(110,231,183,0.15); color: var(--accent); }
+  .p-sec { background: rgba(147,197,253,0.15); color: var(--link); }
+  .p-warn { background: rgba(251,191,36,0.15); color: var(--warn); }
+  .p-bad { background: rgba(248,113,113,0.15); color: var(--bad); }
+  a { color: var(--link); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  code { background: #1b2433; padding: 1px 6px; border-radius: 4px; font-size: 13px; color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .recom {
+    background: linear-gradient(135deg, rgba(110,231,183,0.08), rgba(147,197,253,0.05));
+    border: 1px solid var(--accent); border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+  }
+  .recom strong { color: var(--accent); }
+  .meter { display: inline-block; width: 80px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; vertical-align: middle; }
+  .meter > span { display: block; height: 100%; background: linear-gradient(90deg, var(--accent), var(--link)); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Crypto Intel · 开源生态调研 v1</h1>
+<p class="sub">扫描日期: 2026-05-15 · 范围: GitHub 链上数据/回测/Agent/ML 四象限 · 目的: 把高价值开源能力嫁接到现有 v0.5 self-evolving agent</p>
+
+<div class="recom">
+<strong>结论先行 · TL;DR</strong><br>
+当前项目缺口集中在三处: <b>① 链上数据深度 (主要靠免费 API, 缺地址级粒度)</b>, <b>② 因子库广度 (10 因子 + Coinbase Premium 等 5 个, 行业基准是 Alpha158/Alpha360)</b>, <b>③ 自演化 Agent 的智能上限 (当前 narrative_tracker/factor_proposer 是单步 Claude 调用, 无多 agent 协作)</b>。<br><br>
+推荐落地三件套: <span class="pill p-pri">CryptoBERT NLP</span> <span class="pill p-pri">Alpha158 风格因子库</span> <span class="pill p-pri">cryo 链上 adapter</span>。这 3 项有共同特征——投入小 (~200-400 行)、风险低 (新增模块, 不破坏现有)、能立刻产生增量信号。
+</div>
+
+<h2>① 链上数据 · On-chain Data</h2>
+<table>
+  <tr><th width="22%">项目</th><th>定位</th><th width="14%">语言/Stars</th><th width="16%">契合度</th><th width="22%">集成成本</th></tr>
+  <tr>
+    <td><a href="https://github.com/paradigmxyz/cryo">paradigmxyz/cryo</a></td>
+    <td>Paradigm 出品的链上数据导出工具, 把 EVM 链 (ETH/Arb/Optimism/Polygon/BNB/Avax) 的 blocks/transactions/logs/transfers/traces 等导出为 parquet/csv/json。基于 ethers.rs, 速度极快</td>
+    <td>Rust · ⭐⭐⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:95%"></span></span> 高<br><small>直接补足 onchain_real.py 的地址级粒度</small></td>
+    <td>中: 需装 Rust 工具链 + RPC endpoint, 但只跑批处理</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/paradigmxyz/paradigm-data-portal">paradigm-data-portal</a></td>
+    <td>预构建的 crypto 数据集 (uniswap 流动性、ENS 等), 直接下载 parquet</td>
+    <td>Markdown · ⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:55%"></span></span> 中</td>
+    <td>低: 直接下载即可</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/ccxt/ccxt">ccxt/ccxt</a></td>
+    <td>100+ 交易所统一 API (TS/Python/Go/C#/PHP)。CEX 价格/订单簿/资金费率</td>
+    <td>TS+Py · ⭐⭐⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:60%"></span></span> 中<br><small>当前用 httpx 直连 Binance/OKX, 可换成 ccxt 统一</small></td>
+    <td>中: 重写 4 个 adapters, ~150 行</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/JakubPluta/defillama">JakubPluta/defillama</a></td>
+    <td>DefiLlama 非官方 Python wrapper, 覆盖 protocols/yields/stablecoins/dex/options/derivatives</td>
+    <td>Python · ⭐⭐</td>
+    <td><span class="meter"><span style="width:70%"></span></span> 中高</td>
+    <td>低: pip install 后替换现有 defillama.py</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/lukasmasuch/best-of-crypto">best-of-crypto</a></td>
+    <td>Top crypto 开源项目周更榜单 (350+ 项目分 20+ 类别, 含 stars/活跃度/质量分)</td>
+    <td>Curation · ⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:80%"></span></span> 高 (作为长期发现源)</td>
+    <td>极低: 加到 source_discoverer 的种子源</td>
+  </tr>
+</table>
+
+<h2>② 回测/因子研究框架 · Backtest & Research</h2>
+<table>
+  <tr><th width="22%">项目</th><th>定位</th><th width="14%">Stars</th><th width="16%">契合度</th><th width="22%">集成成本</th></tr>
+  <tr>
+    <td><a href="https://github.com/microsoft/qlib">microsoft/qlib</a></td>
+    <td>AI-oriented 量化平台。<b>Alpha158</b> (手工特征工程) + <b>Alpha360</b> (原始 OHLCV 60 日窗口) + 完整 ML pipeline (LGBM/MLP/Transformer/TRA)</td>
+    <td>⭐⭐⭐⭐⭐ (16k+)</td>
+    <td><span class="meter"><span style="width:90%"></span></span> 极高<br><small>Alpha158 公式可以直接移植到 crypto OHLCV</small></td>
+    <td>中: 不需要装 qlib 整套, 只取因子公式 (移植 ~250 行)</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/microsoft/RD-Agent">microsoft/RD-Agent</a></td>
+    <td>RD-Agent-Quant 论文实现: LLM 驱动的因子+模型联合优化的多 agent 框架。<b>这就是我们 v0.5 evolution agent 想做的产品级版本</b></td>
+    <td>⭐⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:85%"></span></span> 高<br><small>对标重写 evolution/factor_proposer</small></td>
+    <td>高: 完整集成需重构 agent 层, 但可借鉴架构</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/polakowo/vectorbt">vectorbt</a></td>
+    <td>纯向量化回测, pandas+Numba 加速, 秒级跑千组参数。比手写 portfolio_backtest 快 10-100x</td>
+    <td>⭐⭐⭐⭐ (5k+)</td>
+    <td><span class="meter"><span style="width:75%"></span></span> 中高</td>
+    <td>中低: 把 portfolio_backtest.py 改造成 vectorbt 调用, ~100 行</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/nautechsystems/nautilus_trader">nautilus_trader</a></td>
+    <td>事件驱动 + 纳秒级模拟, Rust 内核, 适合做实盘前的最后一公里 (滑点/部分成交/费率)</td>
+    <td>⭐⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:45%"></span></span> 低 (现阶段)<br><small>我们做截面选币, 不做高频执行</small></td>
+    <td>高: 学习曲线陡, 暂不推荐</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/freqtrade/freqtrade">freqtrade</a></td>
+    <td>48k stars 老牌 crypto bot, <b>FreqAI</b> 模块可做 ML 信号研究, 但偏 K 线策略</td>
+    <td>⭐⭐⭐⭐⭐ (48k)</td>
+    <td><span class="meter"><span style="width:35%"></span></span> 低</td>
+    <td>高: 定位不同, 不推荐迁移</td>
+  </tr>
+</table>
+
+<h2>③ Agent 框架 · Multi-Agent</h2>
+<table>
+  <tr><th width="22%">框架</th><th>定位</th><th width="14%">2026 状态</th><th width="16%">契合度</th><th width="22%">集成成本</th></tr>
+  <tr>
+    <td><a href="https://github.com/langchain-ai/langgraph">LangGraph</a></td>
+    <td>图式 agent 编排, 内置 checkpoint/streaming/observability, 生产级。<b>BlackRock/JPMorgan 在用</b></td>
+    <td>⭐⭐⭐⭐⭐ 首选</td>
+    <td><span class="meter"><span style="width:88%"></span></span> 极高<br><small>对应 evolution/weekly_review 多步骤流</small></td>
+    <td>中: 重写 evolution/ 5 个 script 为 graph node, ~400 行</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/joaomdmoura/crewAI">CrewAI</a></td>
+    <td>角色式 agent (researcher/writer/reviewer), 适合线性任务 (A→B→C)</td>
+    <td>⭐⭐⭐⭐</td>
+    <td><span class="meter"><span style="width:60%"></span></span> 中</td>
+    <td>低: 学习曲线最缓, 但不如 LangGraph 灵活</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/microsoft/autogen">AutoGen</a></td>
+    <td>对话式 multi-agent, 适合 debate/decision 场景</td>
+    <td><span class="pill p-warn">维护模式 (2025 底)</span></td>
+    <td><span class="meter"><span style="width:30%"></span></span> 低</td>
+    <td>不推荐 (生态停滞)</td>
+  </tr>
+</table>
+
+<h2>④ ML/LLM 因子方法 · Alpha Mining</h2>
+<table>
+  <tr><th width="22%">项目</th><th>定位</th><th width="14%">论文</th><th width="16%">契合度</th><th width="22%">集成成本</th></tr>
+  <tr>
+    <td><a href="https://github.com/RL-MLDM/alphagen">AlphaGen</a></td>
+    <td>RL 生成"协同的"公式化 alpha 集合, 用 PPO 训练, 配合 qlib 数据</td>
+    <td>KDD 2023</td>
+    <td><span class="meter"><span style="width:75%"></span></span> 中高<br><small>升级 alpha_discovery.py 的搜索能力</small></td>
+    <td>中高: 需 qlib 数据格式 + GPU; 但可借鉴 op 设计</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/RndmVariableQ/AlphaAgent">AlphaAgent</a></td>
+    <td>LLM-driven alpha mining, Idea Agent / Factor Agent / Eval Agent 三体协作, 有正则化抗 decay</td>
+    <td>KDD 2025</td>
+    <td><span class="meter"><span style="width:85%"></span></span> 高<br><small>对标重写 factor_proposer + meta_learner 配套</small></td>
+    <td>中: 单语言 Python, 架构可移植</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/QuantaAlpha/QuantaAlpha">QuantaAlpha</a></td>
+    <td>LLM + 进化策略, 自演化轨迹挖掘, 支持 CodeAgent/DeepResearch 子模块</td>
+    <td>2026 持续更新</td>
+    <td><span class="meter"><span style="width:80%"></span></span> 高</td>
+    <td>中: 与现有 evolution/ 概念高度一致, 可整体借鉴</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/DulyHao/AlphaForge">AlphaForge</a></td>
+    <td>动态组合公式化 alpha, AAAI 2025</td>
+    <td>AAAI 2025</td>
+    <td><span class="meter"><span style="width:65%"></span></span> 中</td>
+    <td>中</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/AI4Finance-Foundation/FinRL_Crypto">FinRL_Crypto</a></td>
+    <td>DRL 做 crypto 交易, 含防过拟合的 walk-forward 机制</td>
+    <td>持续维护</td>
+    <td><span class="meter"><span style="width:55%"></span></span> 中</td>
+    <td>高: 训练成本不低, 现阶段先做选币不做择时</td>
+  </tr>
+</table>
+
+<h2>⑤ NLP / 情绪模型</h2>
+<table>
+  <tr><th width="22%">模型</th><th>定位</th><th width="14%">来源</th><th width="16%">契合度</th><th width="22%">集成成本</th></tr>
+  <tr>
+    <td><a href="https://huggingface.co/ElKulako/cryptobert">ElKulako/cryptobert</a></td>
+    <td>在 3.2M 加密社媒帖+2M StockTwits 上 fine-tune 的 BERT, 输出 bearish/neutral/bullish</td>
+    <td>HF · 业界主流</td>
+    <td><span class="meter"><span style="width:90%"></span></span> 极高<br><small>替换 sentiment_nlp.py 的关键词词典</small></td>
+    <td>低: transformers + torch CPU 也能跑</td>
+  </tr>
+  <tr>
+    <td><a href="https://huggingface.co/kk08/CryptoBERT">kk08/CryptoBERT</a></td>
+    <td>在 FinBERT 之上 fine-tune 的 crypto 版本, 二分类 (positive/negative)</td>
+    <td>HF</td>
+    <td><span class="meter"><span style="width:75%"></span></span> 高 (备选)</td>
+    <td>低</td>
+  </tr>
+  <tr>
+    <td><a href="https://github.com/ProsusAI/finBERT">ProsusAI/finBERT</a></td>
+    <td>金融场景 BERT, 经典基线</td>
+    <td>HF · 老牌</td>
+    <td><span class="meter"><span style="width:60%"></span></span> 中 (作 fallback)</td>
+    <td>低</td>
+  </tr>
+</table>
+
+<h2>🎯 落地路线图</h2>
+
+<div class="card">
+<h3>Phase 1 · 已集成 (本次 PoC, 当天完成)</h3>
+<table>
+  <tr><th width="20%">模块</th><th>目标</th><th width="30%">新增文件</th></tr>
+  <tr>
+    <td><span class="pill p-pri">CryptoBERT NLP</span></td>
+    <td>把 sentiment_nlp.py 的关键词加权升级为 BERT 三分类, 输出情绪分 ∈ [-1, 1]</td>
+    <td><code>src/research/sentiment_bert.py</code></td>
+  </tr>
+  <tr>
+    <td><span class="pill p-pri">Alpha158 风格因子库</span></td>
+    <td>移植 qlib Alpha158 的技术因子公式 (KBAR/Price/Volume/MA/STD/Beta/Corr/...), 截面化用于 Top-N 选币</td>
+    <td><code>src/research/alpha158_features.py</code></td>
+  </tr>
+  <tr>
+    <td><span class="pill p-pri">cryo 链上 adapter</span></td>
+    <td>包一层 subprocess 调用 cryo CLI, 拉指定地址/合约的 transfers/logs, 没装 cryo 时优雅降级</td>
+    <td><code>src/adapters/cryo_onchain.py</code></td>
+  </tr>
+</table>
+</div>
+
+<div class="card">
+<h3>Phase 2 · 下一轮 (1-2 周)</h3>
+<table>
+  <tr><th width="20%">模块</th><th>目标</th><th width="30%">动作</th></tr>
+  <tr>
+    <td><span class="pill p-sec">vectorbt 替换回测</span></td>
+    <td>把 portfolio_backtest.py 内核换成 vectorbt, 支持秒级跑参数扫描</td>
+    <td>替换 ~300 行</td>
+  </tr>
+  <tr>
+    <td><span class="pill p-sec">LangGraph Agent 重构</span></td>
+    <td>把 evolution/ 5 个 script 编排成 LangGraph DAG: source_discover → factor_propose → ic_backtest → promote → narrative_track → weekly_review</td>
+    <td>重构 evolution/ 模块</td>
+  </tr>
+  <tr>
+    <td><span class="pill p-sec">ccxt 统一交易所</span></td>
+    <td>把 Binance/OKX/Coinbase adapters 换成 ccxt 调用</td>
+    <td>4 个 adapter 改造</td>
+  </tr>
+</table>
+</div>
+
+<div class="card">
+<h3>Phase 3 · 远期 (1-2 月)</h3>
+<table>
+  <tr><th width="20%">模块</th><th>目标</th><th width="30%">动作</th></tr>
+  <tr>
+    <td><span class="pill p-warn">RD-Agent-Quant</span></td>
+    <td>把现有 evolution agent 升级成 RD-Agent 架构: 因子+模型联合自演化</td>
+    <td>研究 + 部分集成</td>
+  </tr>
+  <tr>
+    <td><span class="pill p-warn">AlphaGen RL 挖因子</span></td>
+    <td>用 PPO 在 crypto 截面上搜索公式化 alpha</td>
+    <td>需 GPU 资源</td>
+  </tr>
+  <tr>
+    <td><span class="pill p-warn">cryo 全量采集</span></td>
+    <td>建立 Top-50 主流币的链上数据仓库 (按月 parquet), 配合 DuckDB 做查询</td>
+    <td>仓库设计 + 调度</td>
+  </tr>
+</table>
+</div>
+
+<h2>📊 投入产出矩阵</h2>
+<div class="card">
+<table>
+  <tr><th>项目</th><th>预期收益</th><th>风险</th><th>优先级</th></tr>
+  <tr>
+    <td>CryptoBERT NLP</td><td>情绪因子 IC 预计 +30~50% (vs 关键词法)</td><td>HF 模型 ~120MB 下载, 推理 CPU 可跑</td><td>★★★★★</td>
+  </tr>
+  <tr>
+    <td>Alpha158 因子库</td><td>因子库从 10 → 50+, 元学习有更多原料</td><td>初期信号噪声高, 需 IC 过滤</td><td>★★★★★</td>
+  </tr>
+  <tr>
+    <td>cryo adapter</td><td>地址级粒度数据 (whale flow / cex inflow)</td><td>需装 Rust + 配 RPC, 现阶段做演示</td><td>★★★★☆</td>
+  </tr>
+  <tr>
+    <td>vectorbt 回测</td><td>参数扫描从分钟级 → 秒级</td><td>API 学习曲线</td><td>★★★★☆</td>
+  </tr>
+  <tr>
+    <td>LangGraph 重构</td><td>evolution 链路从单步 LLM → 多步协作 + 可观测</td><td>重构工作量大</td><td>★★★☆☆</td>
+  </tr>
+  <tr>
+    <td>RD-Agent</td><td>潜力最大但成熟度最高</td><td>架构侵入性强</td><td>★★★☆☆ (远期)</td>
+  </tr>
+</table>
+</div>
+
+<p class="sub" style="text-align:center; margin-top:32px;">— 报告结束 · Phase 1 三件套已开始实施 —</p>
+
+</div>
+</body>
+</html>

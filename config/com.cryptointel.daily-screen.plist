@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.cryptointel.daily-screen</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>__VENV_PYTHON__</string>
+        <string>-m</string>
+        <string>src.cli</string>
+        <string>daily-screen</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__PROJECT_DIR__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- 每天北京时间 8:30 (UTC 0:30) 运行 -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>0</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <key>StandardOutPath</key>
+    <string>__PROJECT_DIR__/data/launchd_logs/daily-screen.log</string>
+    <key>StandardErrorPath</key>
+    <string>__PROJECT_DIR__/data/launchd_logs/daily-screen.err</string>
+
+    <key>RunAtLoad</key>
+    <false/>
+</dict>
+</plist>
