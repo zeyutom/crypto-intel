@@ -1,0 +1,948 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Crypto Intel 日报 · 2026-04-17</title>
+<style>
+  :root {
+    --bg:#0b1020; --panel:#131933; --panel2:#1b2347; --line:#2a3464;
+    --text:#e6e8f4; --muted:#9aa3c7; --soft:#c8cdec; --accent:#5ee0c1;
+    --warn:#ffb454; --alert:#ff6b8b; --ok:#58d68d; --blue:#6aa6ff; --purple:#a884ff;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: radial-gradient(900px 500px at 90% -10%, rgba(106,166,255,0.12), transparent), var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    line-height: 1.6;
+  }
+  .wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px 60px; }
+  h1 { margin: 0; font-size: 28px;
+       background: linear-gradient(90deg,#6aa6ff,#5ee0c1,#a884ff);
+       -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { color: var(--muted); margin-top: 6px; font-size: 13px; }
+  .section { margin-top: 32px; }
+  .section h2 { font-size: 18px; margin: 0 0 14px; border-left: 3px solid var(--accent); padding-left: 10px; }
+  .section h2 .hint { font-weight: normal; color: var(--muted); font-size: 12.5px; margin-left: 8px; }
+
+  /* PM Briefing */
+  .briefing {
+    margin-top: 18px;
+    background: linear-gradient(135deg, rgba(94,224,193,0.08), rgba(168,132,255,0.08));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 24px;
+  }
+  .briefing .headline { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+  .briefing .regime-line { color: var(--soft); font-size: 13px; margin-bottom: 18px; }
+  .briefing .regime-line b { color: var(--accent); }
+  .briefing-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+  .briefing-col { background: rgba(255,255,255,0.02); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .briefing-col h4 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; }
+  .briefing-col h4 .icon { margin-right: 4px; }
+  .briefing-col ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--soft); }
+  .briefing-col li { margin-bottom: 6px; }
+  .briefing-col.bull h4 { color: var(--ok); }
+  .briefing-col.bear h4 { color: var(--alert); }
+  .briefing-col.risk h4 { color: var(--warn); }
+  .briefing-col.action h4 { color: var(--accent); }
+
+  /* Cards */
+  .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+  .card .label { color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .card .label .cn { color: var(--soft); text-transform: none; margin-left: 6px; }
+  .card .value { font-size: 22px; font-weight: 600; margin-top: 4px; }
+  .card .meta { color: var(--muted); font-size: 11.5px; margin-top: 4px; }
+
+  .bull { color: var(--ok); } .bear { color: var(--alert); } .neutral { color: var(--muted); }
+
+  /* Tables */
+  table { width: 100%; border-collapse: collapse; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; font-size: 12.5px; border-bottom: 1px solid var(--line); }
+  th { background: var(--panel2); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+  tr:last-child td { border-bottom: none; }
+
+  .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; }
+  .pill.BULL, .pill.bull { background: rgba(88,214,141,0.15); color: var(--ok); }
+  .pill.BEAR, .pill.bear { background: rgba(255,107,139,0.15); color: var(--alert); }
+  .pill.NEUTRAL, .pill.neutral { background: rgba(154,163,199,0.15); color: var(--muted); }
+  .pill.OK { background: rgba(88,214,141,0.15); color: var(--ok); }
+  .pill.WARN { background: rgba(255,180,84,0.18); color: var(--warn); }
+  .pill.ALERT { background: rgba(255,107,139,0.18); color: var(--alert); }
+
+  /* Factor cards (核心改造) */
+  .factor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 14px; }
+  .factor-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .factor-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+  .factor-card .name { font-size: 14px; font-weight: 600; }
+  .factor-card .cat { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .factor-card .value-box { text-align: right; }
+  .factor-card .value-box .v { font-size: 22px; font-weight: 600; }
+  .factor-card .value-box .u { color: var(--muted); font-size: 11px; }
+  .factor-card .one-line { color: var(--soft); font-size: 12.5px; padding: 8px 10px; background: rgba(255,255,255,0.02); border-radius: 6px; }
+  .factor-card .reading { font-size: 13px; }
+  .factor-card .reading b { color: var(--accent); }
+  .factor-card .action { font-size: 12.5px; color: var(--soft); padding: 8px 10px; background: rgba(94,224,193,0.06); border-left: 2px solid var(--accent); border-radius: 4px; }
+  .factor-card .meta-row { display: flex; gap: 12px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
+  .factor-card .multi-assets { font-size: 11.5px; color: var(--muted); }
+  .factor-card .multi-assets span { display: inline-block; margin-right: 10px; }
+
+  /* ETF bars */
+  .bars-row { display: flex; gap: 10px; align-items: flex-end; padding: 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; min-height: 110px; }
+  .bar-col { display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+  .bar-col .bar-wrap { height: 60px; display: flex; align-items: flex-end; }
+  .bar-col .bar { width: 22px; background: var(--ok); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .bar-col .bar.neg { background: var(--alert); }
+  .bar-col .lbl { font-size: 10.5px; color: var(--muted); margin-top: 4px; }
+  .bar-col .val { font-size: 11px; margin-top: 2px; }
+
+  /* Source status */
+  .src-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; }
+  .src-cell { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; }
+  .src-cell.ok { border-left: 3px solid var(--ok); }
+  .src-cell.fail { border-left: 3px solid var(--alert); opacity: 0.7; }
+  .src-cell .name { font-weight: 500; }
+  .src-cell .meta { color: var(--muted); font-size: 10.5px; }
+
+  /* Glossary */
+  details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; margin-top: 12px; }
+  details summary { cursor: pointer; font-size: 14px; font-weight: 500; color: var(--soft); }
+  details summary:hover { color: var(--accent); }
+  .glossary-list { margin-top: 12px; }
+  .glossary-item { padding: 8px 0; border-bottom: 1px dashed var(--line); font-size: 12.5px; }
+  .glossary-item:last-child { border-bottom: none; }
+  .glossary-item b { color: var(--accent); }
+  .glossary-item span { color: var(--soft); margin-left: 8px; }
+
+  footer { margin-top: 50px; color: var(--muted); font-size: 11.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Crypto Intel 日报 · 2026-04-17</h1>
+  <div class="sub">
+    2026-04-17 03:52 UTC ·
+    数据源 10/6 ·
+    因子 10 ·
+    Regime: <b>熊市反弹</b> (BEAR_BOUNCE)
+  </div>
+
+  
+  <div style="margin-top:14px; padding:10px 14px; background: rgba(255,180,84,0.12); border:1px solid #ffb454; border-radius:8px; color:#ffb454; font-size:12.5px;">
+    ⚠ DEMO 数据 — 本报告使用 seed_demo.py 注入的示例数据。真实数据请在本地运行 <code>python -m src.cli all</code>。
+  </div>
+  
+
+  <!-- ========== ⭐ PM 早会简报 ========== -->
+  <div class="briefing">
+    <div class="headline">📋 看多信号 4 条 vs 看空 0 条 → 整体偏多, Regime: 熊市反弹</div>
+    <div class="regime-line">
+      当前市场状态: <b>熊市反弹</b> — 极端恐慌但 ETF 已开始回流, 短线反弹机会
+    </div>
+
+    
+
+    <div class="briefing-grid">
+      
+      <div class="briefing-col bull">
+        <h4><span class="icon">📈</span>看多论据 (4)</h4>
+        <ul><li>BTC 现货 ETF 近 5 日累计净流入 $+710M, 机构资金持续买入(2024+ 周期最强机构指标)</li><li>USDT+USDC 7 日净增发 +$2.80B, 新增购买力进场, 宏观流动性顺风</li><li>恐慌贪婪指数 21/100 (Extreme Fear), 历史上极度恐慌区是高胜率抄底窗口</li><li>Coinbase 美区溢价 +0.261%, 美区机构在抢筹</li></ul>
+      </div>
+      
+
+      
+
+      
+
+      
+      <div class="briefing-col action">
+        <h4><span class="icon">🎯</span>给 PM 的行动建议</h4>
+        <ul><li>机构资金顺风, 可保持或提升 BTC 配置</li><li>可分批建仓 BTC/ETH (留 30%+ 子弹防进一步恐慌)</li><li>⭐ Coinbase Premium 与 ETF 净流入双正共振, 高置信看多, 可加大主流币配置</li></ul>
+      </div>
+      
+    </div>
+  </div>
+
+  <!-- ========== ① 行情快照 ========== -->
+  <section class="section">
+    <h2>① 行情快照 <span class="hint">(Binance 报价)</span></h2>
+    <div class="card-grid">
+      
+      <div class="card">
+        <div class="label">BTC<span class="cn">比特币 (BTC)</span></div>
+        <div class="value">$74,559.60</div>
+        <div class="meta bull">
+          24h: +5.32%
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="label">BNB<span class="cn">币安币 (BNB)</span></div>
+        <div class="value">$618.99</div>
+        <div class="meta bull">
+          24h: +3.52%
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="label">ETH<span class="cn">以太坊 (ETH)</span></div>
+        <div class="value">$2,381.90</div>
+        <div class="meta bull">
+          24h: +9.08%
+        </div>
+      </div>
+      
+      <div class="card">
+        <div class="label">SOL<span class="cn">Solana (SOL)</span></div>
+        <div class="value">$86.27</div>
+        <div class="meta bull">
+          24h: +5.39%
+        </div>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- ========== ② 多因子合成信号 ========== -->
+  <section class="section">
+    <h2>② 多因子合成信号 <span class="hint">(因子加权后的方向 + 置信度)</span></h2>
+    <table>
+      <thead><tr>
+        <th>资产</th><th>方向</th><th>合成分</th><th>置信度</th><th>市场状态</th><th>关键贡献因子</th>
+      </tr></thead>
+      <tbody>
+        
+        <tr>
+          <td><b>全市场</b></td>
+          <td><span class="pill BULL">BULL</span></td>
+          <td>+0.432</td>
+          <td>37%</td>
+          <td>熊市反弹</td>
+          <td style="color:var(--muted); font-size: 11.5px;">fear_greed_reversal, stablecoin_mint_7d, trending_score</td>
+        </tr>
+        
+        <tr>
+          <td><b>比特币 (BTC)</b></td>
+          <td><span class="pill BULL">BULL</span></td>
+          <td>+1.000</td>
+          <td>22%</td>
+          <td>熊市反弹</td>
+          <td style="color:var(--muted); font-size: 11.5px;">coinbase_premium, etf_flow_5d</td>
+        </tr>
+        
+        <tr>
+          <td><b>defi_total</b></td>
+          <td><span class="pill NEUTRAL">NEUTRAL</span></td>
+          <td>+0.000</td>
+          <td>3%</td>
+          <td>熊市反弹</td>
+          <td style="color:var(--muted); font-size: 11.5px;">—</td>
+        </tr>
+        
+        <tr>
+          <td><b>以太坊 (ETH)</b></td>
+          <td><span class="pill BEAR">BEAR</span></td>
+          <td>-1.000</td>
+          <td>8%</td>
+          <td>熊市反弹</td>
+          <td style="color:var(--muted); font-size: 11.5px;">coinbase_premium</td>
+        </tr>
+        
+        <tr>
+          <td><b>Solana (SOL)</b></td>
+          <td><span class="pill BULL">BULL</span></td>
+          <td>+1.000</td>
+          <td>8%</td>
+          <td>熊市反弹</td>
+          <td style="color:var(--muted); font-size: 11.5px;">coinbase_premium</td>
+        </tr>
+        
+      </tbody>
+    </table>
+    <div style="font-size:11.5px; color:var(--muted); margin-top:6px; padding-left:4px;">
+      合成分: > +0.2 看多 / < -0.2 看空 / 之间为中性 · 置信度 = 实际贡献的因子权重 / 全部因子权重
+    </div>
+  </section>
+
+  <!-- ========== ③ 因子卡片 (核心) ========== -->
+  <section class="section">
+    <h2>③ 因子详解 <span class="hint">(每个因子: 是什么 → 现在多少 → 该怎么读 → PM 怎么做)</span></h2>
+    <div class="factor-grid">
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">Coinbase 美区溢价 (Coinbase Premium)</div>
+            <div class="cat">机构资金</div>
+          </div>
+          <div class="value-box">
+            <div class="v">+0.261%</div>
+            <div class="u">百分比, 0.2% 视为有效信号</div>
+            <div style="margin-top:4px;">
+              <span class="pill BULL">看多 +1</span>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">Coinbase 价格 vs Binance 价格的偏差,反映美国机构资金主导程度。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 美区显著买入,溢价高于 0.2%,机构需求强劲。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 若同时 ETF 净流入也为正 → 高置信看多,可加大主流币(BTC/ETH)配置。</div>
+        
+
+        
+        <div class="multi-assets">
+          <b style="color:var(--muted)">分资产:</b>
+          
+          <span>比特币 (BTC): +0.261%
+            <span style="color:var(--ok)">↑</span>
+            
+          </span>
+          
+          <span>以太坊 (ETH): -2.234%
+            <span style="color:var(--alert)">↓</span>
+          </span>
+          
+          <span>Solana (SOL): +1.786%
+            <span style="color:var(--ok)">↑</span>
+            
+          </span>
+          
+        </div>
+        
+
+        <div class="meta-row">
+          <span>置信度: 80%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 美国合规通道(Coinbase + 现货 ETF)是 2024+ 周期最重要的边际买盘。溢价为正说明美区在抢筹,与 ET...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">BTC 现货 ETF 5 日累计净流入 (ETF Net Flow)</div>
+            <div class="cat">机构资金</div>
+          </div>
+          <div class="value-box">
+            <div class="v">$+710.0M</div>
+            <div class="u">单位:百万美元 (M$)</div>
+            <div style="margin-top:4px;">
+              <span class="pill BULL">看多 +1</span>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">美国 BTC 现货 ETF(IBIT/FBTC 等)过去 5 个交易日的净申购总额。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 5d 累计净流入 &gt; +5 亿美元,机构持续买入。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> BTC 主升浪信号之一,可加大配置;若同时 Coinbase Premium 也为正 → 强信号。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 100%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 自 2024 年现货 ETF 上市后,机构通过 ETF 的净申购成为 BTC 价格的最强解释变量之一。连续多日正净流入往...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">DeFi TVL 动量 (DeFi TVL Momentum)</div>
+            <div class="cat">DeFi 基本面</div>
+          </div>
+          <div class="value-box">
+            <div class="v">0.034207107901518985</div>
+            <div class="u">百分比 (7d 变化)</div>
+            <div style="margin-top:4px;">
+              <span class="pill NEUTRAL">中性 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">DeFi 全市场 TVL (锁仓量) 7d/30d 变化, 衡量 DeFi 生态扩张。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> TVL 持平。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 维持现状。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 70%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ TVL 上升 = 用户在存钱进 DeFi 协议, 是 DeFi 龙头币 (UNI/AAVE/CRV/PENDLE) 的基...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">BTC 占比趋势 (BTC Dominance Trend)</div>
+            <div class="cat">全市场宏观</div>
+          </div>
+          <div class="value-box">
+            <div class="v">56.99679436709537</div>
+            <div class="u">百分比 (BTC mcap / total)</div>
+            <div style="margin-top:4px;">
+              <span class="pill NEUTRAL">中性 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">BTC 市值占全加密市场比例, 占比上升 = 资金流向 BTC, 山寨季冷却。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 占比稳定, 维持现有配置。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 保持现状。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 70%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ BTC 占比是配置 BTC vs 山寨的核心信号。占比 &lt; 50% 历史上对应山寨季, &gt; 60% BTC 独大。
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">美元指数反向信号 (DXY Inverse)</div>
+            <div class="cat">宏观联动</div>
+          </div>
+          <div class="value-box">
+            <div class="v">-0.005849048082093583</div>
+            <div class="u">百分比 (DXY 7d 变化)</div>
+            <div style="margin-top:4px;">
+              <span class="pill NEUTRAL">中性 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">DXY (美元指数) 7d 变化率, BTC 通常与 DXY 反向。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> DXY 横盘。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 维持现有仓位。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 60%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ DXY 走弱 = 美元贬值 = 资金流入风险资产 (含 BTC); DXY 走强 = 反之。这是宏观流动性的一个核心代理...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">恐慌贪婪指数反向 (Fear &amp; Greed Reversal)</div>
+            <div class="cat">市场情绪</div>
+          </div>
+          <div class="value-box">
+            <div class="v">21/100</div>
+            <div class="u">0–100 分</div>
+            <div style="margin-top:4px;">
+              <span class="pill BULL">看多 +1</span>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">Alternative.me 综合 7 类指标得出的 0–100 情绪分,极端值用于反向操作。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> F&amp;G ≤ 25,市场极度恐慌,经验上是抄底窗口。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 建议分批建仓 BTC/ETH;不要一次满仓,留 30%+ 子弹防进一步恐慌。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 70%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 历史上 BTC 在 F&amp;G &lt; 25(极度恐慌)买入,&gt; 75(极度贪婪)卖出,中长期胜率显著高于 50%——典型的反人...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">资金费率综合 (Funding Composite)</div>
+            <div class="cat">衍生品情绪</div>
+          </div>
+          <div class="value-box">
+            <div class="v">0.0024% (8h)</div>
+            <div class="u">单期 (8h) 资金费率, 0.01% = 万一</div>
+            <div style="margin-top:4px;">
+              <span class="pill NEUTRAL">中性 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">主流交易所永续合约的加权资金费率,反映多空力量是否过度倾斜。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 费率温和,杠杆情绪正常,本身不构成方向信号。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 无需行动,继续观察其他因子。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 100%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 资金费率是杠杆资金成本。极端正费率说明多头拥挤(过热),极端负费率说明空头拥挤——两者都常预示反转。
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">稳定币 7 日净增发 (Stablecoin Net Mint)</div>
+            <div class="cat">宏观流动性</div>
+          </div>
+          <div class="value-box">
+            <div class="v">$+2.80B</div>
+            <div class="u">单位:十亿美元 (B$)</div>
+            <div style="margin-top:4px;">
+              <span class="pill BULL">看多 +1</span>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">USDT + USDC 过去 7 天净流通量增减,代表新增/流出加密市场的购买力。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 7d 净增发 &gt; +10 亿美元,新资金正在持续进场。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 宏观顺风,可保持或提升风险敞口;尤其利好 BTC、ETH。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 85%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 稳定币是加密圈的「美元基础货币」。每净增发 10 亿美元意味着市场新增了 10 亿美元的潜在买盘——这是最干净的宏观流动...
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">全市场市值动量 (Total Mcap Momentum)</div>
+            <div class="cat">全市场宏观</div>
+          </div>
+          <div class="value-box">
+            <div class="v">0.001391050128096176</div>
+            <div class="u">百分比 (7d)</div>
+            <div style="margin-top:4px;">
+              <span class="pill NEUTRAL">中性 0</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">加密总市值 7d 变化率, 衡量整体市场扩张/收缩。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 市值变动温和。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 维持现有仓位。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 70%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 总市值上升代表新资金流入; 下降代表资金撤离。是 risk-on / risk-off 的最直接指标。
+          </span>
+          
+        </div>
+      </div>
+      
+      <div class="factor-card">
+        <div class="top">
+          <div>
+            <div class="name">热门叙事强度 (Trending Score)</div>
+            <div class="cat">叙事热点</div>
+          </div>
+          <div class="value-box">
+            <div class="v">7.0</div>
+            <div class="u">代币数 (Top 7)</div>
+            <div style="margin-top:4px;">
+              <span class="pill BULL">看多 +1</span>
+              
+            </div>
+          </div>
+        </div>
+
+        <div class="one-line">CoinGecko 全球搜索热度 Top 7 币种聚合, 反映散户/社区当下关注的代币。</div>
+
+        
+        <div class="reading"><b>📖 怎么读:</b> 新代币进入 Top 7 / 同一类别 (AI / Meme) 占多数, 叙事在发酵。</div>
+        
+
+        
+        <div class="action"><b>🎯 PM 建议:</b> 研究热门叙事的标的, 判断是否值得早期布局 (小仓位试探)。</div>
+        
+
+        
+
+        <div class="meta-row">
+          <span>置信度: 50%</span>
+          
+          <span style="flex:1; text-align:right; color:var(--muted); font-size:11px;">
+            ℹ 新出现的热门代币往往代表正在形成的叙事 (AI / RWA / MEME 等), 是早期布局信号。
+          </span>
+          
+        </div>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- ========== ④ ETF 净流入历史 ========== -->
+  
+  <section class="section">
+    <h2>④ BTC 现货 ETF 近 10 日净流入 <span class="hint">(单位: 百万美元)</span></h2>
+    <div class="bars-row">
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 28px;"></div></div>
+        <div class="lbl">04/06</div>
+        <div class="val bear">-180</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 37px;"></div></div>
+        <div class="lbl">04/07</div>
+        <div class="val bear">-240</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 15px;"></div></div>
+        <div class="lbl">04/08</div>
+        <div class="val bear">-95</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 48px;"></div></div>
+        <div class="lbl">04/09</div>
+        <div class="val bear">-310</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 8px;"></div></div>
+        <div class="lbl">04/10</div>
+        <div class="val bear">-55</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar " style="height: 13px;"></div></div>
+        <div class="lbl">04/11</div>
+        <div class="val bull">+85</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar neg" style="height: 18px;"></div></div>
+        <div class="lbl">04/12</div>
+        <div class="val bear">-120</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar " style="height: 22px;"></div></div>
+        <div class="lbl">04/13</div>
+        <div class="val bull">+145</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar " style="height: 34px;"></div></div>
+        <div class="lbl">04/14</div>
+        <div class="val bull">+220</div>
+      </div>
+      
+      <div class="bar-col">
+        <div class="bar-wrap"><div class="bar " style="height: 60px;"></div></div>
+        <div class="lbl">04/15</div>
+        <div class="val bull">+380</div>
+      </div>
+      
+    </div>
+    <div style="font-size:11.5px; color:var(--muted); margin-top:6px; padding-left:4px;">
+      绿色 = 净流入(机构买入), 红色 = 净流出(机构赎回)。连续多日同色是显著趋势信号。
+    </div>
+  </section>
+  
+
+  <!-- ========== ⑤ 数据源覆盖度 ========== -->
+  <section class="section">
+    <h2>⑤ 数据源覆盖度 <span class="hint">(本次哪些源采到 / 哪些挂了)</span></h2>
+    <div class="src-grid">
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">binance</div>
+          <div class="meta">✔ 采到 16 行</div>
+        </div>
+        <div class="meta">2026-04-15 03:09</div>
+      </div>
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">coinbase</div>
+          <div class="meta">✔ 采到 9 行</div>
+        </div>
+        <div class="meta">2026-04-17 03:51</div>
+      </div>
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">coingecko</div>
+          <div class="meta">✔ 采到 36 行</div>
+        </div>
+        <div class="meta">2026-04-17 03:51</div>
+      </div>
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">defillama</div>
+          <div class="meta">✔ 采到 93 行</div>
+        </div>
+        <div class="meta">2026-04-17 03:51</div>
+      </div>
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">farside_etf</div>
+          <div class="meta">✔ 采到 10 行</div>
+        </div>
+        <div class="meta">2026-04-15 23:00</div>
+      </div>
+      
+      <div class="src-cell ok">
+        <div>
+          <div class="name">feargreed</div>
+          <div class="meta">✔ 采到 32 行</div>
+        </div>
+        <div class="meta">2026-04-17 00:00</div>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- ========== ⑥ 复核 ========== -->
+  <section class="section">
+    <h2>⑥ 复核状态 <span class="hint">(数据真实性 + 因子有效性)</span></h2>
+    <table>
+      <thead><tr><th>检查项</th><th>对象</th><th>等级</th><th>解读</th></tr></thead>
+      <tbody>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>BTC 占比趋势 (BTC Dominance Trend)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 2 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>Coinbase 美区溢价 (Coinbase Premium)</td>
+          <td><span class="pill WARN">WARN</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">⚠ IR代理 = 0.23 低于阈值 0.3, 因子近期失效, 建议降权</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>DeFi TVL 动量 (DeFi TVL Momentum)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 2 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>美元指数反向信号 (DXY Inverse)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 2 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>BTC 现货 ETF 5 日累计净流入 (ETF Net Flow)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 3 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>恐慌贪婪指数反向 (Fear &amp; Greed Reversal)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 3 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>资金费率综合 (Funding Composite)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 3 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>稳定币 7 日净增发 (Stablecoin Net Mint)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 3 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>全市场市值动量 (Total Mcap Momentum)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 1 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>因子有效性监控</td>
+          <td>热门叙事强度 (Trending Score)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">已积累 2 个观测, 数据量太少, 7 天后才能开始评估因子有效性</td>
+        </tr>
+        
+        <tr>
+          <td>价格交叉验证</td>
+          <td>比特币 (BTC)</td>
+          <td><span class="pill OK">OK</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">3 个数据源价格高度一致 (最大偏差 0.186%), 价格可信</td>
+        </tr>
+        
+        <tr>
+          <td>价格交叉验证</td>
+          <td>币安币 (BNB)</td>
+          <td><span class="pill WARN">WARN</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">⚠ 价格偏差 1.154% 超过阈值 1.0%, 建议人工核查</td>
+        </tr>
+        
+        <tr>
+          <td>价格交叉验证</td>
+          <td>以太坊 (ETH)</td>
+          <td><span class="pill WARN">WARN</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">⚠ 价格偏差 1.708% 超过阈值 1.0%, 建议人工核查</td>
+        </tr>
+        
+        <tr>
+          <td>价格交叉验证</td>
+          <td>Solana (SOL)</td>
+          <td><span class="pill WARN">WARN</span></td>
+          <td style="color: var(--soft); font-size: 12.5px;">⚠ 价格偏差 1.311% 超过阈值 1.0%, 建议人工核查</td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ========== ⑦ 术语词典 (折叠) ========== -->
+  <details>
+    <summary>📚 术语词典 (点击展开 / 不熟悉某个名词时翻这里)</summary>
+    <div class="glossary-list">
+      
+      <div class="glossary-item"><b>Funding Rate / 资金费率</b><span>永续合约多空双方每 8 小时一次的「利息」。正费率多头付给空头, 反之亦然。极端正费率 = 多头过度拥挤, 极端负 = 空头过度拥挤, 都是反转信号。</span></div>
+      
+      <div class="glossary-item"><b>Coinbase Premium / 美区溢价</b><span>Coinbase 价格相对 Binance 价格的偏差, 反映美国合规通道的资金主导程度。持续正溢价是 ETF 行情的标志之一。</span></div>
+      
+      <div class="glossary-item"><b>Stablecoin Mint / 稳定币增发</b><span>USDT、USDC 等稳定币的发行 - 销毁净值, 代表加密圈「美元基础货币」的供给变化。净增发 = 新美元购买力进场。</span></div>
+      
+      <div class="glossary-item"><b>F&amp;G / Crypto Fear &amp; Greed Index</b><span>Alternative.me 综合 7 类指标 (波动、动量、社交、市值占比等) 算出的 0–100 情绪分。经验上 &lt; 25 抄底 &gt; 75 减仓胜率较高。</span></div>
+      
+      <div class="glossary-item"><b>ETF Net Flow / 现货 ETF 净流入</b><span>美国 BTC 现货 ETF (IBIT/FBTC/ARKB 等) 的每日净申购额 (申购 - 赎回)。2024+ 周期对 BTC 价格解释力最强的机构指标之一。</span></div>
+      
+      <div class="glossary-item"><b>Composite / 合成信号</b><span>多个因子按 IR 权重合成的 -1 ~ +1 方向得分。&gt; +0.2 看多, &lt; -0.2 看空, 之间为中性。</span></div>
+      
+      <div class="glossary-item"><b>Confidence / 置信度</b><span>基于「贡献因子的总权重 / 全部因子权重」。1.0 = 所有因子都贡献了, 0.5 = 一半因子缺失或中性。</span></div>
+      
+      <div class="glossary-item"><b>Regime / 市场状态</b><span>BULL 牛市 / BEAR 熊市 / CHOP 震荡 / CRISIS 危机 / BEAR_BOUNCE 熊市反弹。由 ETF 净流入 + F&amp;G 等指标的简单规则判定。</span></div>
+      
+      <div class="glossary-item"><b>IC / Information Coefficient</b><span>因子值与未来收益的相关系数, 衡量因子有效性。|IC| &gt; 0.05 通常视为有信号。</span></div>
+      
+      <div class="glossary-item"><b>IR / Information Ratio</b><span>IC 的均值除以 IC 的标准差, 衡量信号稳定性。IR &gt; 0.5 视为可用因子, &gt; 1.0 优秀。</span></div>
+      
+      <div class="glossary-item"><b>Cross-source Check / 多源交叉验证</b><span>同一价格用 ≥ 3 个独立数据源对比, 偏差超过阈值就告警 — 防止单一 API 故障误导决策。</span></div>
+      
+    </div>
+  </details>
+
+  <footer>
+    Crypto Intel v0.3.0 · 工作流自动生成 · 仅供投资经理参考, <b>非投资建议</b><br>
+    数据源详见 <code>config.yaml</code> · 因子定义见 <code>src/factors/_metadata.py</code>
+  </footer>
+</div>
+</body>
+</html>
