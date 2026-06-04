@@ -115,6 +115,24 @@ N_FAILS=$(python3 -c "import json; print(len(json.load(open('$FAILS'))['failures
 log ""
 log "═══ Nightly 完成 · 失败 $N_FAILS 步 ═══"
 
+# 12. 失败告警: 有步骤失败就推飞书, 让"静默 miss"变可见 (未配飞书时优雅跳过)
+if [ "${N_FAILS:-0}" -gt 0 ]; then
+  log "▶ 有 $N_FAILS 步失败 → 推飞书告警"
+  python3 -c "
+import json, sys
+sys.path.insert(0, '.')
+from src.notifier import push_alert
+fails = json.load(open('$FAILS')).get('failures', [])
+lines = ['**夜间任务有 %d 个步骤失败:**' % len(fails)]
+for f in fails:
+    lines.append('- ❌ %s (rc=%s)' % (f.get('step'), f.get('rc')))
+lines.append('')
+lines.append('日志: data/nightly_logs/$DATE.log')
+r = push_alert('🚨 Crypto Intel 夜间任务失败 · $DATE', lines)
+print('alert:', r.get('ok'), r.get('error') or ('pushed %s' % r.get('pushed')))
+" >> "$LOG" 2>&1 || log "  (告警推送失败, 见日志)"
+fi
+
 # 滚动清理 30 天前的日志
 find "$LOGDIR" -name "*.log" -mtime +30 -delete 2>/dev/null || true
 find "$LOGDIR" -name "*.failures.json" -mtime +30 -delete 2>/dev/null || true

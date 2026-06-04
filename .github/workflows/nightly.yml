@@ -33,22 +33,19 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: crypto-intel/requirements.txt
+          cache-dependency-path: requirements.txt
 
       - name: Install deps
-        working-directory: crypto-intel
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: Run nightly pipeline
-        working-directory: crypto-intel
         run: bash scripts/nightly_run.sh
         continue-on-error: true   # 单步失败不阻塞整个 workflow
 
       - name: Show today's log tail
         if: always()
-        working-directory: crypto-intel
         run: |
           TODAY=$(date +%Y-%m-%d)
           if [ -f "data/nightly_logs/$TODAY.log" ]; then
@@ -64,7 +61,6 @@ jobs:
 
       - name: Commit data updates
         if: github.ref == 'refs/heads/main'
-        working-directory: crypto-intel
         run: |
           git config --local user.email "nightly-bot@cryptointel"
           git config --local user.name "Crypto Intel Nightly"
@@ -82,5 +78,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: nightly-logs-${{ github.run_number }}
-          path: crypto-intel/data/nightly_logs/
+          path: data/nightly_logs/
           retention-days: 14

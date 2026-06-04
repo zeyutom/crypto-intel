@@ -348,6 +348,37 @@ def push_to_feishu(webhook_url: str | None = None,
     }
 
 
+def push_alert(title: str, lines: list[str], color: str = "red") -> dict:
+    """推一条简单告警卡片到所有配置的飞书群。
+
+    用于运维类通知 (如 nightly 失败告警), 与早会简报卡片解耦。
+    未配置飞书群时优雅返回 (不抛)。
+    """
+    groups = _load_groups()
+    if not groups:
+        return {"ok": False, "error": "未配置飞书群", "pushed": 0}
+    body = "\n".join(lines) if lines else "(无详情)"
+    payload = {
+        "msg_type": "interactive",
+        "card": {
+            "header": {"title": {"tag": "plain_text", "content": title}, "template": color},
+            "elements": [
+                {"tag": "div", "text": {"tag": "lark_md", "content": body}},
+                {"tag": "note", "elements": [
+                    {"tag": "plain_text",
+                     "content": f"{_beijing_now()} 北京时间 · Crypto Intel 监控"}]},
+            ],
+            "config": {"wide_screen_mode": True},
+        },
+    }
+    results = [_push_one(payload, g) for g in groups]
+    ok = sum(1 for r in results if r["ok"])
+    log.info(f"Feishu alert: {ok}/{len(results)} OK")
+    return {"ok": ok == len(results), "pushed": ok, "failed": len(results) - ok,
+            "groups": [{"name": r["group_name"], "ok": r["ok"], "error": r.get("error")}
+                       for r in results]}
+
+
 def push_test_message(webhook_url: str, secret: str = "") -> dict:
     """发一条测试消息 (简单 text, 用于 webhook 验证)。"""
     payload = {
