@@ -73,6 +73,9 @@ def render_for_llm() -> str:
         for c in calls[-5:]:
             correct_icon = {"true": "✓", "false": "✗", "partial": "◐"}.get(
                 str(c.get("correct", "")).lower(), "?")
+            parts.append(
+                f"- [{correct_icon}] {c.get('date', '—')} · {c.get('claim', '')} "
+                f"→ {c.get('outcome', '')} (教训: {c.get('lesson', '—')})")
         parts.append("")
         parts.append(f"(共有 {len(calls)} 条历史判断, 用于防止重复错误。)")
 

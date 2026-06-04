@@ -43,6 +43,9 @@ LOOKBACK_DAYS = [7, 14, 30]
 IC_DECAY = 0.85
 # 最少需要多少次 IC 记录才开始自动调权
 MIN_IC_RECORDS = 3
+# 显著性地板: |加权 IC| 低于此值视作统计噪声, 不触发调权
+# (常数/并列因子经修复后已返回 IC=0, 这里再挡一层弱信号)
+IC_SIGNIFICANCE_FLOOR = 0.02
 
 
 def _ensure_dir():
@@ -119,6 +122,10 @@ def save_snapshot(scored_coins: list[dict], factor_weights: dict):
             "price": c["price"],
             "market_cap": c["market_cap"],
             "composite_score": c["composite_score"],
+            # 原始涨跌幅 (此前漏存, 导致 dashboard 的 30d 列恒为 +0.0%)
+            "change_24h": c.get("change_24h"),
+            "change_7d": c.get("change_7d"),
+            "change_30d": c.get("change_30d"),
             # 保存各因子原始值
             **{k: v for k, v in c.items()
                if k.startswith("f_")},
@@ -135,22 +142,42 @@ def save_snapshot(scored_coins: list[dict], factor_weights: dict):
 # ====================================================================
 
 def _spearman_rank_corr(x: list[float], y: list[float]) -> float:
-    """Spearman 秩相关系数 (不依赖 scipy)。"""
+    """Spearman 秩相关系数 (不依赖 scipy)。
+
+    使用平均秩处理并列值 (tie-aware), 并对零方差 (常数列) 返回 0.0,
+    因为常数因子无预测信息 (Spearman 在此情形下未定义)。
+    """
     n = len(x)
     if n < 5:
         return 0.0
 
     def _rank(arr):
-        indexed = sorted(enumerate(arr), key=lambda t: t[1])
+        order = sorted(range(n), key=lambda i: arr[i])
         ranks = [0.0] * n
-        for rank_val, (orig_idx, _) in enumerate(indexed):
-            ranks[orig_idx] = rank_val + 1
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and arr[order[j + 1]] == arr[order[i]]:
+                j += 1
+            avg = (i + j) / 2.0 + 1.0   # average of tied positions (1-based)
+            for k in range(i, j + 1):
+                ranks[order[k]] = avg
+            i = j + 1
         return ranks
 
     rx = _rank(x)
     ry = _rank(y)
-    d_sq = sum((a - b) ** 2 for a, b in zip(rx, ry))
-    return 1 - (6 * d_sq) / (n * (n * n - 1))
+    # zero-variance guard: a constant column has no rank spread -> undefined corr
+    if len(set(rx)) < 2 or len(set(ry)) < 2:
+        return 0.0
+    # Pearson correlation of average ranks (correct, tie-aware Spearman)
+    mx = sum(rx) / n
+    my = sum(ry) / n
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    vx = sum((a - mx) ** 2 for a in rx)
+    vy = sum((b - my) ** 2 for b in ry)
+    denom = (vx * vy) ** 0.5
+    return cov / denom if denom > 0 else 0.0
 
 
 def run_ic_backtest(lookback_days: int = 7) -> dict:
@@ -166,23 +193,6 @@ def run_ic_backtest(lookback_days: int = 7) -> dict:
     if not snapshots:
         return {"ok": False, "error": "无历史快照"}
 
-    # 找距离 target_date 最近的快照
-    best_snap = None
-    best_diff = float("inf")
-    for sp in snapshots:
-        try:
-            data = json.loads(sp.read_text())
-            snap_date = datetime.fromisoformat(data["timestamp"])
-            diff = abs((snap_date - target_date).total_seconds())
-            if diff < best_diff:
-                best_diff = diff
-                best_snap = data
-        except Exception:
-            continue
-
-    if not best_snap or best_diff > 3 * 86400:  # 容差 3 天
-        return {"ok": False, "error": f"未找到 {lookback_days} 天前的快照"}
-
     # 需要当前价格来计算收益率 — 从最新快照取
     # (实际使用时应从 API 获取, 这里用最新快照近似)
     latest_snap = None
@@ -191,8 +201,38 @@ def run_ic_backtest(lookback_days: int = 7) -> dict:
     except Exception:
         return {"ok": False, "error": "无法读取最新快照"}
 
+    try:
+        latest_ts = datetime.fromisoformat(latest_snap["timestamp"])
+    except Exception:
+        return {"ok": False, "error": "最新快照缺少时间戳"}
+
     current_prices = {c["symbol"]: c["price"]
                       for c in latest_snap.get("coins", [])}
+
+    # 找距离 target_date 最近的快照 (排除最新快照本身, 避免自配对 old==new)
+    best_snap = None
+    best_diff = float("inf")
+    best_ts = None
+    for sp in snapshots[:-1]:
+        try:
+            data = json.loads(sp.read_text())
+            snap_date = datetime.fromisoformat(data["timestamp"])
+            diff = abs((snap_date - target_date).total_seconds())
+            if diff < best_diff:
+                best_diff = diff
+                best_snap = data
+                best_ts = snap_date
+        except Exception:
+            continue
+
+    if not best_snap or best_diff > 3 * 86400:  # 容差 3 天
+        return {"ok": False, "error": f"未找到 {lookback_days} 天前的快照"}
+
+    # 校验实际持有期: 价格源快照必须比因子快照明显更新
+    realized_days = (latest_ts - best_ts).total_seconds() / 86400.0
+    if realized_days < 0.5 * lookback_days:
+        return {"ok": False,
+                "error": f"实际跨度 {realized_days:.1f}d 远小于 {lookback_days}d, 拒绝自配对"}
 
     # 计算每个因子的 IC
     factor_names = [k for k in best_snap["coins"][0].keys()
@@ -278,6 +318,10 @@ def update_weights_from_ic(ic_result: dict) -> dict:
             weighted_ic += h["ic"] * w
             weight_sum += w
         avg_ic = weighted_ic / weight_sum if weight_sum > 0 else 0
+
+        # 显著性门槛: 弱于噪声地板的 IC 不调权 (防止无信息因子被随机 IC 推动)
+        if abs(avg_ic) < IC_SIGNIFICANCE_FLOOR:
+            continue
 
         # 根据 IC 调整权重
         old_w = fdata["weight"]

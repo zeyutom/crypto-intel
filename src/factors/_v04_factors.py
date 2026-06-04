@@ -3,6 +3,7 @@
 每个 compute_xxx() 返回 list[dict], 与原有 factors 同 schema。
 """
 import json
+import math
 import numpy as np
 import pandas as pd
 from ..db import query_df
@@ -66,11 +67,12 @@ def compute_liquidation_heat() -> list[dict]:
     if total == 0:
         return []
     long_ratio = longs / total
-    # 信号: 多头清算占主导 = -1 (反向看多), 空头清算占主导 = +1 (反向看空)
+    # 统一到项目约定 (+1=看多): 多头被大量清算 = 杀多洗盘后倾向反转看多 = +1;
+    # 空头被大量清算 = 逼空衰竭后倾向看空 = -1。composite 按 +1=bullish 消费, 不可再反向。
     if long_ratio > 0.65:
-        sig = -1
-    elif long_ratio < 0.35:
         sig = 1
+    elif long_ratio < 0.35:
+        sig = -1
     else:
         sig = 0
     return [{
@@ -263,7 +265,11 @@ def _btc_yfin_corr(yf_asset: str, days: int = 60) -> tuple[float, dict]:
     if len(aligned) < 10:
         return None, {"obs": len(aligned)}
     corr = aligned["yf"].pct_change().corr(aligned["btc"].pct_change())
-    return float(corr), {"obs": int(len(aligned))}
+    # 收益观测数 = 对齐行数 - 1 (pct_change 丢掉首行)
+    n_obs = int(len(aligned)) - 1
+    if corr is None or not math.isfinite(corr):
+        return None, {"obs": n_obs}
+    return float(corr), {"obs": n_obs}
 
 
 def compute_btc_nasdaq_corr() -> list[dict]:

@@ -130,10 +130,11 @@ def run_walkforward_backtest(
         entry_prices = _price_map(snap_entry)
         exit_prices = _price_map(snap_exit)
 
-        # BTC 基准
-        if btc_start_price is None:
-            btc_start_price = entry_prices.get("BTC", 0)
-        btc_end_price = exit_prices.get("BTC", btc_start_price)
+        # BTC 基准 (从第一个含 BTC 的快照开始计, 避免早期快照缺 BTC 时锁死为 0)
+        if not btc_start_price and "BTC" in entry_prices:
+            btc_start_price = entry_prices["BTC"]
+        if "BTC" in exit_prices:
+            btc_end_price = exit_prices["BTC"]
 
         # 等权分配
         weight = 1.0 / len(selected)
@@ -185,14 +186,20 @@ def run_walkforward_backtest(
 
     total_return = (capital - initial_capital) / initial_capital
 
-    # 年化 (假设每个 period 是 rebalance_days 天)
-    total_days = n_periods * rebalance_days
+    # 年化 (用真实日历跨度, 而非假设每期都恰好是 rebalance_days 天)
+    try:
+        _d0 = datetime.strptime(rebalance_dates[0], "%Y-%m-%d")
+        _d1 = datetime.strptime(rebalance_dates[-1], "%Y-%m-%d")
+        total_days = max((_d1 - _d0).days, 1)
+    except (ValueError, IndexError):
+        total_days = n_periods * rebalance_days
     annual_return = ((1 + total_return) ** (365 / max(total_days, 1))) - 1 if total_days > 0 else 0
 
     # Sharpe (年化, 假设无风险利率 = 4%)
     avg_ret = sum(period_returns) / n_periods
     std_ret = math.sqrt(sum((r - avg_ret) ** 2 for r in period_returns) / max(n_periods - 1, 1))
-    periods_per_year = 365 / rebalance_days
+    avg_period_days = total_days / max(n_periods, 1)
+    periods_per_year = 365 / avg_period_days if avg_period_days > 0 else 365 / rebalance_days
     risk_free_per_period = 0.04 / periods_per_year
     sharpe = ((avg_ret - risk_free_per_period) / std_ret * math.sqrt(periods_per_year)
               if std_ret > 0 else 0)

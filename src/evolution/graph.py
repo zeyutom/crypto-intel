@@ -113,61 +113,60 @@ def _safe_call(node_name: str, fn, state: EvolutionState) -> EvolutionState:
 def node_source_discover(state: EvolutionState) -> EvolutionState:
     def _do():
         from . import source_discoverer
-        # source_discoverer.main() 没有标准签名, 走个轻量探测
-        if hasattr(source_discoverer, "discover_sources"):
-            out = source_discoverer.discover_sources()  # type: ignore[attr-defined]
-            if isinstance(out, list):
-                state["sources_proposed"] = out[:50]
-        elif hasattr(source_discoverer, "main"):
-            source_discoverer.main()  # type: ignore[attr-defined]
+        # 真实入口是 run_source_discovery(), 返回 dict {ok,file,chars}
+        out = source_discoverer.run_source_discovery()  # type: ignore[attr-defined]
+        if isinstance(out, dict):
+            state["sources_proposed"] = [out]
+        elif isinstance(out, list):
+            state["sources_proposed"] = out[:50]
     return _safe_call("source_discover", _do, state)
 
 
 def node_factor_propose(state: EvolutionState) -> EvolutionState:
     def _do():
         from . import factor_proposer
-        if hasattr(factor_proposer, "propose_factors"):
-            out = factor_proposer.propose_factors()  # type: ignore[attr-defined]
-            if isinstance(out, list):
-                state["factors_proposed"] = out[:20]
-        elif hasattr(factor_proposer, "main"):
-            factor_proposer.main()  # type: ignore[attr-defined]
+        # 真实入口是 run_factor_proposal(), 返回 dict {ok,file,chars}
+        out = factor_proposer.run_factor_proposal()  # type: ignore[attr-defined]
+        if isinstance(out, dict):
+            state["factors_proposed"] = [out]
+        elif isinstance(out, list):
+            state["factors_proposed"] = out[:20]
     return _safe_call("factor_propose", _do, state)
 
 
 def node_narrative_track(state: EvolutionState) -> EvolutionState:
     def _do():
         from . import narrative_tracker
-        if hasattr(narrative_tracker, "track_narratives"):
-            out = narrative_tracker.track_narratives()  # type: ignore[attr-defined]
-            if isinstance(out, list):
-                state["narratives_tracked"] = out[:30]
-        elif hasattr(narrative_tracker, "main"):
-            narrative_tracker.main()  # type: ignore[attr-defined]
+        # 真实入口是 run_narrative_tracking(), 返回 dict {ok,narratives_count,...}
+        out = narrative_tracker.run_narrative_tracking()  # type: ignore[attr-defined]
+        if isinstance(out, dict):
+            state["narratives_tracked"] = [out]
+        elif isinstance(out, list):
+            state["narratives_tracked"] = out[:30]
     return _safe_call("narrative_track", _do, state)
 
 
 def node_prompt_evolve(state: EvolutionState) -> EvolutionState:
     def _do():
         from . import prompt_evolver
-        if hasattr(prompt_evolver, "evolve_prompts"):
-            out = prompt_evolver.evolve_prompts()  # type: ignore[attr-defined]
-            if isinstance(out, list):
-                state["prompts_evolved"] = out[:10]
-        elif hasattr(prompt_evolver, "main"):
-            prompt_evolver.main()  # type: ignore[attr-defined]
+        # 真实入口是 run_prompt_evolution(), 返回 dict
+        out = prompt_evolver.run_prompt_evolution()  # type: ignore[attr-defined]
+        if isinstance(out, dict):
+            state["prompts_evolved"] = [out]
+        elif isinstance(out, list):
+            state["prompts_evolved"] = out[:10]
     return _safe_call("prompt_evolve", _do, state)
 
 
 def node_weekly_review(state: EvolutionState) -> EvolutionState:
     def _do():
         from . import weekly_review
-        if hasattr(weekly_review, "run_weekly_review"):
-            path = weekly_review.run_weekly_review()  # type: ignore[attr-defined]
-            if path:
-                state["weekly_review_path"] = str(path)
-        elif hasattr(weekly_review, "main"):
-            weekly_review.main()  # type: ignore[attr-defined]
+        # run_weekly_review() 返回 dict {ok, file, week, chars} — 取 file 字段, 别 str(dict)
+        out = weekly_review.run_weekly_review()  # type: ignore[attr-defined]
+        if isinstance(out, dict):
+            state["weekly_review_path"] = out.get("file") or out.get("path") or ""
+        elif out:
+            state["weekly_review_path"] = str(out)
     return _safe_call("weekly_review", _do, state)
 
 

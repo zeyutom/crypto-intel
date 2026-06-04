@@ -112,15 +112,22 @@ def run_narrative_tracking() -> dict:
     if not narratives:
         return {"ok": False, "error": "输出 narratives 列表为空"}
 
+    def _sf(v, default=0.0):
+        """LLM 可能返回非数字 (如 "high"/null), 安全转 float。"""
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return default
+
     rows = []
     for n in narratives:
         rows.append({
             "date": today,
             "narrative": n.get("name", "Unknown"),
-            "heat_score": float(n.get("heat_score", 0)),
+            "heat_score": _sf(n.get("heat_score", 0)),
             "top_tokens": json.dumps(n.get("top_tokens", []), ensure_ascii=False),
             "trigger_events": json.dumps(n.get("trigger_events", []), ensure_ascii=False),
-            "delta_7d": float(n.get("delta_7d", 0)),
+            "delta_7d": _sf(n.get("delta_7d", 0)),
         })
     upsert_narratives(rows)
 

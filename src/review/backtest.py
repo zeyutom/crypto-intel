@@ -154,10 +154,11 @@ def run_backtest_all() -> int:
 
 
 def get_latest_ir_weights() -> dict[tuple[str, str], float]:
-    """取每个因子当前最佳 IR (忽略负 IR 和低观测), 作为信号合成的动态权重。
-       返回: {(factor, asset_id): weight} — weight = max(0, IR)。"""
+    """取每个因子跨窗口的平均 IR (忽略负 IR 和低观测), 作为信号合成的动态权重。
+       返回: {(factor, asset_id): weight} — weight = max(0, mean IR)。
+       注: 用 AVG 而非 MAX, 避免在多个 window/forward 组合里挑最佳 IR 造成系统性高估。"""
     df = query_df(
-        """SELECT factor, asset_id, MAX(ir) AS ir, MAX(n_obs) AS n_obs
+        """SELECT factor, asset_id, AVG(ir) AS ir, MAX(n_obs) AS n_obs
            FROM factor_performance
            WHERE window_days >= 30 AND n_obs >= 10
            GROUP BY factor, asset_id"""

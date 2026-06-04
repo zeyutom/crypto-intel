@@ -46,8 +46,11 @@ if not price_df.empty:
     for asset, grp in price_df.groupby("asset_id"):
         if len(grp) < 2:
             continue
-        # 归一化为 0 = 第一次采集的价格
-        norm = (grp["value"] / grp["value"].iloc[0] - 1) * 100
+        # 归一化为 0 = 第一次采集的价格 (首值为 0/缺失时跳过, 避免 inf/NaN)
+        base = grp["value"].iloc[0]
+        if not base or pd.isna(base) or float(base) == 0:
+            continue
+        norm = (grp["value"] / base - 1) * 100
         fig.add_trace(go.Scatter(x=grp["ts"], y=norm, name=asset_cn(asset),
                                  mode="lines", line=dict(width=2)))
     fig.update_layout(**base_layout("自首次采集以来的相对涨跌 (%)", 320))

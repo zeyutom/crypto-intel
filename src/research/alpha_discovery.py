@@ -277,19 +277,35 @@ def generate_candidates_llm(current_ic: dict = None) -> list[dict]:
 # ====================================================================
 
 def _spearman(x: list[float], y: list[float]) -> float:
-    """Spearman rank correlation."""
+    """Spearman rank correlation (tie-aware, zero-variance-guarded)."""
     n = len(x)
     if n < 5:
         return 0.0
     def _rank(arr):
-        indexed = sorted(enumerate(arr), key=lambda t: t[1])
+        order = sorted(range(n), key=lambda i: arr[i])
         ranks = [0.0] * n
-        for rank_val, (orig_idx, _) in enumerate(indexed):
-            ranks[orig_idx] = rank_val + 1
+        i = 0
+        while i < n:
+            j = i
+            while j + 1 < n and arr[order[j + 1]] == arr[order[i]]:
+                j += 1
+            avg = (i + j) / 2.0 + 1.0   # average of tied positions (1-based)
+            for k in range(i, j + 1):
+                ranks[order[k]] = avg
+            i = j + 1
         return ranks
     rx, ry = _rank(x), _rank(y)
-    d_sq = sum((a - b) ** 2 for a, b in zip(rx, ry))
-    return 1 - (6 * d_sq) / (n * (n * n - 1))
+    # zero-variance guard: a constant column has no rank spread -> undefined corr
+    if len(set(rx)) < 2 or len(set(ry)) < 2:
+        return 0.0
+    # Pearson correlation of average ranks (correct, tie-aware Spearman)
+    mx = sum(rx) / n
+    my = sum(ry) / n
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    vx = sum((a - mx) ** 2 for a in rx)
+    vy = sum((b - my) ** 2 for b in ry)
+    denom = (vx * vy) ** 0.5
+    return cov / denom if denom > 0 else 0.0
 
 
 def evaluate_candidates(candidates: list[dict],

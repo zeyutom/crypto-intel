@@ -193,7 +193,13 @@ def _propose_via_llm(seeds: list[str], n: int = 5) -> list[Hypothesis]:
 4. 输出严格 JSON list, 不带 markdown 代码块
 """
     try:
-        raw = run_claude(prompt, system="You output ONLY JSON.")
+        result = run_claude(prompt, system="You output ONLY JSON.")
+        # run_claude 返回 dict: {ok, markdown} 或 {ok:False, error}
+        if not isinstance(result, dict) or not result.get("ok"):
+            err = result.get("error") if isinstance(result, dict) else result
+            log.warning(f"LLM propose declined: {err}; fallback to mutation")
+            return []
+        raw = result.get("markdown", "")
         # 简单解析
         s = (raw or "").strip().strip("`").strip()
         if s.startswith("json"):

@@ -426,7 +426,7 @@ a:hover {{ text-decoration:underline; }}
             <div class="label">社区评分</div>
         </div>
         <div class="metric">
-            <div class="value" style="color:#818cf8">{nr.get('sentiment', 'N/A').replace('_', ' ')}</div>
+            <div class="value" style="color:#818cf8">{(nr.get('sentiment', 'N/A') or 'N/A').replace('_', ' ')}</div>
             <div class="label">市场情绪</div>
         </div>
     </div>

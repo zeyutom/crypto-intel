@@ -183,16 +183,21 @@ def run_walkforward_backtest_vbt(
     # 用 from_orders: 给定每天目标权重的差额作为下单量
     # vectorbt 对 from_holding 的支持依版本差异较大, 这里用更鲁棒的 from_orders
     # 思路: 在 rebalance 日, 把上期持仓清零, 按新目标权重买入
+    # 用实际采样间隔做年化 (快照索引有多天跳空, 不是连续日频)
+    span_days = (close.index[-1] - close.index[0]).days
+    n_rows = len(close.index)
+    avg_gap_days = span_days / (n_rows - 1) if n_rows > 1 and span_days > 0 else 1.0
+
     portfolio = vbt.Portfolio.from_orders(
         close=close,
-        size=schedule.ffill(),         # ffill: rebalance 日后维持权重直到下次 rebalance
+        size=schedule,                 # NaN(非 rebalance 日)= hold; 只在 rebalance 日按目标权重下单
         size_type="targetpercent",     # 把 size 解读成目标权重
         group_by=True,                 # 多列视为一个组合
         cash_sharing=True,
         fees=fee_rate,
         slippage=0.0,
         init_cash=initial_capital,
-        freq="1D",
+        freq=pd.Timedelta(days=avg_gap_days),  # 按真实平均间隔, vbt 年化用 365/avg_gap
     )
 
     stats = portfolio.stats()  # Series
@@ -208,7 +213,13 @@ def run_walkforward_backtest_vbt(
 
     sharpe = float(stats.get("Sharpe Ratio", 0.0)) if not math.isnan(stats.get("Sharpe Ratio", float("nan"))) else 0.0
     max_dd = float(stats.get("Max Drawdown [%]", 0.0)) / 100.0
-    win_rate = float(stats.get("Win Rate [%]", 50.0)) / 100.0
+
+    # 胜率: 按 rebalance 周期收益正占比 (与 legacy 引擎口径一致),
+    # 而非 vbt 的 per-trade Win Rate [%] (按单笔成交统计, 两者不可比)。
+    rb_mask = schedule.notna().any(axis=1)
+    eq_rb = equity[rb_mask]
+    period_rets = eq_rb.pct_change().dropna()
+    win_rate = float((period_rets > 0).mean()) if len(period_rets) else 0.5
 
     # vs BTC
     vs_btc = None

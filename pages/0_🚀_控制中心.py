@@ -81,16 +81,29 @@ def run_cmd(args: list[str], cwd: Path = ROOT, timeout: int = 1800,
             f"卡住可在终端按 Ctrl+C 或 `kill {proc.pid}`"
         )
 
-        for line in iter(proc.stdout.readline, ""):
-            log += line
-            log_box.code(log[-5000:], language="bash")
+        # 用 select 轮询, 即使子进程长时间无输出也能按时触发超时 (旧版 readline 会阻塞死等)
+        import select
+        import signal
+        timed_out = False
+        while True:
             if time.time() - t0 > timeout:
-                try:
-                    os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-                except Exception:
-                    proc.kill()
-                log += f"\n[超时 {timeout}s, 已中止]"
+                timed_out = True
                 break
+            rlist, _, _ = select.select([proc.stdout], [], [], 1.0)
+            if rlist:
+                line = proc.stdout.readline()
+                if not line:
+                    break  # EOF: 输出结束
+                log += line
+                log_box.code(log[-5000:], language="bash")
+            elif proc.poll() is not None:
+                break  # 进程已退出且无新输出
+        if timed_out:
+            try:
+                os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+            except Exception:
+                proc.kill()
+            log += f"\n[超时 {timeout}s, 已中止]"
 
         proc.wait()
         # 清理 cancel 提示

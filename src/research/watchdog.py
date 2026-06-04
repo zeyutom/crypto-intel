@@ -255,12 +255,70 @@ def check_dex_tvl_drop() -> Optional[Alert]:
     return None
 
 
+def check_liquidations_extreme() -> Optional[Alert]:
+    """全网衍生品 24h 清算总额极端 (coinglass, 数据缺失时优雅跳过)."""
+    try:
+        from ..db import query_df
+        df = query_df(
+            """SELECT value FROM raw_metrics
+               WHERE source='coinglass' AND metric='liquidations_24h_usd'
+               ORDER BY ts DESC LIMIT 1"""
+        )
+        if df.empty or df.iloc[0]["value"] is None:
+            return None
+        total = float(df.iloc[0]["value"])
+        if total > THRESHOLDS["liquidations_usd_24h"]:
+            return Alert(
+                type="liquidations_extreme",
+                severity="critical" if total > 2 * THRESHOLDS["liquidations_usd_24h"] else "warning",
+                title=f"💥 全网清算 24h ${total/1e6:.0f}M",
+                detail=f"过去 24h 全网衍生品清算 ${total/1e6:.0f}M, 阈值 "
+                       f"${THRESHOLDS['liquidations_usd_24h']/1e6:.0f}M. 大额清算常对应剧烈行情或短期顶/底",
+                value=total,
+                threshold=THRESHOLDS["liquidations_usd_24h"],
+            )
+    except Exception as e:
+        log.warning(f"  liquidations check failed: {e}")
+    return None
+
+
+def check_etf_outflow() -> Optional[Alert]:
+    """BTC 现货 ETF 单日大额净流出 (farside, 数据缺失时优雅跳过)."""
+    try:
+        from ..db import query_df
+        df = query_df(
+            """SELECT value FROM raw_metrics
+               WHERE source='farside_etf' AND asset_id='bitcoin'
+                 AND metric='etf_net_flow_musd'
+               ORDER BY ts DESC LIMIT 1"""
+        )
+        if df.empty or df.iloc[0]["value"] is None:
+            return None
+        flow_musd = float(df.iloc[0]["value"])      # 单位: 百万美元; 负=净流出
+        outflow_usd = -flow_musd * 1e6
+        if outflow_usd > THRESHOLDS["etf_outflow_usd"]:
+            return Alert(
+                type="etf_outflow",
+                severity="warning",
+                title=f"🏦 BTC ETF 净流出 ${outflow_usd/1e6:.0f}M",
+                detail=f"BTC 现货 ETF 单日净流出 ${outflow_usd/1e6:.0f}M, 阈值 "
+                       f"${THRESHOLDS['etf_outflow_usd']/1e6:.0f}M. 机构资金撤离信号",
+                value=outflow_usd,
+                threshold=THRESHOLDS["etf_outflow_usd"],
+            )
+    except Exception as e:
+        log.warning(f"  ETF outflow check failed: {e}")
+    return None
+
+
 # 检测器注册表
 CHECKS = [
     ("peg", check_stable_peg),
     ("funding", check_funding_extreme),
     ("fear_greed", check_fear_greed_extreme),
     ("dex_tvl", check_dex_tvl_drop),
+    ("liquidations", check_liquidations_extreme),
+    ("etf_outflow", check_etf_outflow),
 ]
 
 

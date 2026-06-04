@@ -190,14 +190,15 @@ def sentiment_agent(coins: list[dict],
             if hype > 0.5:
                 signals.append(f"高关注度 (hype={hype:.2f})")
 
-        # 资金费率 (情绪代理)
+        # 资金费率 (情绪代理) — f_funding_rate 是归一化分数:
+        #   高分 = 负费率 = 空头拥挤/超卖 = 看多; 低分 = 正费率 = 多方过度拥挤 = 看空
         funding = coin.get("f_funding_rate", 0) or 0
         if funding > 0.7:
+            score += 0.05
+            signals.append("资金费率健康 (空头拥挤/超卖, 反转倾向)")
+        elif funding < 0.3:
             score -= 0.1
             signals.append("⚠️ 资金费率偏高 (多方过度拥挤)")
-        elif funding < 0.3:
-            score += 0.05
-            signals.append("资金费率健康")
 
         conviction = "high" if score > 0.7 else "medium" if score > 0.5 else "low"
         results[sym] = {

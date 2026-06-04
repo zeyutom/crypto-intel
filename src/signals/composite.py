@@ -6,6 +6,7 @@
   regime = 简单规则: ETF 持续正 + F&G < 60 → BULL;F&G > 80 → CRISIS 等
 """
 import json
+import pandas as pd
 from ..db import query_df, latest_factors, upsert_signal
 from ..utils import now_iso
 
@@ -97,14 +98,16 @@ def compose() -> list[dict]:
     for asset_id, grp in df.groupby(df["asset_id"].fillna("market")):
         num = 0.0
         denom = 0.0
+        wsum = 0.0
         breakdown = {}
         for _, row in grp.iterrows():
             fname = row["factor"]
             w = weights.get(fname, 0.5)
-            sig = row["signal"] or 0
-            conf = row["confidence"] or 0.5
+            sig = 0 if pd.isna(row["signal"]) else int(row["signal"])
+            conf = 0.5 if pd.isna(row["confidence"]) else float(row["confidence"])
             num += sig * conf * w
             denom += conf * w
+            wsum += w
             breakdown[fname] = {
                 "signal": int(sig), "confidence": round(float(conf), 3),
                 "raw_value": float(row["raw_value"]) if row["raw_value"] is not None else None,
@@ -117,7 +120,7 @@ def compose() -> list[dict]:
             direction = "BEAR"
         else:
             direction = "NEUTRAL"
-        confidence = min(1.0, denom / sum(FACTOR_WEIGHTS.values()))
+        confidence = min(1.0, denom / wsum) if wsum else 0.0
 
         results.append({
             "ts": ts, "asset_id": asset_id if asset_id != "market" else None,

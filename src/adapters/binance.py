@@ -24,8 +24,8 @@ def fetch() -> list[dict]:
 
     # 1. 现货价格 — 被屏蔽 (451) 时返回空, 不抛, 让 OKX 兜底
     price_data = _safe_get(f"{spot}/api/v3/ticker/price")
-    if not price_data:
-        log.warning("Binance spot 不可达 (451/网络问题), 跳过. 用 OKX adapter 兜底")
+    if not price_data or not isinstance(price_data, list):
+        log.warning("Binance spot 不可达 (451/网络问题/错误体), 跳过. 用 OKX adapter 兜底")
         return []
     prices = {p["symbol"]: float(p["price"]) for p in price_data}
 
@@ -37,12 +37,12 @@ def fetch() -> list[dict]:
             continue
         data = _safe_get(f"{fapi}/fapi/v1/fundingRate",
                          params={"symbol": sym, "limit": 1})
-        if data:
+        if data and isinstance(data, list):
             fundings[sym] = float(data[-1]["fundingRate"])
 
     # 3. 24h 聚合
     stats_data = _safe_get(f"{spot}/api/v3/ticker/24hr")
-    if stats_data is None:
+    if not isinstance(stats_data, list):
         stats_data = []
     stats = {s["symbol"]: s for s in stats_data
              if s["symbol"] in {a["binance"] for a in CFG["universe"] if a.get("binance")}}

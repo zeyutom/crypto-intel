@@ -10,6 +10,7 @@
   4. 累计命中率曲线 (跨所有快照)
 """
 import json
+import statistics
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -114,7 +115,7 @@ def topn_hit_rate(per_coin: dict, n: int = 10) -> dict:
         return {"hit_rate": None, "topn_avg_ret": None, "all_median": None}
     rows = sorted(per_coin.values(), key=lambda r: r["rank"])
     all_rets = [r["ret_pct"] for r in rows]
-    median = sorted(all_rets)[len(all_rets) // 2]
+    median = statistics.median(all_rets)
     topn = rows[:n]
     if not topn:
         return {"hit_rate": None, "topn_avg_ret": None, "all_median": median}
@@ -148,7 +149,19 @@ with col1:
 with col2:
     top_n = st.slider("Top N", 5, 30, 10, help="评估前 N 个推荐")
 with col3:
-    selectable_dates = [s["date"] for s in snaps[:-lookahead] if s["date"]]
+    # 按日期去重 (同一天可能有多个 snapshot 文件), 再用真实日期算 cutoff,
+    # 与 build_forward_returns 的 dt + timedelta(days=lookahead) 口径一致,
+    # 避免 positional slice 把不连续/重复日期切错
+    _by_date = {s["date"]: s for s in snaps if s.get("date")}
+    _all_dates = sorted(_by_date)
+    selectable_dates = []
+    if _all_dates:
+        try:
+            _cutoff = datetime.strptime(_all_dates[-1], "%Y-%m-%d") - timedelta(days=lookahead)
+            selectable_dates = [d for d in _all_dates
+                                if datetime.strptime(d, "%Y-%m-%d") <= _cutoff]
+        except ValueError:
+            selectable_dates = []
     if not selectable_dates:
         st.warning("没有足够历史可复盘, 减小 lookahead")
         st.stop()

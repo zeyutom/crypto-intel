@@ -76,7 +76,10 @@ def _gather_summary() -> dict:
     chg = query_df(
         """SELECT asset_id, pct FROM (
               SELECT r.asset_id, r.value AS pct,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id ORDER BY r.ts DESC) AS rn
+                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
+                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
+                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
+                                r.ts DESC) AS rn
               FROM raw_metrics r
               WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
             ) WHERE rn = 1"""
