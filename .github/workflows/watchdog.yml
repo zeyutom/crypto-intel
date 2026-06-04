@@ -1,0 +1,64 @@
+name: Realtime Watchdog
+
+# 盘中实时风险预警: 每 2 小时跑一次 watchdog check, 触发即推飞书。
+# 不 commit 任何东西 (watchdog_state 走 actions/cache 持久化, 无 git 竞态)。
+on:
+  schedule:
+    - cron: '23 */2 * * *'   # 每 2 小时, 错开整点
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: watchdog
+  cancel-in-progress: false
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # 可选出口代理 (同 refresh/nightly): 解锁美区被封的源
+      EGRESS_PROXY_URL: ${{ secrets.EGRESS_PROXY_URL }}
+      # 飞书 (触发告警时推送)
+      FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
+      FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
+      FEISHU_GROUP_1_NAME: ${{ secrets.FEISHU_GROUP_1_NAME }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 跨 run 持久化告警去重状态 (否则持续脱锚等会每 2h 重复告警)
+      - name: Restore watchdog dedup state
+        uses: actions/cache/restore@v4
+        with:
+          path: data/watchdog_state.json
+          key: watchdog-state-${{ github.run_id }}
+          restore-keys: |
+            watchdog-state-
+
+      - name: Run watchdog check (push to Feishu on trigger)
+        run: |
+          if [ -n "$EGRESS_PROXY_URL" ]; then
+            export HTTPS_PROXY="$EGRESS_PROXY_URL" HTTP_PROXY="$EGRESS_PROXY_URL" ALL_PROXY="$EGRESS_PROXY_URL"
+            echo "▶ 出口代理已启用"
+          fi
+          python -m src.cli watchdog check
+
+      - name: Save watchdog dedup state
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: data/watchdog_state.json
+          key: watchdog-state-${{ github.run_id }}

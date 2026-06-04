@@ -79,6 +79,12 @@ run_step "ingest"   python3 -m src.cli ingest || true
 run_step "factors"  python3 -m src.cli factors || true
 run_step "snapshot" python3 -m src.cli snapshot || true
 
+# 4b. Top-500 多因子筛选 (旗舰功能上云): 创建 meta 快照喂给元学习/IC。
+#     注: screen 的"开浏览器"是 Darwin-only, Linux runner 上自动跳过。
+run_step "screen" python3 -m src.cli screen || true
+# 4c. 元学习: IC 回测 → 自动更新因子权重 (需 ≥2 次 meta 快照, 不足时优雅跳过)
+run_step "update-weights" python3 -m src.cli update-weights || true
+
 # 5. 回测 + 参数扫描 (含 PBO)
 run_step "backtest-router" python3 -m src.cli backtest-router || true
 run_step "backtest-sweep"  python3 -m src.cli backtest-router --sweep || true
@@ -99,6 +105,23 @@ fi
 
 # 9. Watchdog 检查 (会真推飞书, 如果配了)
 run_step "watchdog" python3 -m src.cli watchdog check || true
+
+# 9b. Claude Opus 简报 (云端走 API): 仅在配了 ANTHROPIC_API_KEY 时生成, 失败不阻塞。
+#     生成的简报会被下一步 push-feishu 的卡片自动带上 (latest_brief), 早会卡片从规则版升级成 AI 版。
+if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+  run_step "llm-brief" python3 -c "
+import sys; sys.path.insert(0, '.')
+from src.llm_brief import generate_brief, save_brief
+b = generate_brief()
+if b.get('ok'):
+    save_brief(b)
+    print('Opus 简报已保存, out tokens =', b.get('usage', {}).get('output_tokens'))
+else:
+    print('Opus 简报跳过:', b.get('error'))
+" || true
+else
+  log "  (未配 ANTHROPIC_API_KEY → 跳过 Opus 简报, 飞书用规则版)"
+fi
 
 # 10. 推飞书简报 (合成今天的 daily summary)
 if [ -n "${FEISHU_GROUP_1_URL:-}${FEISHU_WEBHOOK_URL:-}" ]; then
