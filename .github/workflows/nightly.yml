@@ -21,7 +21,10 @@ jobs:
       FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
       FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
       FEISHU_GROUP_1_NAME: ${{ secrets.FEISHU_GROUP_1_NAME }}
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # AI 简报 LLM key (任一即可, 自动选, 免费源优先): 不想付费就只配 GEMINI 或 GROQ
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}        # 免费 (Google AI Studio)
+      GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}            # 免费 (Groq)
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}  # 付费 (可不配)
 
     steps:
       - uses: actions/checkout@v4

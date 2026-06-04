@@ -91,3 +91,24 @@ GitHub runner 是美国 IP,`binance`/`farside` 仍会被挡。三选一:
 非美区 VPS 注册成 GitHub self-hosted runner,workflow 里 `runs-on: ubuntu-latest` → `runs-on: self-hosted`。整个 job 从非美区出口,连代理都不用配。
 
 > 🔒 代理一定要加鉴权(账号密码/IP 白名单),否则公网开放代理会被薅。`EGRESS_PROXY_URL` 当密码管,别进代码。
+
+## 六、免费 AI 简报(不付费用 Anthropic API)
+
+`src/llm_brief.py` 已改成**多 provider 路由**:配哪个 key 用哪个,**免费源优先**,全走 httpx REST(无新依赖)。优先级 `GEMINI_API_KEY > GROQ_API_KEY > ANTHROPIC_API_KEY`,或用 `LLM_PROVIDER` 显式指定。
+
+> ✅ 不想付费:**只配下面其一,别配 `ANTHROPIC_API_KEY` 即可。**
+
+### 选项 A · Google Gemini(推荐,免费档很大)
+1. https://aistudio.google.com/apikey → Create API key(免费,Google 账号即可)。
+2. GitHub 仓库 → Settings → Secrets → New secret:Name `GEMINI_API_KEY`,Value 粘 key。
+3. 默认模型 `gemini-2.0-flash`;想换设仓库变量 `GEMINI_MODEL`。日跑一份简报绰绰有余。
+
+### 选项 B · Groq(免费,极快,Llama 3.3 70B)
+1. https://console.groq.com/keys → Create API Key(免费)。
+2. GitHub Secret:Name `GROQ_API_KEY`。默认模型 `llama-3.3-70b-versatile`,可用 `GROQ_MODEL` 改。
+
+### 和本地 Claude Max 的关系(为什么云端不能白嫖 Max)
+- Max 订阅只能在**本地 Claude Code**(`llm-local`)里用,**云端 headless 登录不了** —— 这就是云端必须用免费 API 的根本原因。
+- 想要 Claude 质量又不付费 → **混合模式**:云端用 Gemini/Groq 出每日简报;偶尔要 Opus 深度版,本地手动 `python -m src.cli llm-local`(走 Max,免费)。
+
+> 注:免费档没有 Anthropic 内置 web 搜索,所以「24h 关键事件」章节代码里已加**防编造提示**(让模型谨慎概述/标注需人工补充,不瞎编新闻)。

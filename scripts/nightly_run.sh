@@ -106,21 +106,21 @@ fi
 # 9. Watchdog 检查 (会真推飞书, 如果配了)
 run_step "watchdog" python3 -m src.cli watchdog check || true
 
-# 9b. Claude Opus 简报 (云端走 API): 仅在配了 ANTHROPIC_API_KEY 时生成, 失败不阻塞。
+# 9b. AI 简报 (云端走 API, 多 provider): 配了 GEMINI/GROQ(免费) 或 ANTHROPIC(付费) 任一 key 即生成。
 #     生成的简报会被下一步 push-feishu 的卡片自动带上 (latest_brief), 早会卡片从规则版升级成 AI 版。
-if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+if [ -n "${GEMINI_API_KEY:-}${GROQ_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]; then
   run_step "llm-brief" python3 -c "
 import sys; sys.path.insert(0, '.')
 from src.llm_brief import generate_brief, save_brief
 b = generate_brief()
 if b.get('ok'):
     save_brief(b)
-    print('Opus 简报已保存, out tokens =', b.get('usage', {}).get('output_tokens'))
+    print('AI 简报已保存 (%s), out tokens = %s' % (b.get('usage', {}).get('provider'), b.get('usage', {}).get('output_tokens')))
 else:
-    print('Opus 简报跳过:', b.get('error'))
+    print('AI 简报跳过:', b.get('error'))
 " || true
 else
-  log "  (未配 ANTHROPIC_API_KEY → 跳过 Opus 简报, 飞书用规则版)"
+  log "  (未配任何 LLM key → 跳过 AI 简报, 飞书用规则版)"
 fi
 
 # 10. 推飞书简报 (合成今天的 daily summary)
