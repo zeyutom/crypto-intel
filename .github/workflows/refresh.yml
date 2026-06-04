@@ -28,7 +28,18 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run data pipeline (no LLM - LLM 由本地 Claude CLI 跑, 见 daily.command)
+        env:
+          # 可选: 在仓库 Settings → Secrets 里配 EGRESS_PROXY_URL = 一个非美区代理
+          # (http://host:port 或 socks5://host:port), 解锁 binance(451)/farside(403)
+          # 等在 GitHub 美区 runner 上被地域封锁的源。未配置时直连, 行为不变。
+          EGRESS_PROXY_URL: ${{ secrets.EGRESS_PROXY_URL }}
         run: |
+          if [ -n "$EGRESS_PROXY_URL" ]; then
+            export HTTPS_PROXY="$EGRESS_PROXY_URL" HTTP_PROXY="$EGRESS_PROXY_URL" ALL_PROXY="$EGRESS_PROXY_URL"
+            echo "▶ 出口代理已启用 (httpx/yfinance 走环境变量代理)"
+          else
+            echo "▶ 未配 EGRESS_PROXY_URL — 直连 (binance/farside 在美区会优雅失败)"
+          fi
           python -m src.cli init
           python -m src.cli all-no-llm
 

@@ -63,3 +63,31 @@ GitHub runner 是美国 IP,`binance`/`farside` 仍会被挡。三选一:
 - VPS ~$5/月(可选,但最干净)。
 - Turso / Supabase / Neon / R2 都有够用的免费档。
 - 代理:自建在 VPS 上即可(和 Tier 1-B 合并),或用便宜的住宅/机房代理。
+
+## 五、启用云端出口代理(操作步骤,配合 refresh.yml / nightly.yml)
+
+两个 workflow 已支持**可选**出口代理:配了 `EGRESS_PROXY_URL` secret 就走代理,没配就直连(行为不变)。代码侧全部 httpx + `trust_env=True`,设环境变量即生效,无需改 adapter。
+
+> ⚠️ 前提:代理必须是 GitHub 云端能访问的**公网地址**——你本地的 `127.0.0.1:15236` 在云端 runner 上无效。
+
+### 方案 1 · 非美区小 VPS 自建代理(推荐,~$5/月)
+1. 在新加坡/东京/香港开一台便宜 VPS。
+2. 装个轻量代理(务必加鉴权):
+   ```bash
+   sudo apt install tinyproxy          # HTTP 代理, 最简单
+   # /etc/tinyproxy/tinyproxy.conf: Port 8888 + BasicAuth user pass (强烈建议)
+   sudo systemctl restart tinyproxy
+   ```
+   或 `gost` / `3proxy` / `dante`(SOCKS5)。
+3. GitHub 仓库 → Settings → Secrets and variables → Actions → New repository secret:
+   - Name: `EGRESS_PROXY_URL`
+   - Value: `http://user:pass@你的VPS_IP:8888`(或 `socks5://user:pass@IP:port`)
+4. Actions 页手动 Run workflow 验证:日志出现「出口代理已启用」,且 binance/farside 不再失败。
+
+### 方案 2 · 商业代理
+买个支持 HTTP/SOCKS 的机房/住宅代理,把 `http://user:pass@host:port` 填进 `EGRESS_PROXY_URL`。最省事,有月费。
+
+### 方案 3 · 非美区 self-hosted runner(彻底,但要保活一台机器)
+非美区 VPS 注册成 GitHub self-hosted runner,workflow 里 `runs-on: ubuntu-latest` → `runs-on: self-hosted`。整个 job 从非美区出口,连代理都不用配。
+
+> 🔒 代理一定要加鉴权(账号密码/IP 白名单),否则公网开放代理会被薅。`EGRESS_PROXY_URL` 当密码管,别进代码。

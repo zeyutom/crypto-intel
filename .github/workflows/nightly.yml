@@ -41,7 +41,15 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run nightly pipeline
-        run: bash scripts/nightly_run.sh
+        env:
+          # 可选出口代理 (同 refresh.yml): 解锁美区被封的数据源 (binance/farside…)
+          EGRESS_PROXY_URL: ${{ secrets.EGRESS_PROXY_URL }}
+        run: |
+          if [ -n "$EGRESS_PROXY_URL" ]; then
+            export HTTPS_PROXY="$EGRESS_PROXY_URL" HTTP_PROXY="$EGRESS_PROXY_URL" ALL_PROXY="$EGRESS_PROXY_URL"
+            echo "▶ 出口代理已启用"
+          fi
+          bash scripts/nightly_run.sh
         continue-on-error: true   # 单步失败不阻塞整个 workflow
 
       - name: Show today's log tail
