@@ -101,7 +101,8 @@ GitHub runner 是美国 IP,`binance`/`farside` 仍会被挡。三选一:
 ### 选项 A · Google Gemini(推荐,免费档很大)
 1. https://aistudio.google.com/apikey → Create API key(免费,Google 账号即可)。
 2. GitHub 仓库 → Settings → Secrets → New secret:Name `GEMINI_API_KEY`,Value 粘 key。
-3. 默认模型 `gemini-2.0-flash`;想换设仓库变量 `GEMINI_MODEL`。日跑一份简报绰绰有余。
+3. 默认模型 `gemini-2.5-flash`(实测免费档有 quota;`2.0-flash` 无免费 quota 会 429)。
+   代码已对 2.5 的 thinking 模型关掉思考预算(`thinkingBudget:0`),否则正文会被截断。想换设变量 `GEMINI_MODEL`。
 
 ### 选项 B · Groq(免费,极快,Llama 3.3 70B)
 1. https://console.groq.com/keys → Create API Key(免费)。

@@ -188,18 +188,27 @@ def _pick_provider() -> str:
 def _call_gemini(system: str, user: str, max_tokens: int) -> tuple[str, dict]:
     """Google Gemini (免费档, REST, 无需额外依赖)。"""
     key = os.getenv("GEMINI_API_KEY", "")
-    model = os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
            f"{model}:generateContent?key={key}")
     body = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
-        "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.4},
+        "generationConfig": {
+            "maxOutputTokens": max_tokens, "temperature": 0.4,
+            # 2.5-flash 是 thinking 模型: 关掉思考预算, 把全部输出额度留给正文
+            # (否则 thinking 吃掉额度, 正文被截断成几十字)
+            "thinkingConfig": {"thinkingBudget": 0},
+        },
     }
     r = httpx.post(url, json=body, timeout=120)
     r.raise_for_status()
     data = r.json()
-    text = data["candidates"][0]["content"]["parts"][0]["text"]
+    cands = data.get("candidates") or []
+    if not cands:
+        raise RuntimeError(f"Gemini 无候选返回 (可能被安全过滤): {str(data)[:160]}")
+    parts = ((cands[0].get("content") or {}).get("parts")) or []
+    text = "".join(p.get("text", "") for p in parts)
     um = data.get("usageMetadata", {})
     return text, {"input_tokens": um.get("promptTokenCount"),
                   "output_tokens": um.get("candidatesTokenCount"),
