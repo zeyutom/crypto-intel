@@ -188,6 +188,52 @@ def _sign(timestamp: str, secret: str) -> str:
     return base64.b64encode(hmac_code).decode("utf-8")
 
 
+def _build_scorecard(r: dict) -> tuple:
+    """从 verify_returns 结果构造飞书卡片 (title, lines, color)。纯函数, 可单测。"""
+    s = r.get("stats", {})
+    avg = s.get("avg_return", 0) or 0
+    color = "green" if avg > 0 else "red"
+    arrow = "📈" if avg > 0 else "📉"
+
+    def pct(x):
+        return f"{(x or 0) * 100:+.2f}%"
+
+    lines = [
+        f"**复盘窗口**: {r.get('snapshot_date')} → 至今 (~{r.get('lookback_days', 7)}天) · "
+        f"匹配 {r.get('matched_coins')} 币",
+        "",
+        f"{arrow} 平均收益 **{pct(avg)}** · 中位 {pct(s.get('median_return'))} · "
+        f"胜率 **{(s.get('win_rate', 0) or 0) * 100:.0f}%**",
+    ]
+    if r.get("vs_btc") is not None:
+        vb = r["vs_btc"]
+        lines.append(f"{'🟢' if vb > 0 else '🔴'} vs BTC 超额: **{pct(vb)}**")
+    coins = r.get("coins", [])
+    if coins:
+        lines.append("")
+        lines.append("**🏆 表现最好**")
+        for c in coins[:3]:
+            lines.append(f"🟢 {c['symbol']} {pct(c.get('return_pct'))}")
+        lines.append("**💧 表现最差**")
+        for c in coins[-3:][::-1]:
+            lines.append(f"🔴 {c['symbol']} {pct(c.get('return_pct'))}")
+    title = f"📋 每周复盘记分卡 · 近{r.get('lookback_days', 7)}天 Top-N 实盘"
+    return title, lines, color
+
+
+def push_returns_scorecard(lookback_days: int = 7) -> dict:
+    """每周复盘记分卡: verify_returns → 飞书卡片。纯 quant, 零外部账号。"""
+    r = verify_returns(lookback_days=lookback_days)
+    if not r.get("ok"):
+        return {"ok": False, "error": r.get("error"), "pushed": 0}
+    title, lines, color = _build_scorecard(r)
+    from ..notifier import push_alert
+    push = push_alert(title, lines, color=color)
+    return {"ok": push.get("ok", False), "pushed": push.get("pushed", 0),
+            "stats": r.get("stats"), "matched": r.get("matched_coins"),
+            "error": push.get("error")}
+
+
 def push_screen_to_feishu(result: dict) -> dict:
     """把筛选结果推送到飞书群 (Interactive Card)。"""
     import httpx

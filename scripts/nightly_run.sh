@@ -99,8 +99,9 @@ run_step "discover-alpha" python3 -m src.cli discover-alpha || true
 # 8. weekly-review (仅周日)
 DOW=$(date +%u)   # 1=Mon, 7=Sun
 if [ "$DOW" = "7" ]; then
-  log "今天是周日 → 跑 weekly-review"
+  log "今天是周日 → 跑 weekly-review + 复盘记分卡"
   run_step "weekly-review" python3 -m src.cli weekly-review || true
+  run_step "scorecard"     python3 -m src.cli scorecard 7 || true
 fi
 
 # 9. Watchdog 检查 (会真推飞书, 如果配了)

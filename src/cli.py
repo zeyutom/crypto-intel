@@ -273,6 +273,24 @@ def main() -> None:
                               f"[{rc}]{ret:+.2%}[/]")
         else:
             console.print(f"[yellow]{result.get('error')}[/]")
+    elif cmd == "scorecard":
+        from .research.returns_tracker import push_returns_scorecard
+        days = 7
+        if len(sys.argv) > 2:
+            try:
+                days = int(sys.argv[2])
+            except ValueError:
+                pass
+        console.print(f"[bold cyan]📋 每周复盘记分卡 (近 {days} 天 Top-N 实盘表现 → 飞书)[/]")
+        r = push_returns_scorecard(lookback_days=days)
+        if r.get("ok"):
+            console.print(f"[green]✓ 已推送 ({r.get('pushed')} 群)[/]")
+        elif r.get("stats"):
+            console.print(f"[yellow]复盘完成但未推送: {r.get('error')}[/]")
+        else:
+            console.print(f"[red]✗ {r.get('error')}[/]")
+        if r.get("stats"):
+            console.print_json(data=r["stats"])
     elif cmd == "meta-report":
         from .research.meta_learner import generate_factor_report, load_factor_config
         console.print("[bold cyan]📈 因子池健康报告[/]")
