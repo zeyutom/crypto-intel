@@ -70,8 +70,8 @@ log "═══ Nightly Run · $DATE ═══"
 # 0. 健康检查 (失败不阻塞)
 run_step "api-health" python3 -m src.cli api-health --no-cg || true
 
-# 1. backfill 增量 (拿最新 7 天补齐, 用缓存避免每次拉 60 天)
-run_step "backfill-incremental" python3 scripts/backfill_snapshots.py --days 7 --top 30 || true
+# 1. 数据自愈: 快照缺口检测 + 自动 backfill (≤14d 合成补齐) + 核心源掉线告警 → 飞书
+run_step "data-quality" python3 -m src.cli data-quality || true
 
 # 2-4. 主 pipeline
 run_step "init-db"  python3 -m src.cli init || true

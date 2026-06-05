@@ -291,6 +291,25 @@ def main() -> None:
             console.print(f"[red]✗ {r.get('error')}[/]")
         if r.get("stats"):
             console.print_json(data=r["stats"])
+    elif cmd == "data-quality":
+        from .research.data_quality import run_data_quality
+        no_push = "--no-push" in sys.argv
+        no_backfill = "--no-backfill" in sys.argv
+        console.print("[bold cyan]🩺 数据自愈 (快照缺口检测 + backfill + 核心源掉线告警)[/]")
+        r = run_data_quality(push=not no_push, backfill=not no_backfill)
+        console.print(f"快照缺口: {len(r['gaps_before'])} → {len(r['gaps_after'])} (backfill 后)")
+        if r["recent_gaps"]:
+            console.print(f"[yellow]近 2 天缺口: {r['recent_gaps']} (云端可能漏跑)[/]")
+        if r["dry_sources"]:
+            console.print("[red]可能掉线的核心源:[/]")
+            for d in r["dry_sources"]:
+                console.print(f"  • {d['source']}: 最近 {d['last_ts']} ({d['age_days']}d 前)")
+        else:
+            console.print("[green]✓ 核心数据源都新鲜[/]")
+        if r["alerted"]:
+            console.print("[green]✓ 已推飞书告警[/]")
+        elif r["alert_lines"]:
+            console.print("[yellow](有告警但未推送/未配飞书)[/]")
     elif cmd == "meta-report":
         from .research.meta_learner import generate_factor_report, load_factor_config
         console.print("[bold cyan]📈 因子池健康报告[/]")
