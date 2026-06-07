@@ -1,0 +1,207 @@
+{
+  "ok": true,
+  "snapshot_date": "2026-05-31",
+  "lookback_days": 7,
+  "matched_coins": 27,
+  "stats": {
+    "avg_return": -0.2171,
+    "median_return": -0.2105,
+    "win_rate": 0.0,
+    "best_coin": "TRX",
+    "best_return": -0.055,
+    "worst_coin": "ADA",
+    "worst_return": -0.3346
+  },
+  "vs_btc": -0.0427,
+  "coins": [
+    {
+      "symbol": "TRX",
+      "old_price": 0.3421162118653729,
+      "new_price": 0.323309,
+      "return_pct": -0.055,
+      "composite_score": -0.01
+    },
+    {
+      "symbol": "BNB",
+      "old_price": 663.4621597703373,
+      "new_price": 573.42,
+      "return_pct": -0.1357,
+      "composite_score": 0.0653
+    },
+    {
+      "symbol": "BTC",
+      "old_price": 73485.83188450629,
+      "new_price": 60670,
+      "return_pct": -0.1744,
+      "composite_score": -0.0156
+    },
+    {
+      "symbol": "XLM",
+      "old_price": 0.25821616142779386,
+      "new_price": 0.212044,
+      "return_pct": -0.1788,
+      "composite_score": 0.5841
+    },
+    {
+      "symbol": "ETC",
+      "old_price": 8.262894052306187,
+      "new_price": 6.77,
+      "return_pct": -0.1807,
+      "composite_score": -0.0296
+    },
+    {
+      "symbol": "HBAR",
+      "old_price": 0.0974279804275331,
+      "new_price": 0.079617,
+      "return_pct": -0.1828,
+      "composite_score": 0.1726
+    },
+    {
+      "symbol": "XRP",
+      "old_price": 1.3435686017604511,
+      "new_price": 1.088,
+      "return_pct": -0.1902,
+      "composite_score": 0.0338
+    },
+    {
+      "symbol": "DOGE",
+      "old_price": 0.10103928008629867,
+      "new_price": 0.081451,
+      "return_pct": -0.1939,
+      "composite_score": 0.0072
+    },
+    {
+      "symbol": "LINK",
+      "old_price": 9.151445287958717,
+      "new_price": 7.36,
+      "return_pct": -0.1958,
+      "composite_score": 0.0161
+    },
+    {
+      "symbol": "ATOM",
+      "old_price": 2.022609523887135,
+      "new_price": 1.62,
+      "return_pct": -0.1991,
+      "composite_score": 0.0173
+    },
+    {
+      "symbol": "UNI",
+      "old_price": 3.0473465000398274,
+      "new_price": 2.44,
+      "return_pct": -0.1993,
+      "composite_score": -0.0522
+    },
+    {
+      "symbol": "NEAR",
+      "old_price": 2.336381240359432,
+      "new_price": 1.86,
+      "return_pct": -0.2039,
+      "composite_score": 0.5042
+    },
+    {
+      "symbol": "LDO",
+      "old_price": 0.32237063910370967,
+      "new_price": 0.255434,
+      "return_pct": -0.2076,
+      "composite_score": -0.0481
+    },
+    {
+      "symbol": "SUI",
+      "old_price": 0.9031130940851401,
+      "new_price": 0.712995,
+      "return_pct": -0.2105,
+      "composite_score": -0.0562
+    },
+    {
+      "symbol": "LTC",
+      "old_price": 52.306109789122885,
+      "new_price": 41.07,
+      "return_pct": -0.2148,
+      "composite_score": -0.0017
+    },
+    {
+      "symbol": "DOT",
+      "old_price": 1.2011316154601237,
+      "new_price": 0.937456,
+      "return_pct": -0.2195,
+      "composite_score": 0.0269
+    },
+    {
+      "symbol": "ETH",
+      "old_price": 2013.1373415272537,
+      "new_price": 1560.79,
+      "return_pct": -0.2247,
+      "composite_score": -0.0296
+    },
+    {
+      "symbol": "OP",
+      "old_price": 0.12134177244422122,
+      "new_price": 0.092727,
+      "return_pct": -0.2358,
+      "composite_score": 0.0359
+    },
+    {
+      "symbol": "ARB",
+      "old_price": 0.1050087133318069,
+      "new_price": 0.079269,
+      "return_pct": -0.2451,
+      "composite_score": -0.0355
+    },
+    {
+      "symbol": "INJ",
+      "old_price": 6.812297046214256,
+      "new_price": 5.12,
+      "return_pct": -0.2484,
+      "composite_score": 0.7438
+    },
+    {
+      "symbol": "SOL",
+      "old_price": 82.42189061057117,
+      "new_price": 61.79,
+      "return_pct": -0.2503,
+      "composite_score": 0.012
+    },
+    {
+      "symbol": "AVAX",
+      "old_price": 8.917897998658049,
+      "new_price": 6.64,
+      "return_pct": -0.2554,
+      "composite_score": 0.0026
+    },
+    {
+      "symbol": "FIL",
+      "old_price": 0.9860423206587213,
+      "new_price": 0.726239,
+      "return_pct": -0.2635,
+      "composite_score": 0.115
+    },
+    {
+      "symbol": "AAVE",
+      "old_price": 82.73411285527304,
+      "new_price": 60.39,
+      "return_pct": -0.2701,
+      "composite_score": 0.0
+    },
+    {
+      "symbol": "BCH",
+      "old_price": 301.199954137339,
+      "new_price": 216.37,
+      "return_pct": -0.2816,
+      "composite_score": -0.2196
+    },
+    {
+      "symbol": "APT",
+      "old_price": 0.9441919486447224,
+      "new_price": 0.65232,
+      "return_pct": -0.3091,
+      "composite_score": 0.0241
+    },
+    {
+      "symbol": "ADA",
+      "old_price": 0.2350784171059176,
+      "new_price": 0.156422,
+      "return_pct": -0.3346,
+      "composite_score": 0.0001
+    }
+  ]
+}
