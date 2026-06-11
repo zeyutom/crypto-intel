@@ -22,22 +22,19 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: crypto-intel/requirements.txt
+          cache-dependency-path: requirements.txt
 
       - name: Install deps
-        working-directory: crypto-intel
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install pytest pytest-cov ruff
 
       - name: Lint (ruff, non-blocking)
-        working-directory: crypto-intel
         run: |
           ruff check src tests scripts --output-format=github || true
 
       - name: Run pytest (offline tests only)
-        working-directory: crypto-intel
         env:
           CRYPTO_INTEL_USE_BERT: "0"   # 加速 + 避免下载 BERT 模型
         run: |
@@ -46,11 +43,11 @@ jobs:
                           tests/test_backtest_router.py \
                           tests/test_rd_agent.py \
                           tests/test_http_client.py \
+                          tests/test_meta_learner.py \
                           tests/test_smoke.py \
                           -v --tb=short -p no:cacheprovider
 
       - name: Smoke test (OSS 集成)
-        working-directory: crypto-intel
         env:
           CRYPTO_INTEL_USE_BERT: "0"
         run: |
@@ -69,7 +66,6 @@ jobs:
           python-version: "3.11"
 
       - name: Validate config + db init
-        working-directory: crypto-intel
         run: |
           pip install -r requirements.txt -q
           python -m src.cli init
