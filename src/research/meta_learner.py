@@ -146,7 +146,13 @@ def _spearman_rank_corr(x: list[float], y: list[float]) -> float:
 
     使用平均秩处理并列值 (tie-aware), 并对零方差 (常数列) 返回 0.0,
     因为常数因子无预测信息 (Spearman 在此情形下未定义)。
+
+    含 None 的配对 (如回填快照缺因子值) 成对剔除后再计算。
     """
+    pairs = [(a, b) for a, b in zip(x, y) if a is not None and b is not None]
+    if len(pairs) != len(x):
+        x = [a for a, _ in pairs]
+        y = [b for _, b in pairs]
     n = len(x)
     if n < 5:
         return 0.0
@@ -249,6 +255,9 @@ def run_ic_backtest(lookback_days: int = 7) -> dict:
             if old_price > 0 and new_price > 0:
                 ret = (new_price - old_price) / old_price
                 fval = coin.get(fname, 0)
+                # 回填的合成快照里缺失因子是 null → 跳过, 不参与 IC
+                if not isinstance(fval, (int, float)):
+                    continue
                 factor_vals.append(fval)
                 returns.append(ret)
 

@@ -1,11 +1,11 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-06-04T02:58:38.890856+00:00",
+  "updated": "2026-06-11T09:39:32.489851+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.1096,
+      "weight": 0.1098,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -33,11 +33,16 @@
           "date": "2026-06-01",
           "ic": 0.1313,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-11",
+          "ic": -0.1853,
+          "lookback": 7
         }
       ]
     },
     "momentum_7d": {
-      "weight": 0.0998,
+      "weight": 0.0958,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -65,11 +70,16 @@
           "date": "2026-06-01",
           "ic": 0.0438,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-11",
+          "ic": -0.3912,
+          "lookback": 7
         }
       ]
     },
     "ath_drawdown": {
-      "weight": 0.1102,
+      "weight": 0.1128,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -97,11 +107,16 @@
           "date": "2026-06-01",
           "ic": 0.004,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-11",
+          "ic": 0.0824,
+          "lookback": 7
         }
       ]
     },
     "volume_turnover": {
-      "weight": 0.0928,
+      "weight": 0.093,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -133,7 +148,7 @@
       ]
     },
     "tvl_mcap": {
-      "weight": 0.0834,
+      "weight": 0.0836,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -165,7 +180,7 @@
       ]
     },
     "market_cap_size": {
-      "weight": 0.1035,
+      "weight": 0.1037,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -197,7 +212,7 @@
       ]
     },
     "onchain_activity": {
-      "weight": 0.0963,
+      "weight": 0.0965,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -229,7 +244,7 @@
       ]
     },
     "dev_activity": {
-      "weight": 0.0973,
+      "weight": 0.0975,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -261,7 +276,7 @@
       ]
     },
     "funding_rate": {
-      "weight": 0.1035,
+      "weight": 0.1037,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -293,7 +308,7 @@
       ]
     },
     "narrative_heat": {
-      "weight": 0.1035,
+      "weight": 0.1037,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
