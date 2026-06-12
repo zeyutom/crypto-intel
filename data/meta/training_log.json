@@ -1,0 +1,22 @@
+[
+  {
+    "date": "2026-06-12",
+    "n_snapshots": 126,
+    "steps": [
+      {
+        "name": "ic_update",
+        "lookback": 7,
+        "factors_updated": 8
+      },
+      {
+        "name": "alpha_evolution",
+        "generated": 20,
+        "promoted": 0,
+        "retired": 0,
+        "pool_size": 83
+      }
+    ],
+    "timestamp": "2026-06-11T22:27:26.464501+00:00",
+    "steps_run": 2
+  }
+]
