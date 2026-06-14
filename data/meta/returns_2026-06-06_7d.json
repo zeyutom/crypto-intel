@@ -1,0 +1,214 @@
+{
+  "ok": true,
+  "snapshot_date": "2026-06-06",
+  "lookback_days": 7,
+  "matched_coins": 28,
+  "stats": {
+    "avg_return": 0.1339,
+    "median_return": 0.0827,
+    "win_rate": 0.57,
+    "best_coin": "BEAT",
+    "best_return": 2.0132,
+    "worst_coin": "SAHARA",
+    "worst_return": -0.5287
+  },
+  "vs_btc": null,
+  "coins": [
+    {
+      "symbol": "BEAT",
+      "old_price": 2.27,
+      "new_price": 6.84,
+      "return_pct": 2.0132,
+      "composite_score": 0.3503
+    },
+    {
+      "symbol": "VELVET",
+      "old_price": 0.186983,
+      "new_price": 0.478385,
+      "return_pct": 1.5584,
+      "composite_score": 0.38
+    },
+    {
+      "symbol": "BTW",
+      "old_price": 0.054579,
+      "new_price": 0.096567,
+      "return_pct": 0.7693,
+      "composite_score": 0.4286
+    },
+    {
+      "symbol": "BP",
+      "old_price": 0.223426,
+      "new_price": 0.34961,
+      "return_pct": 0.5648,
+      "composite_score": 0.4473
+    },
+    {
+      "symbol": "TAO",
+      "old_price": 194.05,
+      "new_price": 273.42,
+      "return_pct": 0.409,
+      "composite_score": 0.3282
+    },
+    {
+      "symbol": "WLD",
+      "old_price": 0.410695,
+      "new_price": 0.490958,
+      "return_pct": 0.1954,
+      "composite_score": 0.3264
+    },
+    {
+      "symbol": "NEAR",
+      "old_price": 1.86,
+      "new_price": 2.11,
+      "return_pct": 0.1344,
+      "composite_score": 0.3763
+    },
+    {
+      "symbol": "SLX",
+      "old_price": 0.17217,
+      "new_price": 0.19388,
+      "return_pct": 0.1261,
+      "composite_score": 0.3885
+    },
+    {
+      "symbol": "SOL",
+      "old_price": 61.61,
+      "new_price": 68.48,
+      "return_pct": 0.1115,
+      "composite_score": 0.377
+    },
+    {
+      "symbol": "PENDLE",
+      "old_price": 1.19,
+      "new_price": 1.32,
+      "return_pct": 0.1092,
+      "composite_score": 0.3302
+    },
+    {
+      "symbol": "DRV",
+      "old_price": 0.090718,
+      "new_price": 0.100178,
+      "return_pct": 0.1043,
+      "composite_score": 0.3634
+    },
+    {
+      "symbol": "BAS",
+      "old_price": 0.03063035,
+      "new_price": 0.03367381,
+      "return_pct": 0.0994,
+      "composite_score": 0.3358
+    },
+    {
+      "symbol": "LIT",
+      "old_price": 1.45,
+      "new_price": 1.58,
+      "return_pct": 0.0897,
+      "composite_score": 0.4252
+    },
+    {
+      "symbol": "SUI",
+      "old_price": 0.703942,
+      "new_price": 0.76217,
+      "return_pct": 0.0827,
+      "composite_score": 0.3405
+    },
+    {
+      "symbol": "ASTER",
+      "old_price": 0.620857,
+      "new_price": 0.633513,
+      "return_pct": 0.0204,
+      "composite_score": 0.3845
+    },
+    {
+      "symbol": "DEGEN",
+      "old_price": 0.00151385,
+      "new_price": 0.00153289,
+      "return_pct": 0.0126,
+      "composite_score": 0.3966
+    },
+    {
+      "symbol": "PAXG",
+      "old_price": 4292.71,
+      "new_price": 4224.88,
+      "return_pct": -0.0158,
+      "composite_score": 0.3288
+    },
+    {
+      "symbol": "ENA",
+      "old_price": 0.089199,
+      "new_price": 0.083536,
+      "return_pct": -0.0635,
+      "composite_score": 0.3392
+    },
+    {
+      "symbol": "BABY",
+      "old_price": 0.01598744,
+      "new_price": 0.01485,
+      "return_pct": -0.0711,
+      "composite_score": 0.3899
+    },
+    {
+      "symbol": "XLM",
+      "old_price": 0.202596,
+      "new_price": 0.185468,
+      "return_pct": -0.0845,
+      "composite_score": 0.3986
+    },
+    {
+      "symbol": "FF",
+      "old_price": 0.091557,
+      "new_price": 0.0776,
+      "return_pct": -0.1524,
+      "composite_score": 0.3403
+    },
+    {
+      "symbol": "ALLO",
+      "old_price": 0.442645,
+      "new_price": 0.36781,
+      "return_pct": -0.1691,
+      "composite_score": 0.4403
+    },
+    {
+      "symbol": "APR",
+      "old_price": 0.227315,
+      "new_price": 0.182571,
+      "return_pct": -0.1968,
+      "composite_score": 0.3304
+    },
+    {
+      "symbol": "LAB",
+      "old_price": 12.49,
+      "new_price": 9.42,
+      "return_pct": -0.2458,
+      "composite_score": 0.353
+    },
+    {
+      "symbol": "XP",
+      "old_price": 0.03527682,
+      "new_price": 0.02636501,
+      "return_pct": -0.2526,
+      "composite_score": 0.3241
+    },
+    {
+      "symbol": "H",
+      "old_price": 0.590502,
+      "new_price": 0.33377,
+      "return_pct": -0.4348,
+      "composite_score": 0.3711
+    },
+    {
+      "symbol": "HOME",
+      "old_price": 0.052895,
+      "new_price": 0.02984814,
+      "return_pct": -0.4357,
+      "composite_score": 0.3587
+    },
+    {
+      "symbol": "SAHARA",
+      "old_price": 0.03265175,
+      "new_price": 0.01539025,
+      "return_pct": -0.5287,
+      "composite_score": 0.3257
+    }
+  ]
+}
