@@ -1,11 +1,11 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-06-14T16:42:54.503944+00:00",
+  "updated": "2026-06-14T22:48:34.872792+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.1124,
+      "weight": 0.0972,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -88,11 +88,21 @@
           "date": "2026-06-14",
           "ic": -0.2702,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.2914,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.2538,
+          "lookback": 7
         }
       ]
     },
     "momentum_7d": {
-      "weight": 0.0617,
+      "weight": 0.05,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -175,11 +185,21 @@
           "date": "2026-06-14",
           "ic": -0.2212,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.2863,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.2302,
+          "lookback": 7
         }
       ]
     },
     "ath_drawdown": {
-      "weight": 0.1465,
+      "weight": 0.146,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -262,11 +282,21 @@
           "date": "2026-06-14",
           "ic": -0.106,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.042,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0535,
+          "lookback": 7
         }
       ]
     },
     "volume_turnover": {
-      "weight": 0.0792,
+      "weight": 0.0924,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -344,11 +374,21 @@
           "date": "2026-06-14",
           "ic": 0.3037,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.2423,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.2159,
+          "lookback": 7
         }
       ]
     },
     "tvl_mcap": {
-      "weight": 0.0593,
+      "weight": 0.0667,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -426,11 +466,21 @@
           "date": "2026-06-14",
           "ic": 0.1902,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.201,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.1681,
+          "lookback": 7
         }
       ]
     },
     "market_cap_size": {
-      "weight": 0.1528,
+      "weight": 0.1524,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -508,11 +558,21 @@
           "date": "2026-06-14",
           "ic": 0.0576,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.0574,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.0682,
+          "lookback": 7
         }
       ]
     },
     "onchain_activity": {
-      "weight": 0.0818,
+      "weight": 0.0825,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -590,11 +650,21 @@
           "date": "2026-06-14",
           "ic": -0.0154,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0348,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0304,
+          "lookback": 7
         }
       ]
     },
     "dev_activity": {
-      "weight": 0.0971,
+      "weight": 0.1004,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -672,11 +742,21 @@
           "date": "2026-06-14",
           "ic": 0.0229,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0028,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.0031,
+          "lookback": 7
         }
       ]
     },
     "funding_rate": {
-      "weight": 0.1196,
+      "weight": 0.1238,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -754,11 +834,21 @@
           "date": "2026-06-14",
           "ic": 0.0,
           "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.0,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": 0.0,
+          "lookback": 7
         }
       ]
     },
     "narrative_heat": {
-      "weight": 0.0896,
+      "weight": 0.0886,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -835,6 +925,16 @@
         {
           "date": "2026-06-14",
           "ic": -0.0406,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0529,
+          "lookback": 7
+        },
+        {
+          "date": "2026-06-14",
+          "ic": -0.0656,
           "lookback": 7
         }
       ]
