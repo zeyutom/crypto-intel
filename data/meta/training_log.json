@@ -98,5 +98,25 @@
     ],
     "timestamp": "2026-06-15T20:37:58.023090+00:00",
     "steps_run": 2
+  },
+  {
+    "date": "2026-06-17",
+    "n_snapshots": 137,
+    "steps": [
+      {
+        "name": "ic_update",
+        "lookback": 7,
+        "factors_updated": 8
+      },
+      {
+        "name": "alpha_evolution",
+        "generated": 20,
+        "promoted": 0,
+        "retired": 1,
+        "pool_size": 190
+      }
+    ],
+    "timestamp": "2026-06-16T23:49:44.392502+00:00",
+    "steps_run": 2
   }
 ]
