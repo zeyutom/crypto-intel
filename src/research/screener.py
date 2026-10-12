@@ -16,12 +16,15 @@ from __future__ import annotations
 import json
 import time
 import math
-from datetime import datetime, timezone
+import inspect
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from ..utils import setup_logger
 
 log = setup_logger("screener", "INFO")
 DATA_DIR = Path(__file__).resolve().parents[2] / "data" / "research"
+# 快照目录 (与 meta_learner.META_DIR 一致, 单独定义便于测试 monkeypatch)
+META_DIR = Path(__file__).resolve().parents[2] / "data" / "meta"
 
 # ── 稳定币列表 (排除) ──
 STABLECOINS = {
@@ -29,7 +32,41 @@ STABLECOINS = {
     "PYUSD", "GUSD", "USDP", "FRAX", "LUSD", "CRVUSD", "EURC",
     "USDS", "USD0", "SUSD", "MIM", "USDJ", "DOLA", "EURS",
     "ALUSD", "GHO", "CUSD", "HAY", "USDX",
+    # 2026-10 回测审计: 下列稳定币曾长期混入 Top-30
+    "USDG", "JUPUSD", "XUSD", "USAT", "USD1", "RLUSD", "BUIDL", "USDTB",
+    "USDF", "USDY", "USDO", "SYRUPUSDC", "USDAI", "AUSD", "USDB", "USR",
+    "FXUSD", "DEUSD", "MUSD", "RUSD", "USDL", "ZUSD", "EUSD", "USYC",
+    "OUSG", "USTB", "CUSDO",
 }
+
+# ── 非加密资产 (排除): 代币化股票/ETF、黄金等商品 ──
+NON_CRYPTO_ASSETS = {
+    # 代币化股票 / ETF (xStocks, Backed 等)
+    "SPCXB", "SNDKB", "CRCLX", "CRCLB", "TSLAX", "NVDAX", "AAPLX", "SPYX",
+    "MSTRX", "COINX", "GOOGLX", "AMZNX", "METAX", "QQQX", "HOODX",
+    # 黄金 / 商品
+    "PAXG", "XAUT", "KAU", "KAG", "XAUM",
+}
+# 代币化股票 symbol 通常以 X/B 结尾, CoinGecko id 含这些关键词
+_TOKENIZED_ID_HINTS = ("xstock", "backed", "tokenized")
+
+# ── Wrapped / LST 代币 (排除): 价格完全跟随底层资产, 无独立 alpha ──
+WRAPPED_LST = {
+    "WBTC", "WETH", "STETH", "WSTETH", "WEETH", "EETH", "CBBTC", "CBETH",
+    "RETH", "METH", "EZETH", "RSETH", "SOLVBTC", "LBTC", "TBTC", "BTCB",
+    "JITOSOL", "MSOL", "BNSOL", "JUPSOL", "WBNB", "WBETH", "SFRXETH",
+    "FRXETH", "OSETH", "PUFETH", "SWETH", "ANKRETH", "FBTC", "CLBTC",
+    "UNIBTC", "PUMPBTC", "WHYPE", "KHYPE", "STHYPE", "LSETH", "RSWETH",
+    "EBTC", "STBTC", "CMETH", "SUPEROETHB", "WOETH", "SLISBNB", "ASBNB",
+    "BSOL", "HSOL", "JSOL", "DSOL", "VSOL", "SAVAX",
+}
+
+# 冻结报价判定: 当前价与最近 N 个真实快照完全相同
+FROZEN_SNAPSHOTS = 3
+# 真实快照门槛: 回填的合成快照 (_meta.synthetic) 只有 ~18 个币
+REAL_SNAPSHOT_MIN_COINS = 100
+# CoinGecko last_updated 超过此时长视为陈旧报价
+STALE_QUOTE_HOURS = 24
 
 # ── 链名 → 代币映射 (用于匹配 DeFiLlama chain TVL) ──
 CHAIN_TO_TOKEN = {
@@ -159,6 +196,133 @@ def fetch_binance_volumes() -> dict[str, float]:
 
 
 # ====================================================================
+#  排除规则 (稳定币 / wrapped / 非加密资产 / 冻结或陈旧报价)
+# ====================================================================
+
+def load_recent_snapshot_prices(n: int = FROZEN_SNAPSHOTS,
+                                min_coins: int = REAL_SNAPSHOT_MIN_COINS
+                                ) -> dict[str, list[tuple[float, float | None]]]:
+    """读取最近 n 个真实快照的 (价格, 市值): {SYMBOL: [(price, mcap)_latest, ...]}。
+
+    同时带上市值: CoinGecko 对 >= $1 的价格只给 2 位小数, 单看价格会把
+    慢涨慢跌的真币 (如 LPT 连续 3 天 1.79) 误判为冻结, 市值 (price x 供应量,
+    整数精度) 才能区分 "报价冻结" 和 "价格四舍五入后碰巧相同"。
+    跳过回填的合成快照 (_meta.synthetic 或币数 < min_coins); 同一快照内重复
+    symbol 只取第一条, 保证每个快照最多贡献一条记录。
+    目录缺失 / 文件损坏一律容忍, 返回能读到的部分。
+    """
+    prices: dict[str, list[tuple[float, float | None]]] = {}
+    try:
+        files = sorted(META_DIR.glob("snapshot_*.json"), reverse=True)
+    except OSError:
+        return prices
+    found = 0
+    for f in files:
+        if found >= n:
+            break
+        try:
+            snap = json.loads(f.read_text(encoding="utf-8"))
+        except Exception:
+            continue
+        coins = snap.get("coins") or []
+        if (snap.get("_meta") or {}).get("synthetic") or len(coins) < min_coins:
+            continue
+        found += 1
+        seen: set[str] = set()
+        for c in coins:
+            sym = c.get("symbol")
+            p = c.get("price")
+            if not sym or sym in seen or not isinstance(p, (int, float)):
+                continue
+            seen.add(sym)
+            m = c.get("market_cap")
+            prices.setdefault(sym, []).append(
+                (p, m if isinstance(m, (int, float)) else None))
+    return prices
+
+
+def _is_frozen_quote(price: float, mcap: float, chg_24h,
+                     hist: list[tuple[float, float | None]]) -> bool:
+    """价格与市值都和最近 FROZEN_SNAPSHOTS 个真实快照完全一致, 且 24h 涨跌为 0。
+
+    三个条件缺一不可: 只比价格会被 2 位小数四舍五入撞车 (LPT 案例);
+    冻结报价 (REUR 案例) 的 24h 涨跌恒为 0、市值分毫不动。
+    历史里市值缺失时无法确认, 宁可放过。
+    """
+    if len(hist) < FROZEN_SNAPSHOTS or price <= 0 or mcap <= 0:
+        return False
+    if chg_24h is not None and not math.isclose(chg_24h, 0.0, abs_tol=1e-9):
+        return False
+    for p, m in hist:
+        if m is None:
+            return False
+        if not (math.isclose(p, price, rel_tol=1e-9)
+                and math.isclose(m, mcap, rel_tol=1e-9)):
+            return False
+    return True
+
+
+def _is_stale_quote(last_updated, now: datetime) -> bool:
+    """CoinGecko last_updated (ISO, 'Z' 结尾) 距 now 超过 STALE_QUOTE_HOURS。
+    字段缺失或无法解析时不判定为陈旧 (宁可放过)。"""
+    if not last_updated or not isinstance(last_updated, str):
+        return False
+    try:
+        ts = datetime.fromisoformat(last_updated.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=timezone.utc)
+    return now - ts > timedelta(hours=STALE_QUOTE_HOURS)
+
+
+def is_excluded(c: dict,
+                prior_prices: dict[str, list[tuple[float, float | None]]] | None = None,
+                now: datetime | None = None) -> str | None:
+    """判断 CoinGecko 代币是否应排除, 返回原因类别或 None。
+
+    类别: "stable" / "wrapped" / "non_crypto" / "frozen" / "stale"
+    (市值 < $1M、价格 <= 0 的基础过滤仍在 score_coins 里, 不计入这里)。
+
+    2026-10 回测审计: REUR 价格 74 个快照纹丝不动、代币化股票、黄金和
+    二十余个未登记稳定币污染 Top-30 达 87 天, 故新增 (c)(d)(e) 三类规则。
+    """
+    sym = (c.get("symbol") or "").upper()
+    cid = (c.get("id") or "").lower()
+    price = c.get("current_price") or 0
+    chg_30d = c.get("price_change_percentage_30d_in_currency") or 0
+    chg_7d = c.get("price_change_percentage_7d_in_currency") or 0
+
+    # (a) 稳定币名单
+    if sym in STABLECOINS:
+        return "stable"
+    # (b) 代币化股票 / ETF / 黄金
+    if sym in NON_CRYPTO_ASSETS:
+        return "non_crypto"
+    if sym[-1:] in ("X", "B") and any(h in cid for h in _TOKENIZED_ID_HINTS):
+        return "non_crypto"
+    # (e) wrapped / LST: 名单 + 原有 W/S 前缀启发式
+    if sym in WRAPPED_LST:
+        return "wrapped"
+    if len(sym) > 2 and sym[0] in ("W", "S") and sym[1:] in ("ETH", "SOL", "BTC", "MATIC", "AVAX"):
+        return "wrapped"
+    # (c) 锚定启发式: 价格贴着 $1 且 7d/30d 几乎不动
+    # (7d/30d 缺失按 0 处理: 刚上线、贴着 $1 又没有历史的币同样当稳定币排除,
+    #  新币本身也没有可打分的动量)
+    if 0.98 <= price <= 1.02 and abs(chg_30d) < 3 and abs(chg_7d) < 2:
+        return "stable"
+    # (d1) CoinGecko 报价陈旧
+    if _is_stale_quote(c.get("last_updated"), now or datetime.now(timezone.utc)):
+        return "stale"
+    # (d2) 冻结报价: 价格+市值与最近 FROZEN_SNAPSHOTS 个真实快照一致且 24h 涨跌为 0
+    if prior_prices and _is_frozen_quote(price, c.get("market_cap") or 0,
+                                         c.get("price_change_percentage_24h"),
+                                         prior_prices.get(sym) or []):
+        return "frozen"
+    return None
+
+
+# ====================================================================
 #  多因子打分
 # ====================================================================
 
@@ -169,8 +333,14 @@ def score_coins(coins: list[dict],
                 onchain_data: dict[str, dict] = None,
                 funding_rates: dict[str, float] = None,
                 weights: dict[str, float] = None,
-                real_onchain: dict = None) -> list[dict]:
+                real_onchain: dict = None,
+                prior_prices: dict[str, list[tuple[float, float | None]]] = None,
+                exclusion_stats: dict[str, int] = None) -> list[dict]:
     """10 因子量化打分 (元学习动态权重)。
+
+    prior_prices: load_recent_snapshot_prices() 的结果, 用于冻结报价判定。
+    exclusion_stats: 可选 dict, 原地写入各类排除计数
+      {"stable": n, "wrapped": n, "non_crypto": n, "frozen": n, "stale": n}。
 
     因子:
       1. momentum_30d     — 中期趋势 sigmoid
@@ -204,6 +374,9 @@ def score_coins(coins: list[dict],
             "funding_rate": 0.07, "narrative_heat": 0.08,
         }
 
+    excluded = {"stable": 0, "wrapped": 0, "non_crypto": 0, "frozen": 0, "stale": 0}
+    now = datetime.now(timezone.utc)
+
     scored = []
     for c in coins:
         sym = (c.get("symbol") or "").upper()
@@ -214,9 +387,9 @@ def score_coins(coins: list[dict],
         # 过滤
         if mcap < 1_000_000 or price <= 0:
             continue
-        if sym in STABLECOINS:
-            continue
-        if len(sym) > 2 and sym[0] in ("W", "S") and sym[1:] in ("ETH", "SOL", "BTC", "MATIC", "AVAX"):
+        reason = is_excluded(c, prior_prices, now)
+        if reason:
+            excluded[reason] = excluded.get(reason, 0) + 1
             continue
 
         chg_30d = c.get("price_change_percentage_30d_in_currency") or 0
@@ -320,6 +493,7 @@ def score_coins(coins: list[dict],
             "symbol": sym,
             "name": c.get("name", ""),
             "coin_id": c.get("id", ""),
+            "last_updated": c.get("last_updated"),
             "price": price,
             "market_cap": mcap,
             "volume_24h": total_vol,
@@ -347,6 +521,9 @@ def score_coins(coins: list[dict],
         })
 
     scored.sort(key=lambda x: x["composite_score"], reverse=True)
+    log.info(f"  排除: {excluded}")
+    if exclusion_stats is not None:
+        exclusion_stats.update(excluded)
     return scored
 
 
@@ -356,7 +533,10 @@ def score_coins(coins: list[dict],
 
 def run_screen(top_n: int = 30) -> dict:
     """运行完整筛选 v2: 拉数据 → 元学习权重 → Regime → 打分 → 快照 → 异动检测。"""
-    from .factors_extended import fetch_onchain_activity, fetch_funding_rates
+    from . import factors_extended as fx
+    from .factors_extended import (
+        fetch_onchain_activity, fetch_funding_rates, ONCHAIN_META_KEY,
+    )
     from .meta_learner import (
         load_factor_config, get_current_weights, save_snapshot,
         detect_regime, apply_regime_adjustment, generate_factor_report,
@@ -398,9 +578,12 @@ def run_screen(top_n: int = 30) -> dict:
     # 提取 coin_ids 给 onchain fetcher
     coin_ids = [c.get("id", "") for c in coins if c.get("id")][:50]
     onchain_data = fetch_onchain_activity(coin_ids)
+    onchain_meta = onchain_data.get(ONCHAIN_META_KEY) or {}
+    onchain_coins = len([k for k in onchain_data if k != ONCHAIN_META_KEY])
 
-    log.info("[6/7] Binance Futures 资金费率...")
+    log.info("[6/7] 永续资金费率 (Binance → OKX → Bybit)...")
     funding_rates = fetch_funding_rates()
+    funding_source = fx.FUNDING_SOURCE
 
     log.info("[7/7] 真实链上数据 (BTC + DEX volumes)...")
     real_onchain = fetch_real_onchain_data()
@@ -426,11 +609,16 @@ def run_screen(top_n: int = 30) -> dict:
 
     # ── Step 4: 10 因子打分 ──
     log.info(f"开始 10 因子打分 ({len(coins)} 个代币, 动态权重)...")
+    # 最近 3 个真实快照的价格+市值 → 冻结报价判定 (REUR 之类)
+    prior_prices = load_recent_snapshot_prices()
+    excluded: dict[str, int] = {}
     scored = score_coins(coins, tvl_proto, tvl_chain, bn_vol,
                          onchain_data=onchain_data,
                          funding_rates=funding_rates,
                          weights=weights,
-                         real_onchain=real_onchain)
+                         real_onchain=real_onchain,
+                         prior_prices=prior_prices,
+                         exclusion_stats=excluded)
 
     # ── Step 5: Pipeline 因子叠加 (市场级信号) ──
     log.info("加载 pipeline 市场级因子...")
@@ -441,9 +629,37 @@ def run_screen(top_n: int = 30) -> dict:
         log.info(f"  Market overlay 已应用: x{market_overlay:.3f}")
     pipeline_summary = get_pipeline_summary(pipeline_signals)
 
+    # 数据源概览 (写入 result 和快照 meta, 便于事后审计因子是否退化)
+    sources = {
+        "coingecko": len(coins),
+        "defillama_protocols": len(tvl_proto),
+        "defillama_chains": len(tvl_chain),
+        "binance_pairs": len(bn_vol),
+        "onchain_coins": onchain_coins,
+        "onchain_coins_with_data": onchain_meta.get("coins_with_any_data"),
+        "onchain_coins_with_dev_data": onchain_meta.get("coins_with_dev_data"),
+        "funding_source": funding_source,
+        "funding_pairs": len(funding_rates),
+        "real_onchain": bool(real_onchain.get("btc")),
+        "dex_chains": len(real_onchain.get("dex_volumes", {})),
+        "excluded": excluded,
+    }
+
     # ── Step 6: 保存快照 (供未来 IC 回测) ──
     log.info("保存因子快照...")
-    snapshot_path = save_snapshot(scored, weights)
+    snapshot_meta = {
+        "base_weights": base_weights,
+        "regime": regime,
+        "weights_in_force": weights,
+        "sources": sources,
+    }
+    # 按签名判断而不是 try/except TypeError: 后者会把 save_snapshot 内部的
+    # 真实 TypeError 吞掉并重跑一遍写盘
+    if "meta" in inspect.signature(save_snapshot).parameters:
+        snapshot_path = save_snapshot(scored, weights, meta=snapshot_meta)
+    else:
+        # meta_learner 尚未支持 meta 参数时退回旧签名
+        snapshot_path = save_snapshot(scored, weights)
 
     # ── Step 7: 异动信号检测 ──
     anomalies = detect_anomalies(scored, funding_rates)
@@ -459,16 +675,7 @@ def run_screen(top_n: int = 30) -> dict:
         "top_n": top_n,
         "regime": regime,
         "btc_data": btc_data,
-        "data_sources": {
-            "coingecko": len(coins),
-            "defillama_protocols": len(tvl_proto),
-            "defillama_chains": len(tvl_chain),
-            "binance_pairs": len(bn_vol),
-            "onchain_coins": len(onchain_data),
-            "funding_pairs": len(funding_rates),
-            "real_onchain": bool(real_onchain.get("btc")),
-            "dex_chains": len(real_onchain.get("dex_volumes", {})),
-        },
+        "data_sources": sources,
         "weights_used": weights,
         "base_weights": base_weights,
         "factor_report": factor_report,
@@ -817,7 +1024,7 @@ IC = Information Coefficient (因子值与未来收益的 Spearman 秩相关)。
 <p>③ DeFiLlama /protocols — DeFi 协议 TVL</p>
 <p>④ DeFiLlama /v2/chains — 链总 TVL</p>
 <p>⑤ Binance spot /ticker/24hr — 成交额</p>
-<p>⑥ Binance futures /premiumIndex — 永续资金费率</p>
+<p>⑥ Binance futures /premiumIndex (451 时 OKX → Bybit 兜底) — 永续资金费率</p>
 <p style="margin-top:10px"><b>10 因子量化模型 (元学习自动调权):</b></p>
 <p>① 30d 动量 — sigmoid, 中期趋势 &nbsp;② 7d 动量 — 短期势头</p>
 <p>③ ATH 回撤 — 回调深度评分 &nbsp;④ 成交量/市值 — 换手率</p>
@@ -826,7 +1033,7 @@ IC = Information Coefficient (因子值与未来收益的 Spearman 秩相关)。
 <p>⑨ 资金费率 — 空头拥挤信号 &nbsp;⑩ 叙事热度 — 情绪+社区热度</p>
 <p style="margin-top:10px"><b>元学习闭环:</b> 每次筛选 → 保存快照 → N天后 IC 回测 → 权重自动进化</p>
 <p><b>Regime Detection:</b> BTC 30d/7d 涨跌 → 牛/熊/震荡/高波动 → 因子乘数调整</p>
-<p style="margin-top:10px"><b>排除规则:</b> 稳定币 · Wrapped/Staked 代币 · 市值 &lt;$1M</p>
+<p style="margin-top:10px"><b>排除规则:</b> 稳定币 (名单+锚定启发式) · Wrapped/LST 代币 · 代币化股票/黄金 · 冻结/陈旧报价 · 市值 &lt;$1M</p>
 <p style="margin-top:10px;color:#fbbf24">⚠️ 量化因子模型存在滞后性, 不构成投资建议。</p>
 </div></div>
 

@@ -8,6 +8,14 @@ from ..utils import setup_logger
 
 log = setup_logger("factors_ext", "INFO")
 
+# fetch_onchain_activity 返回 dict 里的元信息 key。symbol 全部 .upper(),
+# 小写的 "__meta__" 永远不会和任何代币 symbol 撞上。
+ONCHAIN_META_KEY = "__meta__"
+
+# 最近一次 fetch_funding_rates 成功的数据源 ("binance" / "okx" / "bybit"),
+# 全部失败为 None。供 screener 写入 result["data_sources"]["funding_source"]。
+FUNDING_SOURCE: str | None = None
+
 
 def _get(url: str, params: dict = None, retries: int = 2,
          backoff: float = 5.0, timeout: int = 20):
@@ -31,6 +39,12 @@ def fetch_onchain_activity(coin_ids: list[str],
     """
     log.info(f"  CoinGecko 链上+社区数据 ({len(coin_ids)} coins)...")
     result = {}
+    # 2026-08-28 起 CoinGecko 免费 API 不再返回 developer_data/community_data,
+    # 因子曾静默退化为全 0。这里分别统计 dev / community 真正有数据的币数,
+    # 任一为 0 都告警 (dev_activity 只吃 developer_data, 社区有数据救不了它)。
+    coins_with_dev_data = 0
+    coins_with_community_data = 0
+    coins_with_any_data = 0
     for i, cid in enumerate(coin_ids[:50]):  # 限制 50 个避免限速
         data = _get(
             f"https://api.coingecko.com/api/v3/coins/{cid}",
@@ -50,6 +64,10 @@ def fetch_onchain_activity(coin_ids: list[str],
             dev = data.get("developer_data") or {}
             comm = data.get("community_data") or {}
             sentiment = data.get("sentiment_votes_up_percentage") or 50
+            has_dev, has_comm = _has_any_value(dev), _has_any_value(comm)
+            coins_with_dev_data += has_dev
+            coins_with_community_data += has_comm
+            coins_with_any_data += has_dev or has_comm
 
             result[sym] = {
                 # 开发者指标
@@ -76,39 +94,131 @@ def fetch_onchain_activity(coin_ids: list[str],
         if i < len(coin_ids[:50]) - 1:
             time.sleep(batch_delay)  # CoinGecko 限速
 
-    log.info(f"    ✓ {len(result)} coins with dev+community data")
+    log.info(f"    ✓ {len(result)} coins fetched, "
+             f"dev={coins_with_dev_data} community={coins_with_community_data} "
+             f"with non-empty data")
+    if result and coins_with_any_data == 0:
+        log.warning("    ⚠ developer_data/community_data 字段为空 — 因子将退化为常数")
+    elif result and coins_with_dev_data == 0:
+        log.warning("    ⚠ developer_data 字段为空 — dev_activity 因子将退化为常数")
+    elif result and coins_with_community_data == 0:
+        log.warning("    ⚠ community_data 字段为空 — onchain/narrative 因子将退化")
+    # 向后兼容: 调用方按 symbol 取值, 遍历时需跳过 ONCHAIN_META_KEY
+    result[ONCHAIN_META_KEY] = {
+        "coins_with_dev_data": coins_with_dev_data,
+        "coins_with_community_data": coins_with_community_data,
+        "coins_with_any_data": coins_with_any_data,
+    }
     return result
 
 
+def _has_any_value(d: dict) -> bool:
+    """developer_data/community_data 是否有任何非空、非零的字段。"""
+    if not isinstance(d, dict):
+        return False
+    for v in d.values():
+        if isinstance(v, dict):
+            if _has_any_value(v):
+                return True
+        elif v not in (None, 0, 0.0, "", [], {}):
+            return True
+    return False
+
+
 # ====================================================================
-#  资金费率因子 (Binance Futures)
+#  资金费率因子 (Binance → OKX → Bybit 兜底链)
 # ====================================================================
 
-def fetch_funding_rates() -> dict[str, float]:
-    """Binance Futures 永续合约 funding rate。
-
-    返回 {SYMBOL: funding_rate} (如 BTC: 0.0001 = 0.01%)
-    负费率 = 空头付多头 = 可能超卖
-    """
-    log.info("  Binance Futures funding rates...")
-    data = _get("https://fapi.binance.com/fapi/v1/premiumIndex", timeout=20)
+def _parse_binance_funding(data) -> dict[str, float]:
+    """Binance /fapi/v1/premiumIndex: [{symbol: "BTCUSDT", lastFundingRate: "0.0001"}]"""
     if not data or not isinstance(data, list):
-        log.warning("    ✗ Binance Futures API 不可用")
         return {}
-
     rates = {}
     for item in data:
         sym = item.get("symbol", "")
         if sym.endswith("USDT"):
             base = sym[:-4]
             try:
-                rate = float(item.get("lastFundingRate", 0))
-                rates[base] = rate
+                rates[base] = float(item.get("lastFundingRate", 0))
             except (ValueError, TypeError):
                 pass
-
-    log.info(f"    ✓ {len(rates)} perpetual pairs")
     return rates
+
+
+def _parse_okx_funding(data) -> dict[str, float]:
+    """OKX /api/v5/public/funding-rate?instId=ANY:
+    {code: "0", data: [{instId: "BTC-USDT-SWAP", fundingRate: "0.0001", ...}]}
+
+    只取 *-USDT-SWAP (USD 本位和交割合约跳过)。
+    """
+    if not isinstance(data, dict) or str(data.get("code", "")) != "0":
+        return {}
+    rates = {}
+    for item in data.get("data") or []:
+        inst = item.get("instId", "")
+        if not inst.endswith("-USDT-SWAP"):
+            continue
+        base = inst.split("-")[0]
+        try:
+            rates[base] = float(item.get("fundingRate") or 0)
+        except (ValueError, TypeError):
+            pass
+    return rates
+
+
+def _parse_bybit_funding(data) -> dict[str, float]:
+    """Bybit /v5/market/tickers?category=linear:
+    {retCode: 0, result: {list: [{symbol: "BTCUSDT", fundingRate: "0.0001", ...}]}}
+    """
+    if not isinstance(data, dict) or data.get("retCode") not in (0, "0"):
+        return {}
+    rates = {}
+    for item in (data.get("result") or {}).get("list") or []:
+        sym = item.get("symbol", "")
+        if not sym.endswith("USDT"):
+            continue
+        try:
+            rates[sym[:-4]] = float(item.get("fundingRate") or 0)
+        except (ValueError, TypeError):
+            pass
+    return rates
+
+
+# 兜底顺序: Binance (fapi 在云端/国内返回 451) → OKX → Bybit
+_FUNDING_SOURCES = (
+    ("binance", "https://fapi.binance.com/fapi/v1/premiumIndex", None,
+     _parse_binance_funding),
+    ("okx", "https://www.okx.com/api/v5/public/funding-rate", {"instId": "ANY"},
+     _parse_okx_funding),
+    ("bybit", "https://api.bybit.com/v5/market/tickers", {"category": "linear"},
+     _parse_bybit_funding),
+)
+
+
+def fetch_funding_rates() -> dict[str, float]:
+    """永续合约 funding rate, Binance → OKX → Bybit 逐个兜底。
+
+    返回 {SYMBOL: funding_rate} (如 BTC: 0.0001 = 0.01%)
+    负费率 = 空头付多头 = 可能超卖
+
+    2026-05 起 fapi.binance.com 对云端和本地都返回 HTTP 451, 因子曾连续
+    数月恒为 0.5 却占 5-24% 权重。全部失败返回 {} (元学习会自动停用常数因子),
+    成功的数据源记录在模块变量 FUNDING_SOURCE。
+    """
+    global FUNDING_SOURCE
+    FUNDING_SOURCE = None
+    log.info("  Perpetual funding rates (Binance → OKX → Bybit)...")
+    for name, url, params, parse in _FUNDING_SOURCES:
+        data = _get(url, params=params, timeout=20)
+        rates = parse(data)
+        if rates:
+            FUNDING_SOURCE = name
+            log.info(f"    ✓ {name}: {len(rates)} perpetual pairs")
+            return rates
+        log.warning(f"    ✗ {name} funding rate 不可用, 尝试下一个数据源")
+
+    log.warning("    ✗ 所有资金费率数据源均不可用, 因子退化为常数 0.5")
+    return {}
 
 
 # ====================================================================
