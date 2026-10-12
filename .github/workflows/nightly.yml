@@ -17,6 +17,9 @@ jobs:
     env:
       CRYPTO_INTEL_USE_BERT: "0"    # 加速, 不下载 120MB 模型
       MAX_TOKENS_PER_DAY: "200000"
+      # 单一权重写入方: 只有云端 nightly 改写 factor_config.json 的权重, 本地 launchd 只读
+      # (曾经两边各自调权, 同日 Top-20 只重合 9/20)
+      CRYPTO_INTEL_WEIGHT_WRITER: "1"
       # 飞书 webhook 通过 GitHub Secrets 注入
       FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
       FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
@@ -70,18 +73,68 @@ jobs:
             echo "::endgroup::"
           fi
 
-      - name: Commit data updates
+      - name: Commit data updates (with rebase retry on race)
         if: github.ref == 'refs/heads/main'
         run: |
           git config --local user.email "nightly-bot@cryptointel"
           git config --local user.name "Crypto Intel Nightly"
-          git add data/meta/snapshot_*.json data/nightly_logs/ data/rd_agent/ 2>/dev/null || true
-          if ! git diff --cached --quiet; then
-            git commit -m "🌙 nightly $(date +%Y-%m-%d) — auto-run results"
-            git push origin main
-          else
+
+          # 要回推的产物: 不止快照 — 元学习在 runner 上学到的权重 (factor_config.json)、训练日志、
+          # 收益追踪、因子报告都要回推, 否则云端每晚学完就丢, 权重永远冻结在仓库里的旧版本。
+          # 逐个 add: git add 遇到一个不匹配的 pathspec 会整条命令 fatal, 什么都不加。
+          add_outputs() {
+            shopt -s nullglob
+            local files=(
+              data/meta/snapshot_*.json
+              data/meta/factor_config.json
+              data/meta/training_log.json
+              data/meta/returns_*_7d.json
+              data/meta/factor_report*.json
+              data/nightly_logs/20*.log
+              data/nightly_logs/*.failures.json
+            )
+            shopt -u nullglob
+            local f
+            for f in "${files[@]}"; do
+              [ -e "$f" ] && git add -- "$f" || true
+            done
+            git add data/rd_agent/ 2>/dev/null || true
+          }
+
+          add_outputs
+          if git diff --cached --quiet; then
             echo "no data changes"
+            exit 0
           fi
+          git commit -m "🌙 nightly $(date +%Y-%m-%d) — auto-run results"
+
+          # 最多重试 3 次: push 前先 pull --rebase, 防止与 refresh.yml / 本地 push 撞车
+          for i in 1 2 3; do
+            echo "▶ Push attempt $i..."
+            if git push origin main; then
+              echo "✔ push OK"
+              exit 0
+            fi
+            echo "  push rejected, pulling latest..."
+            git fetch origin main
+            # --rebase: 把 nightly commit 放到远程最新之上
+            # --strategy-option=theirs: rebase 里 theirs = 正在重放的 nightly commit, 冲突时以本次产物为准
+            if ! git pull --rebase --strategy-option=theirs origin main; then
+              echo "  rebase 冲突, 回退到远程重新应用产物"
+              git rebase --abort || true
+              git reset --hard origin/main
+              add_outputs
+              if git diff --cached --quiet; then
+                echo "  远程已有相同产物, 无需再推"
+                exit 0
+              fi
+              git commit -m "🌙 nightly $(date +%Y-%m-%d) — auto-run results (retry)"
+            fi
+            sleep 3
+          done
+
+          echo "❌ 3 次 push 都失败, 放弃"
+          exit 1
         continue-on-error: true
 
       - name: Upload nightly logs as artifact

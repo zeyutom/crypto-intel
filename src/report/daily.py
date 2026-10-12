@@ -100,7 +100,9 @@ def generate(output_path: str | Path | None = None) -> Path:
     sig_rows = []
     for _, r in sig_df.iterrows():
         breakdown = json.loads(r["factor_breakdown"]) if r["factor_breakdown"] else {}
-        drivers = [f for f, v in breakdown.items() if v.get("signal") != 0]
+        # "_" 开头的键是元数据 (如 _meta.regime_source), 不是因子
+        drivers = [f for f, v in breakdown.items()
+                   if not f.startswith("_") and v.get("signal") != 0]
         sig_rows.append({
             "asset_id": r["asset_id"],
             "asset_cn": asset_cn(r["asset_id"]),

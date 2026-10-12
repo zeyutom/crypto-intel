@@ -329,9 +329,37 @@ def build_snapshot_for_date(
             "source": "backfill",
             "synthetic": True,
             "n_factors": 3,  # 真正有数据的因子数 (非 None)
-            "backfill_run": datetime.utcnow().isoformat() + "Z",
+            "backfill_run": datetime.now(timezone.utc).isoformat(),
         },
     }
+
+
+# ────────────────────────────────────────────────────────────────────
+#  跳过判定: 某天已有真实快照就不能写合成快照
+# ────────────────────────────────────────────────────────────────────
+
+def _is_synthetic_snapshot(path: Path) -> bool:
+    """文件是否为 backfill 合成快照 (按 _meta 标记; 读不出来当作非合成, 宁可不覆盖)."""
+    try:
+        meta = (json.loads(path.read_text()).get("_meta") or {})
+    except Exception:
+        return False
+    return bool(meta.get("synthetic")) or meta.get("source") == "backfill"
+
+
+def has_real_snapshot_for_date(day: str) -> bool:
+    """该 UTC 日期 (YYYYMMDD) 是否已有任意真实快照 (snapshot_YYYYMMDD_HHMM.json).
+
+    Bug fix: 之前只检查 _0000 文件本身是不是真实快照 — 真实快照永远不叫 _0000,
+    所以从未跳过, 在已有真实快照的日子里也写了合成快照, 污染元学习和记分卡.
+    """
+    for p in META_DIR.glob(f"snapshot_{day}_*.json"):
+        if p.name.endswith("_0000.json"):
+            continue
+        if _is_synthetic_snapshot(p):
+            continue
+        return True
+    return False
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -370,25 +398,29 @@ def main():
     log.info(f"\n构造 {args.days} 天合成快照 ...")
     written = 0
     skipped = 0
-    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    # 用 tz-aware UTC: naive utcnow().timestamp() 在非 UTC 主机上会被当成本地时间
+    today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
     for offset in range(args.days, 0, -1):
         target = today - timedelta(days=offset)
-        date_str = target.strftime("%Y%m%d_0000")
-        out_path = META_DIR / f"snapshot_{date_str}.json"
+        day = target.strftime("%Y%m%d")
+        out_path = META_DIR / f"snapshot_{day}_0000.json"
 
-        # 跳过真实快照 (没有 _meta.source=backfill 标记的)
+        # 该日期已有任意真实快照 (snapshot_YYYYMMDD_HHMM.json) → 永远跳过, --overwrite 也不行
+        if has_real_snapshot_for_date(day):
+            log.info(f"  {target.date()} 已有真实快照, 跳过")
+            skipped += 1
+            continue
+
+        # _0000 文件已存在: 合成的只在 --overwrite 时覆盖; 非合成的永远不碰
         if out_path.exists():
-            if args.overwrite:
-                pass
-            else:
-                try:
-                    existing = json.loads(out_path.read_text())
-                    if not (existing.get("_meta", {}) or {}).get("source") == "backfill":
-                        log.info(f"  {target.date()} 已有真实快照, 跳过")
-                        skipped += 1
-                        continue
-                except Exception:
-                    pass
+            if not _is_synthetic_snapshot(out_path):
+                log.info(f"  {target.date()} {out_path.name} 非合成快照, 跳过")
+                skipped += 1
+                continue
+            if not args.overwrite:
+                log.info(f"  {target.date()} 已有合成快照, 跳过 (--overwrite 可覆盖)")
+                skipped += 1
+                continue
 
         snap = build_snapshot_for_date(target, universe, history)
         if snap is None:

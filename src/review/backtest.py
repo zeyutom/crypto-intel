@@ -153,20 +153,55 @@ def run_backtest_all() -> int:
     return n
 
 
+# IR 权重的样本门槛 / 截断 (见 get_latest_ir_weights)
+IR_MIN_N_EFF = 10
+IR_CLIP = 2.0
+# 最新计算日早于今天这么多天的 (factor, asset) 不再参与调权 (源头断了的因子会一直停在旧 IR)
+IR_MAX_AGE_DAYS = 30
+
+
 def get_latest_ir_weights() -> dict[tuple[str, str], float]:
-    """取每个因子跨窗口的平均 IR (忽略负 IR 和低观测), 作为信号合成的动态权重。
-       返回: {(factor, asset_id): weight} — weight = max(0, mean IR)。
-       注: 用 AVG 而非 MAX, 避免在多个 window/forward 组合里挑最佳 IR 造成系统性高估。"""
+    """取每个 (factor, asset_id) **最新计算日** 跨 window/forward 的平均 IR, 供信号合成调权。
+
+    返回: {(factor, asset_id): mean_ir}, mean_ir ∈ [-2, 2], 负值也返回 (由
+    signals.composite._effective_weights 决定如何降权)。
+    规则 (修复 2026-10 回测发现的问题: 旧版对全历史平均、丢弃 IR<=0、不封顶,
+    funding_composite 用 10-19 个重叠观测拿到 IR 13.9):
+      1. 只用每个 (factor, asset_id) 的最大 date 那一天的记录;
+      2. 要求 n_eff = n_obs / forward_days >= IR_MIN_N_EFF (重叠前瞻窗口下的有效独立样本);
+      3. 单条 IR 先 clip 到 [-IR_CLIP, IR_CLIP] 再对 window/forward 求平均;
+      4. window_days < 30 的短窗口不参与;
+      5. ir == 0.0 是 backtest_factor "算不出" (IC 不足 2 个或标准差为 0) 的占位值, 丢弃;
+      6. 最新计算日早于今天 IR_MAX_AGE_DAYS 天的 (factor, asset_id) 丢弃。
+    注: 用 AVG 而非 MAX, 避免在多个 window/forward 组合里挑最佳 IR 造成系统性高估。"""
     df = query_df(
-        """SELECT factor, asset_id, AVG(ir) AS ir, MAX(n_obs) AS n_obs
+        """SELECT date, factor, asset_id, window_days, forward_days, ir, n_obs
            FROM factor_performance
-           WHERE window_days >= 30 AND n_obs >= 10
-           GROUP BY factor, asset_id"""
+           WHERE window_days >= 30"""
     )
+    if df is None or df.empty:
+        return {}
+    df = df.copy()
+    # 1. 每个 (factor, asset_id) 只保留最新 date (asset_id 可为 NULL → dropna=False)
+    latest = df.groupby(["factor", "asset_id"], dropna=False)["date"].transform("max")
+    df = df[df["date"] == latest]
+    # 6. 时效: 最新计算日太旧 (数据源已断) 的不再参与
+    cutoff = pd.Timestamp.now(tz="UTC").normalize().tz_localize(None) - pd.Timedelta(days=IR_MAX_AGE_DAYS)
+    df = df[pd.to_datetime(df["date"], errors="coerce") >= cutoff]
+    # 2. n_eff 门槛 (forward_days 缺失 / 非正 → 无法判断, 丢弃)
+    df["ir"] = pd.to_numeric(df["ir"], errors="coerce")
+    df["n_obs"] = pd.to_numeric(df["n_obs"], errors="coerce")
+    df["forward_days"] = pd.to_numeric(df["forward_days"], errors="coerce")
+    df = df.dropna(subset=["ir", "n_obs", "forward_days"])
+    df = df[df["ir"] != 0.0]   # 5. "算不出" 的占位值
+    df = df[df["forward_days"] > 0]
+    df = df[df["n_obs"] / df["forward_days"] >= IR_MIN_N_EFF]
+    if df.empty:
+        return {}
+    # 3. clip 后再平均
+    df["ir"] = df["ir"].clip(-IR_CLIP, IR_CLIP)
     weights = {}
-    for _, r in df.iterrows():
-        ir = float(r["ir"]) if r["ir"] else 0
-        n = int(r["n_obs"]) if r["n_obs"] else 0
-        if ir > 0 and n >= 10:
-            weights[(r["factor"], r["asset_id"])] = ir
+    for (factor, aid), grp in df.groupby(["factor", "asset_id"], dropna=False):
+        aid = None if pd.isna(aid) else aid
+        weights[(factor, aid)] = float(grp["ir"].mean())
     return weights
