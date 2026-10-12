@@ -32,7 +32,9 @@ for _, s in sig_df.iterrows():
     if s["factor_breakdown"]:
         try: breakdown = json.loads(s["factor_breakdown"])
         except: pass
-    drivers = [f for f, v in breakdown.items() if v.get("signal") != 0]
+    # "_" 开头的键是元数据 (如 _meta.regime_source), 不是因子
+    drivers = [f for f, v in breakdown.items()
+               if not f.startswith("_") and v.get("signal") != 0]
     rows.append({
         "资产": asset_cn(s["asset_id"]),
         "方向": s["direction"],
@@ -98,6 +100,8 @@ for _, s in sig_df.iterrows():
             bd = {}
         rows = []
         for fname, v in bd.items():
+            if fname.startswith("_"):
+                continue   # 元数据键, 不是因子
             meta = factor_meta(fname)
             rows.append({
                 "因子": meta.cn_name if meta else fname,

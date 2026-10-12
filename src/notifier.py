@@ -45,7 +45,7 @@ def _regime_color(regime: str) -> str:
     """根据 regime 返回卡片主题色。"""
     colors = {
         "BULL": "green", "BEAR": "red", "CHOP": "grey",
-        "CRISIS": "red", "BEAR_BOUNCE": "orange", "UNKNOWN": "grey",
+        "CRISIS": "red", "BEAR_BOUNCE": "orange", "VOLATILE": "orange", "UNKNOWN": "grey",
     }
     return colors.get(regime, "blue")
 
