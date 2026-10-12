@@ -1,11 +1,11 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-06-18T03:01:32.301144+00:00",
+  "updated": "2026-10-12T02:29:17.544879+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.0487,
+      "weight": 0.086438,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -149,10 +149,11 @@
           "ic": -0.3492,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "momentum_7d": {
-      "weight": 0.0292,
+      "weight": 0.051827,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -296,10 +297,11 @@
           "ic": -0.4762,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "ath_drawdown": {
-      "weight": 0.1049,
+      "weight": 0.186187,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -443,10 +445,11 @@
           "ic": -0.055,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "volume_turnover": {
-      "weight": 0.1708,
+      "weight": 0.0,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -585,10 +588,13 @@
           "ic": 0.0974,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": false,
+      "locked": true,
+      "lock_reason": "2026-10 实盘回测: 7 日 IC 稳健为负 (去偏后约 -0.04~-0.06, 前 100 名 -0.117), 而权重只能为正 → 人工关闭; 需要时把 locked 改回 false"
     },
     "tvl_mcap": {
-      "weight": 0.0961,
+      "weight": 0.170568,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -727,10 +733,11 @@
           "ic": 0.1638,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "market_cap_size": {
-      "weight": 0.1268,
+      "weight": 0.15,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -869,10 +876,11 @@
           "ic": -0.1464,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "onchain_activity": {
-      "weight": 0.0919,
+      "weight": 0.163113,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -1011,294 +1019,26 @@
           "ic": 0.1438,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     },
     "dev_activity": {
-      "weight": 0.1269,
+      "weight": 0.0,
       "min": 0.02,
       "max": 0.2,
-      "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": 0.0071,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-22",
-          "ic": -0.1242,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-25",
-          "ic": 0.0401,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-26",
-          "ic": -0.0902,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-01",
-          "ic": -0.0905,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.0913,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.1107,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.0586,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0644,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0467,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0311,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0262,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0436,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0668,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0229,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0028,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0031,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.126,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1716,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1578,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1171,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1668,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.112,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.0985,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1459,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1436,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.1316,
-          "lookback": 7
-        }
-      ]
+      "ic_history": [],
+      "enabled": false,
+      "degenerate_runs": 1
     },
     "funding_rate": {
-      "weight": 0.1165,
+      "weight": 0.035498,
       "min": 0.02,
       "max": 0.15,
-      "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-22",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-25",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-05-26",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-01",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.0,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.0,
-          "lookback": 7
-        }
-      ]
+      "ic_history": [],
+      "enabled": true
     },
     "narrative_heat": {
-      "weight": 0.0881,
+      "weight": 0.156369,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -1437,7 +1177,8 @@
           "ic": 0.0987,
           "lookback": 7
         }
-      ]
+      ],
+      "enabled": true
     }
   }
 }
