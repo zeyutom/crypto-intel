@@ -137,6 +137,8 @@ def main() -> None:
         from .evolution.weekly_review import run_weekly_review
         r = run_weekly_review()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本记到 failures.json
     elif cmd == "propose-factors":
         from .evolution.factor_proposer import run_factor_proposal
         r = run_factor_proposal()
@@ -187,6 +189,9 @@ def main() -> None:
                 sp.Popen(["open", str(report_path)])
         else:
             console.print(f"[red]✗ {result.get('error')}[/]")
+            # 非零退出: 让 nightly_run.sh 的 run_step 能看见失败 (曾经 "✗ CoinGecko 无数据" 但 exit 0,
+            # failures.json 为空, 当天 meta 快照静默缺失)
+            sys.exit(1)
     elif cmd == "daily-screen":
         # 每日自动化: 筛选 → IC更新(如果有足够快照) → 飞书推送
         from .research.screener import run_screen, generate_screen_report
@@ -273,6 +278,7 @@ def main() -> None:
                               f"[{rc}]{ret:+.2%}[/]")
         else:
             console.print(f"[yellow]{result.get('error')}[/]")
+            sys.exit(1)   # 没验证成功就非零退出, 别让调度脚本误记 "✓"
     elif cmd == "scorecard":
         from .research.returns_tracker import push_returns_scorecard
         days = 7
@@ -291,6 +297,10 @@ def main() -> None:
             console.print(f"[red]✗ {r.get('error')}[/]")
         if r.get("stats"):
             console.print_json(data=r["stats"])
+        elif not r.get("ok"):
+            # 连 stats 都没有 = 底层 verify_returns 失败 (无快照/无价格) → 非零退出让 nightly 记失败;
+            # "复盘完成但未推送" (仅飞书没配) 不算失败
+            sys.exit(1)
     elif cmd == "data-quality":
         from .research.data_quality import run_data_quality
         no_push = "--no-push" in sys.argv
@@ -362,14 +372,36 @@ def main() -> None:
         else:
             console.print(f"IC 回测完成 ({ic_result.get('matched_coins')} coins)")
             update_result = update_weights_from_ic(ic_result)
+
+            def _fmt_items(v) -> str:
+                # 兼容 meta_learner 可能返回的几种形状: list / dict / 标量
+                if isinstance(v, dict):
+                    return ", ".join(f"{k}({val})" for k, val in v.items())
+                if isinstance(v, (list, tuple, set)):
+                    return ", ".join(str(x) for x in v)
+                return str(v)
+
+            skip_reason = {
+                "already_updated_today": "今天已调过权重, 本次只刷新 IC 记录",
+                "not_weight_writer": "本机不是权重写入方, 不改写权重 (云端 nightly 负责调权; "
+                                     "本机需要调权时设置 CRYPTO_INTEL_WEIGHT_WRITER=1)",
+            }
             if update_result.get("ok"):
-                console.print(f"[green]✓ {update_result['factors_updated']} 个因子权重已更新[/]")
+                console.print(f"[green]✓ {update_result.get('factors_updated', 0)} 个因子权重已更新[/]")
+                # skipped = 本次没有调权的原因; disabled = 权重为 0 的因子 (截面常数的死因子或人工锁定)
+                if update_result.get("skipped"):
+                    s = update_result["skipped"]
+                    console.print(f"[yellow]⏭ 跳过: {skip_reason.get(s, _fmt_items(s))}[/]")
+                if update_result.get("disabled"):
+                    console.print(f"[red]⛔ 已关闭因子: {_fmt_items(update_result['disabled'])}[/]")
                 console.print("\n[bold]新权重:[/]")
                 for fname, w in sorted(update_result.get("new_weights", {}).items(),
                                         key=lambda x: x[1], reverse=True):
                     console.print(f"  {fname:>20s}  {w:.1%}")
             else:
                 console.print(f"[red]✗ {update_result.get('error')}[/]")
+                if update_result.get("skipped"):
+                    console.print(f"[yellow]⏭ 跳过: {_fmt_items(update_result['skipped'])}[/]")
     elif cmd == "discover-alpha":
         from .research.alpha_discovery import run_evolution_cycle, get_discovery_report
         use_llm = "--no-llm" not in sys.argv

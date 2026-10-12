@@ -44,6 +44,10 @@ jobs:
                           tests/test_rd_agent.py \
                           tests/test_http_client.py \
                           tests/test_meta_learner.py \
+                          tests/test_screener_filters.py \
+                          tests/test_returns_tracker.py \
+                          tests/test_signals_regime_ir.py \
+                          tests/test_cli_exit_codes.py \
                           tests/test_smoke.py \
                           -v --tb=short -p no:cacheprovider
 

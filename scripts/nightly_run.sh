@@ -30,7 +30,12 @@ if [ -d ".venv" ]; then
 fi
 
 # ─── 日志 ────────────────────────────────────────────
+# 日期/星期在开头算一次, 整个 run 共用。曾经 DOW 到第 8 步才算: screen 跑了 18.5h 跨过午夜,
+# 周日的 weekly-review + scorecard 被静默跳过, failures.json 还是空的。
 DATE=$(date +%Y-%m-%d)
+DOW=$(date +%u)              # 1=Mon, 7=Sun (以启动时刻为准)
+UTC_DAY=$(date -u +%Y%m%d)   # meta 快照文件名用的是 UTC 日期 (snapshot_YYYYMMDD_HHMM.json)
+SCREEN_TIMEOUT="${SCREEN_TIMEOUT:-7200}"   # screen 单步超时 (秒), 默认 2h
 LOGDIR="data/nightly_logs"
 mkdir -p "$LOGDIR"
 LOG="$LOGDIR/$DATE.log"
@@ -39,6 +44,18 @@ echo '{"failures":[]}' > "$FAILS"
 
 log() {
   echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG"
+}
+
+# 记一条失败到 failures.json (用 python 避免 jq 依赖)
+record_failure() {
+  local name="$1" rc="$2"
+  python3 -c "
+import json, pathlib
+p = pathlib.Path('$FAILS')
+d = json.loads(p.read_text())
+d['failures'].append({'step': '$name', 'rc': $rc, 'ts': '$(date -Iseconds)'})
+p.write_text(json.dumps(d, indent=2))
+" 2>/dev/null || true
 }
 
 run_step() {
@@ -51,17 +68,34 @@ run_step() {
     return 0
   else
     local rc=$?
-    log "  ✗ $name 失败 rc=$rc"
-    # JSON append (用 python 避免 jq 依赖)
-    python3 -c "
-import json, pathlib
-p = pathlib.Path('$FAILS')
-d = json.loads(p.read_text())
-d['failures'].append({'step': '$name', 'rc': $rc, 'ts': '$(date -Iseconds)'})
-p.write_text(json.dumps(d, indent=2))
-" 2>/dev/null || true
+    if [ "$rc" = "124" ]; then
+      log "  ✗ $name 超时被杀 rc=124"
+    else
+      log "  ✗ $name 失败 rc=$rc"
+    fi
+    record_failure "$name" "$rc"
     return $rc
   fi
+}
+
+# 可移植的单步超时 (macOS 没有 coreutils timeout): 超时先 SIGTERM, 15s 后 SIGKILL, 退出码 124 (同 coreutils)
+run_with_timeout() {
+  local secs="$1"; shift
+  python3 -c '
+import subprocess, sys
+secs, cmd = int(sys.argv[1]), sys.argv[2:]
+p = subprocess.Popen(cmd)
+try:
+    sys.exit(p.wait(timeout=secs))
+except subprocess.TimeoutExpired:
+    p.terminate()
+    try:
+        p.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        p.kill(); p.wait()
+    print("timeout: %s 超过 %ss 被终止" % (" ".join(cmd), secs), file=sys.stderr)
+    sys.exit(124)
+' "$secs" "$@"
 }
 
 # ─── 主流水线 ────────────────────────────────────────
@@ -81,7 +115,8 @@ run_step "snapshot" python3 -m src.cli snapshot || true
 
 # 4b. Top-500 多因子筛选 (旗舰功能上云): 创建 meta 快照喂给元学习/IC。
 #     注: screen 的"开浏览器"是 Darwin-only, Linux runner 上自动跳过。
-run_step "screen" python3 -m src.cli screen || true
+#     带超时 (默认 2h, 可用 SCREEN_TIMEOUT 覆盖): 曾经一次 screen 跑了 18.5h 把整晚拖死。
+run_step "screen" run_with_timeout "$SCREEN_TIMEOUT" python3 -m src.cli screen || true
 # 4c. 元学习: IC 回测 → 自动更新因子权重 (需 ≥2 次 meta 快照, 不足时优雅跳过)
 run_step "update-weights" python3 -m src.cli update-weights || true
 
@@ -96,8 +131,7 @@ run_step "rd-agent" python3 -m src.cli rd-agent --rounds 1 || true
 # 7. Alpha discovery (offline 模式, 不烧 token)
 run_step "discover-alpha" python3 -m src.cli discover-alpha || true
 
-# 8. weekly-review (仅周日)
-DOW=$(date +%u)   # 1=Mon, 7=Sun
+# 8. weekly-review (仅周日; DOW 在脚本开头按启动时刻算好, 不受 screen 跨午夜影响)
 if [ "$DOW" = "7" ]; then
   log "今天是周日 → 跑 weekly-review + 复盘记分卡"
   run_step "weekly-review" python3 -m src.cli weekly-review || true
@@ -133,6 +167,26 @@ fi
 log ""
 log "═══ 预算报告 ═══"
 python3 -m src.cli llm-budget >> "$LOG" 2>&1 || true
+
+# 11b. 真实快照自检: 今天必须有 ≥1 个非 _0000 (非回填合成) 的 meta 快照, 否则元学习/IC 这天就是空转。
+#      没有就记一条 snapshot-check 失败, 让下面的失败告警能响 (screen 曾 "✗ 无数据" 但 exit 0 静默漏过)。
+#      快照名用 UTC 日期; 同时接受启动日与当前日, 避免 screen 跨 UTC 午夜误报。
+N_REAL_SNAP=0
+UTC_NOW=$(date -u +%Y%m%d)
+[ "$UTC_NOW" = "$UTC_DAY" ] && UTC_NOW=""   # 没跨天就只查一次, 别重复计数
+for day in "$UTC_DAY" $UTC_NOW; do
+  for f in data/meta/snapshot_"$day"_*.json; do
+    [ -e "$f" ] || continue
+    case "$f" in *_0000.json) continue;; esac
+    N_REAL_SNAP=$((N_REAL_SNAP + 1))
+  done
+done
+if [ "$N_REAL_SNAP" -gt 0 ]; then
+  log "✓ snapshot-check: 今天有 $N_REAL_SNAP 个真实 meta 快照"
+else
+  log "✗ snapshot-check: 今天没有产出真实 meta 快照 (snapshot_${UTC_DAY}_*.json, 排除 _0000)"
+  record_failure "snapshot-check" 1
+fi
 
 # ─── 总结 ────────────────────────────────────────────
 N_FAILS=$(python3 -c "import json; print(len(json.load(open('$FAILS'))['failures']))")

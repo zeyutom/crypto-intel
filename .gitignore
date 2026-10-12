@@ -13,7 +13,11 @@ data/launchd_logs/
 
 # ===== v0.6+ 运行时产物 — 体积大/频繁变动, 不入库 =====
 data/cache/
-data/nightly_logs/
+# nightly 日志: 只入库带日期的运行日志 + failures.json (云端失败才能回到仓库被看见);
+# watchdog.log / launchd.log 等常驻日志仍忽略。注意要用 dir/* 而不是 dir/, 否则下面的 ! 不生效。
+data/nightly_logs/*
+!data/nightly_logs/20*.log
+!data/nightly_logs/*.failures.json
 data/research/
 data/proposals/
 data/rd_agent/
