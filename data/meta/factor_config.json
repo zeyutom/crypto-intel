@@ -1,11 +1,11 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-12T02:29:17.544879+00:00",
+  "updated": "2026-10-13T01:17:28.635718+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.086438,
+      "weight": 0.079275,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -148,12 +148,18 @@
           "date": "2026-06-18",
           "ic": -0.3492,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": 0.0378,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "momentum_7d": {
-      "weight": 0.051827,
+      "weight": 0.046826,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -296,12 +302,18 @@
           "date": "2026-06-18",
           "ic": -0.4762,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": 0.0148,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "ath_drawdown": {
-      "weight": 0.186187,
+      "weight": 0.188842,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -444,9 +456,15 @@
           "date": "2026-06-18",
           "ic": -0.055,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": -0.0475,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "volume_turnover": {
       "weight": 0.0,
@@ -587,14 +605,20 @@
           "date": "2026-06-18",
           "ic": 0.0974,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": -0.1183,
+          "lookback": 7
         }
       ],
       "enabled": false,
       "locked": true,
-      "lock_reason": "2026-10 实盘回测: 7 日 IC 稳健为负 (去偏后约 -0.04~-0.06, 前 100 名 -0.117), 而权重只能为正 → 人工关闭; 需要时把 locked 改回 false"
+      "lock_reason": "2026-10 实盘回测: 7 日 IC 稳健为负 (去偏后约 -0.04~-0.06, 前 100 名 -0.117), 而权重只能为正 → 人工关闭; 需要时把 locked 改回 false",
+      "degenerate_runs": 0
     },
     "tvl_mcap": {
-      "weight": 0.170568,
+      "weight": 0.190188,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -732,9 +756,15 @@
           "date": "2026-06-18",
           "ic": 0.1638,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": 0.1387,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "market_cap_size": {
       "weight": 0.15,
@@ -875,12 +905,18 @@
           "date": "2026-06-18",
           "ic": -0.1464,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": 0.0693,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "onchain_activity": {
-      "weight": 0.163113,
+      "weight": 0.177526,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -1018,9 +1054,15 @@
           "date": "2026-06-18",
           "ic": 0.1438,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": -0.0194,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     },
     "dev_activity": {
       "weight": 0.0,
@@ -1028,17 +1070,18 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 1
+      "degenerate_runs": 2
     },
     "funding_rate": {
-      "weight": 0.035498,
+      "weight": 0.0,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [],
-      "enabled": true
+      "enabled": false,
+      "degenerate_runs": 1
     },
     "narrative_heat": {
-      "weight": 0.156369,
+      "weight": 0.167343,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -1176,9 +1219,16 @@
           "date": "2026-06-18",
           "ic": 0.0987,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-13",
+          "ic": -0.096,
+          "lookback": 7
         }
       ],
-      "enabled": true
+      "enabled": true,
+      "degenerate_runs": 0
     }
-  }
+  },
+  "last_weight_update_date": "2026-10-13"
 }
