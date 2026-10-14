@@ -1,11 +1,11 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-13T23:24:35.116768+00:00",
+  "updated": "2026-10-14T22:15:09.368341+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.079275,
+      "weight": 0.071538,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -153,13 +153,18 @@
           "date": "2026-10-13",
           "ic": 0.0595,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": 0.0079,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "momentum_7d": {
-      "weight": 0.046826,
+      "weight": 0.042153,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -307,13 +312,18 @@
           "date": "2026-10-13",
           "ic": 0.1077,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": 0.0646,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "ath_drawdown": {
-      "weight": 0.188842,
+      "weight": 0.180409,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
@@ -460,6 +470,11 @@
         {
           "date": "2026-10-13",
           "ic": -0.1947,
+          "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": -0.1949,
           "lookback": 7
         }
       ],
@@ -610,6 +625,11 @@
           "date": "2026-10-13",
           "ic": -0.1299,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": -0.1316,
+          "lookback": 7
         }
       ],
       "enabled": false,
@@ -618,7 +638,7 @@
       "degenerate_runs": 0
     },
     "tvl_mcap": {
-      "weight": 0.190188,
+      "weight": 0.202771,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -760,6 +780,11 @@
         {
           "date": "2026-10-13",
           "ic": 0.1569,
+          "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": 0.0407,
           "lookback": 7
         }
       ],
@@ -910,13 +935,18 @@
           "date": "2026-10-13",
           "ic": 0.0669,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": 0.1217,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "onchain_activity": {
-      "weight": 0.177526,
+      "weight": 0.18484,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -1059,6 +1089,11 @@
           "date": "2026-10-13",
           "ic": 0.0081,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": -0.0093,
+          "lookback": 7
         }
       ],
       "enabled": true,
@@ -1070,7 +1105,7 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 2
+      "degenerate_runs": 3
     },
     "funding_rate": {
       "weight": 0.0,
@@ -1078,10 +1113,10 @@
       "max": 0.15,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 1
+      "degenerate_runs": 2
     },
     "narrative_heat": {
-      "weight": 0.167343,
+      "weight": 0.168289,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -1224,11 +1259,16 @@
           "date": "2026-10-13",
           "ic": -0.1468,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-14",
+          "ic": -0.1718,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     }
   },
-  "last_weight_update_date": "2026-10-13"
+  "last_weight_update_date": "2026-10-14"
 }
