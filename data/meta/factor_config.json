@@ -1,19 +1,14 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-14T22:15:09.368341+00:00",
+  "updated": "2026-10-15T22:07:33.579222+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.071538,
+      "weight": 0.065244,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": -0.1171,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": 0.0795,
@@ -158,21 +153,21 @@
           "date": "2026-10-14",
           "ic": 0.0079,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": -0.0794,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "momentum_7d": {
-      "weight": 0.042153,
+      "weight": 0.038398,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": -0.1506,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": -0.0467,
@@ -317,21 +312,21 @@
           "date": "2026-10-14",
           "ic": 0.0646,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": -0.0693,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "ath_drawdown": {
-      "weight": 0.180409,
+      "weight": 0.170837,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": 0.0389,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": 0.0069,
@@ -475,6 +470,11 @@
         {
           "date": "2026-10-14",
           "ic": -0.1949,
+          "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": -0.2107,
           "lookback": 7
         }
       ],
@@ -630,6 +630,11 @@
           "date": "2026-10-14",
           "ic": -0.1316,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": 0.0591,
+          "lookback": 7
         }
       ],
       "enabled": false,
@@ -638,7 +643,7 @@
       "degenerate_runs": 0
     },
     "tvl_mcap": {
-      "weight": 0.202771,
+      "weight": 0.214419,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -786,13 +791,18 @@
           "date": "2026-10-14",
           "ic": 0.0407,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": 0.0043,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "market_cap_size": {
-      "weight": 0.15,
+      "weight": 0.148739,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
@@ -940,13 +950,18 @@
           "date": "2026-10-14",
           "ic": 0.1217,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": -0.0822,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "onchain_activity": {
-      "weight": 0.18484,
+      "weight": 0.193107,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
@@ -1094,6 +1109,11 @@
           "date": "2026-10-14",
           "ic": -0.0093,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": 0.1158,
+          "lookback": 7
         }
       ],
       "enabled": true,
@@ -1105,7 +1125,7 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 3
+      "degenerate_runs": 4
     },
     "funding_rate": {
       "weight": 0.0,
@@ -1113,10 +1133,10 @@
       "max": 0.15,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 2
+      "degenerate_runs": 3
     },
     "narrative_heat": {
-      "weight": 0.168289,
+      "weight": 0.169256,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
@@ -1264,11 +1284,16 @@
           "date": "2026-10-14",
           "ic": -0.1718,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-15",
+          "ic": -0.0308,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     }
   },
-  "last_weight_update_date": "2026-10-14"
+  "last_weight_update_date": "2026-10-15"
 }
