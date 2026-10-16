@@ -1,0 +1,2177 @@
+[21:50:27] ═══ Nightly Run · 2026-10-16 ═══
+[21:50:27] ▶ api-health: python3 -m src.cli api-health --no-cg
+🩺 API 健康审计 (真实调用各 endpoint)
+  ✓ feargreed             1 rows (0.3s)
+  ✓ defillama            32 rows (0.5s)
+  ✓ defillama_extra      42 rows (4.5s)
+  ✓ okx                  16 rows (0.8s)
+  ✓ coinbase              3 rows (0.2s)
+[10/16/26 21:50:34] WARNING    api.binance.com HTTP 451 (not retrying)          
+[10/16/26 21:50:34] WARNING  Binance spot 不可达 (451/网络问题/错误体), 跳过. 用
+                             OKX adapter 兜底                                   
+  ⚠️ binance               0 rows (0.1s)
+  ✓ coinglass             1 rows (3.2s)
+[10/16/26 21:50:37] WARNING    farside.co.uk HTTP 403 (not retrying)            
+[10/16/26 21:50:37] WARNING  Farside primary 不可达 (Cloudflare 403/网络):      
+                             http_get_text failed:                              
+                             https://farside.co.uk/bitcoin-etf-flow-all-data/   
+                    WARNING  Farside primary returned 0 rows, trying CoinGlass  
+                             fallback                                           
+                    WARNING    fapi.coinglass.com HTTP 404 (not retrying)       
+                    WARNING  Both Farside and CoinGlass failed; ETF data missing
+                             this run                                           
+  ⚠️ farside               0 rows (0.2s)
+  - cg_global          skipped (--no-cg)
+  - cg_trending        skipped (--no-cg)
+  ✓ yfinance_macro      315 rows (1.0s)
+
+DefiLlama 完整版 6 关键端点
+  ✓ dlf.list_chains
+  ✓ dlf.list_protocols
+  ✓ dlf.dex_overview
+  ✓ dlf.open_interest_overview
+  ✓ dlf.list_yield_pools
+  ✓ dlf.list_stablecoins
+
+HTTP per-host stats
+  ✓ api.llama.fi                        calls=  6 cached=  2 errors=0 rate_lim=0
+avg=1201.2ms
+  ✗ fapi.coinglass.com                  calls=  7 cached=  0 errors=1 rate_lim=0
+avg=241.6ms
+  ✓ www.okx.com                         calls=  5 cached=  0 errors=0 rate_lim=0
+avg=162.5ms
+  ✓ stablecoins.llama.fi                calls=  3 cached=  0 errors=0 rate_lim=0
+avg=161.4ms
+  ✓ api.exchange.coinbase.com           calls=  3 cached=  0 errors=0 rate_lim=0
+avg=65.5ms
+  ✓ api.alternative.me                  calls=  1 cached=  0 errors=0 rate_lim=0
+avg=341.1ms
+  ✗ api.binance.com                     calls=  1 cached=  0 errors=1 rate_lim=0
+avg=145.3ms
+  ✗ farside.co.uk                       calls=  1 cached=  0 errors=1 rate_lim=0
+avg=59.3ms
+  ✓ yields.llama.fi                     calls=  1 cached=  0 errors=0 rate_lim=0
+avg=592.9ms
+
+总结: 13 拿到数据 · 2 返回空/已 graceful (都 ✓ 不抛异常, 看 ⚠️ 标记)
+已知 graceful 失败 (有替代源):
+  - binance (451 美国机房) → OKX 兜底
+  - farside (403 Cloudflare) → 暂无免费替代
+  - coinglass (整体改 API-key) → DefiLlama OI 兜底
+  - yfinance (未装) → pip install yfinance
+[21:50:42]   ✓ api-health 完成 (15s)
+[21:50:42] ▶ data-quality: python3 -m src.cli data-quality
+🩺 数据自愈 (快照缺口检测 + backfill + 核心源掉线告警)
+快照缺口: 0 → 0 (backfill 后)
+✓ 核心数据源都新鲜
+[21:50:43]   ✓ data-quality 完成 (1s)
+[21:50:43] ▶ init-db: python3 -m src.cli init
+DB initialized.
+[21:50:44]   ✓ init-db 完成 (1s)
+[21:50:44] ▶ ingest: python3 -m src.cli ingest
+[10/16/26 21:50:44] INFO     [ingest] coingecko      16 rows                    
+[10/16/26 21:50:44] WARNING    api.binance.com HTTP 451 (not retrying)          
+[10/16/26 21:50:44] WARNING  Binance spot 不可达 (451/网络问题/错误体), 跳过. 用
+                             OKX adapter 兜底                                   
+                    INFO     [ingest] binance        0 rows                     
+                    INFO     [ingest] okx            16 rows                    
+                    INFO     [ingest] coinbase       3 rows                     
+[10/16/26 21:50:45] INFO     [ingest] cg_global      5 rows                     
+[10/16/26 21:50:47] INFO     [ingest] cg_trending    1 rows                     
+                    INFO     [ingest] defillama      32 rows                    
+[10/16/26 21:50:48] INFO     [ingest] defillama_extra 42 rows                   
+                    INFO     [ingest] coinglass      1 rows                     
+                    INFO     [ingest] feargreed      1 rows                     
+[10/16/26 21:50:48] WARNING    farside.co.uk HTTP 403 (not retrying)            
+[10/16/26 21:50:48] WARNING  Farside primary 不可达 (Cloudflare 403/网络):      
+                             http_get_text failed:                              
+                             https://farside.co.uk/bitcoin-etf-flow-all-data/   
+                    WARNING  Farside primary returned 0 rows, trying CoinGlass  
+                             fallback                                           
+                    WARNING    fapi.coinglass.com HTTP 404 (not retrying)       
+                    WARNING  Both Farside and CoinGlass failed; ETF data missing
+                             this run                                           
+                    INFO     [ingest] farside_etf    0 rows                     
+[10/16/26 21:50:49] INFO     [ingest] yfinance_macro 315 rows                   
+{
+  "coingecko": 16,
+  "binance": 0,
+  "okx": 16,
+  "coinbase": 3,
+  "cg_global": 5,
+  "cg_trending": 1,
+  "defillama": 32,
+  "defillama_extra": 42,
+  "coinglass": 1,
+  "feargreed": 1,
+  "farside_etf": 0,
+  "yfinance_macro": 315
+}
+[21:50:49]   ✓ ingest 完成 (5s)
+[21:50:49] ▶ factors: python3 -m src.cli factors
+[10/16/26 21:50:50] INFO     [factor] funding_composite        1 rows           
+                    INFO     [factor] coinbase_premium         3 rows           
+                    INFO     [factor] stablecoin_mint_7d       1 rows           
+                    INFO     [factor] fear_greed_reversal      1 rows           
+                    INFO     [factor] etf_flow_5d              0 rows           
+                    INFO     [factor] open_interest_change     1 rows           
+                    INFO     [factor] liquidation_heat         0 rows           
+                    INFO     [factor] long_short_ratio         0 rows           
+                    INFO     [factor] btc_dominance_trend      1 rows           
+                    INFO     [factor] total_mcap_momentum      1 rows           
+                    INFO     [factor] defi_tvl_momentum        1 rows           
+                    INFO     [factor] trending_score           1 rows           
+                    INFO     [factor] btc_nasdaq_corr          1 rows           
+                    INFO     [factor] btc_gold_corr            1 rows           
+                    INFO     [factor] dxy_inverse              1 rows           
+                    INFO     [signal] composed 5 assets                         
+{
+  "funding_composite": 1,
+  "coinbase_premium": 3,
+  "stablecoin_mint_7d": 1,
+  "fear_greed_reversal": 1,
+  "etf_flow_5d": 0,
+  "open_interest_change": 1,
+  "liquidation_heat": 0,
+  "long_short_ratio": 0,
+  "btc_dominance_trend": 1,
+  "total_mcap_momentum": 1,
+  "defi_tvl_momentum": 1,
+  "trending_score": 1,
+  "btc_nasdaq_corr": 1,
+  "btc_gold_corr": 1,
+  "dxy_inverse": 1
+}
+[21:50:51]   ✓ factors 完成 (2s)
+[21:50:51] ▶ snapshot: python3 -m src.cli snapshot
+[10/16/26 21:50:51] INFO     Snapshot today: 14 factor rows                     
+Snapshot: 14 rows
+[21:50:51]   ✓ snapshot 完成 (0s)
+[21:50:51] ▶ screen: run_with_timeout 7200 python3 -m src.cli screen
+📊 启动 Top-500 多因子实时筛选 v2...
+10 因子 · 元学习动态调权 · Regime Detection · 异动信号
+数据源: CoinGecko + DeFiLlama + Binance (spot+futures)
+[10/16/26 21:50:52] INFO     ===================================================
+                             =========                                          
+                    INFO     Top-500 多因子实时筛选 v2 (元学习 + Regime)        
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     [0/6] 加载元学习因子配置...                        
+                    INFO       当前因子权重: {'momentum_30d': 0.065244,         
+                             'momentum_7d': 0.038398, 'ath_drawdown': 0.170837, 
+                             'volume_turnover': 0.0, 'tvl_mcap': 0.214419,      
+                             'market_cap_size': 0.148739, 'onchain_activity':   
+                             0.193107, 'dev_activity': 0.0, 'funding_rate': 0.0,
+                             'narrative_heat': 0.169256}                        
+                    INFO     [1/6] CoinGecko Top 500 市值...                    
+                    INFO       CoinGecko page 1/5 ...                           
+                    INFO         ✓ 100 coins                                    
+[10/16/26 21:51:00] INFO       CoinGecko page 2/5 ...                           
+                    INFO         ✓ 100 coins                                    
+[10/16/26 21:51:08] INFO       CoinGecko page 3/5 ...                           
+                    INFO         ✓ 100 coins                                    
+[10/16/26 21:51:16] INFO       CoinGecko page 4/5 ...                           
+[10/16/26 21:51:17] INFO         ✓ 100 coins                                    
+[10/16/26 21:51:25] INFO       CoinGecko page 5/5 ...                           
+                    INFO         ✓ 100 coins                                    
+                    INFO     [2/6] DeFiLlama 协议 TVL...                        
+                    INFO       DeFiLlama protocols ...                          
+                    INFO         ✓ 2200 protocols with TVL                      
+                    INFO     [3/6] DeFiLlama 链 TVL...                          
+                    INFO       DeFiLlama chains ...                             
+                    INFO         ✓ 300 chains                                   
+                    INFO     [4/6] Binance 24h 成交量...                        
+                    INFO       Binance 24hr tickers ...                         
+[10/16/26 21:51:25] WARNING    api.binance.com HTTP 451 (not retrying)          
+                    WARNING      ✗ Binance API 不可用 (可能是 IP 限制), 跳过    
+                    INFO     [5/6] CoinGecko 链上+社区数据 (Top 50)...          
+[10/16/26 21:51:25] INFO       CoinGecko 链上+社区数据 (50 coins)...            
+                    WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 21:53:08] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 21:54:44] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 21:56:35] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 21:58:25] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 22:00:45] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 22:02:29] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 22:04:12] WARNING    api.coingecko.com 429, retry in 60.0s            
+[10/16/26 22:05:12] WARNING    api.coingecko.com 429, retry in 2.2s             
+[10/16/26 22:05:36] INFO         ✓ 50 coins fetched, dev=0 community=0 with     
+                             non-empty data                                     
+                    WARNING      ⚠ developer_data/community_data 字段为空 —     
+                             因子将退化为常数                                   
+[10/16/26 22:05:36] INFO     [6/7] 永续资金费率 (Binance → OKX → Bybit)...      
+                    INFO       Perpetual funding rates (Binance → OKX →         
+                             Bybit)...                                          
+[10/16/26 22:05:36] WARNING    fapi.binance.com HTTP 451 (not retrying)         
+                    WARNING      ✗ binance funding rate 不可用, 尝试下一个数据源
+[10/16/26 22:05:37] INFO         ✓ okx: 494 perpetual pairs                     
+[10/16/26 22:05:37] INFO     [7/7] 真实链上数据 (BTC + DEX volumes)...          
+[10/16/26 22:05:37] INFO     [链上数据] 聚合真实链上指标...                     
+                    INFO       BTC 链上数据 (blockchain.info)...                
+                    INFO         ✓ BTC: 676,714 txs/day                         
+                    INFO         ✓ BTC active addresses: 480,301                
+                    INFO       DEX 交易量 (DeFiLlama)...                        
+[10/16/26 22:05:39] INFO         ✓ DEX total 24h: $10.54B across 218 chains     
+[10/16/26 22:05:39] INFO     Regime Detection...                                
+                    INFO       市场 Regime: SIDEWAYS                            
+                    INFO       Regime 调整后权重: {'momentum_30d': 0.0639,      
+                             'momentum_7d': 0.0376, 'ath_drawdown': 0.1673,     
+                             'volume_turnover': 0.0, 'tvl_mcap': 0.2309,        
+                             'market_cap_size': 0.1456, 'onchain_activity':     
+                             0.1891, 'dev_activity': 0.0, 'funding_rate': 0.0,  
+                             'narrative_heat': 0.1657}                          
+                    INFO     开始 10 因子打分 (500 个代币, 动态权重)...         
+                    INFO       排除: {'stable': 74, 'wrapped': 0, 'non_crypto': 
+                             17, 'frozen': 0, 'stale': 6}                       
+                    INFO     加载 pipeline 市场级因子...                        
+[10/16/26 22:05:39] INFO       加载 12 个 pipeline 因子                         
+                    INFO       Market overlay = 1.000 (signal=+0.000, 6/7 因子) 
+                    INFO     保存因子快照...                                    
+[10/16/26 22:05:39] INFO     快照已保存: snapshot_20261016_2205.json (403 coins)
+                    INFO       异动信号: 61 条                                  
+                    INFO     JSON 已保存:                                       
+                             /home/runner/work/crypto-intel/crypto-intel/data/re
+                             search/screen_20261016_2205.json                   
+                    INFO     HTML 报告:                                         
+                             /home/runner/work/crypto-intel/crypto-intel/data/re
+                             search/screen_20261016_2205.html                   
+
+✓ 筛选完成! 403 个代币 · Regime: ➡️震荡
+⚡ 61 条异动信号
+   [HIGH] KMNO: TVL/MCap=6.29x — 链上锁仓远超代币市值
+   [HIGH] MET: TVL/MCap=1.44x — 链上锁仓远超代币市值
+   [HIGH] ZRO: TVL/MCap=13.92x — 链上锁仓远超代币市值
+   [MEDIUM] ZRO: 30d +112.5% + 换手率17.00%
+   [HIGH] BP: TVL/MCap=2.23x — 链上锁仓远超代币市值
+
+Top 10:
+   1.     KMNO $    0.0381  MCap 0.22B  30d +51.4%  Score 0.5232
+   2.      MET $    0.3638  MCap 0.20B  30d +82.5%  Score 0.5188
+   3.      ZRO $    2.0500  MCap 0.82B  30d +112.5%  Score 0.5084
+   4.       BP $    1.0000  MCap 0.25B  30d +119.9%  Score 0.5069
+   5.     KNTQ $    0.3065  MCap 0.10B  30d +55.4%  Score 0.5027
+   6.     ZAMA $    0.0744  MCap 0.19B  30d +61.0%  Score 0.4973
+   7.     AAVE $  154.2900  MCap 2.38B  30d +33.5%  Score 0.4965
+   8.     RAIL $    2.5300  MCap 0.15B  30d +31.1%  Score 0.4931
+   9.    FLUID $    2.3200  MCap 0.19B  30d +116.0%  Score 0.4905
+  10.      UNI $    7.2300  MCap 4.52B  30d +13.8%  Score 0.4865
+
+📄 报告: 
+/home/runner/work/crypto-intel/crypto-intel/data/research/screen_20261016_2205.h
+tml
+[22:05:39]   ✓ screen 完成 (888s)
+[22:05:39] ▶ update-weights: python3 -m src.cli update-weights
+⚙️ 元学习自动调权 (IC 回测 7d → 权重更新)
+[10/16/26 22:05:40] INFO     IC 回测跳过 153 份合成/残缺快照                    
+IC 回测完成 (183 coins)
+                    INFO       momentum_30d: IC=-0.158 → 乘数 x0.921            
+                    INFO       momentum_7d: IC=-0.159 → 乘数 x0.920             
+                    INFO       ath_drawdown: IC=-0.103 → 乘数 x0.949            
+                    INFO       tvl_mcap: IC=+0.089 → 乘数 x1.044                
+                    INFO       market_cap_size: IC=-0.031 → 乘数 x0.984         
+                    INFO       onchain_activity: IC=+0.081 → 乘数 x1.040        
+                    INFO       momentum_30d: 权重 0.065 → 0.060                 
+                    INFO       momentum_7d: 权重 0.038 → 0.035                  
+                    INFO       ath_drawdown: 权重 0.171 → 0.162                 
+                    INFO       tvl_mcap: 权重 0.214 → 0.224                     
+                    INFO       market_cap_size: 权重 0.149 → 0.147              
+                    INFO       onchain_activity: 权重 0.193 → 0.201             
+✓ 6 个因子权重已更新
+⛔ 已关闭因子: volume_turnover, dev_activity, funding_rate
+
+新权重:
+              tvl_mcap  22.4%
+      onchain_activity  20.1%
+        narrative_heat  17.0%
+          ath_drawdown  16.2%
+       market_cap_size  14.7%
+          momentum_30d  6.0%
+           momentum_7d  3.5%
+       volume_turnover  0.0%
+          dev_activity  0.0%
+          funding_rate  0.0%
+[22:05:40]   ✓ update-weights 完成 (1s)
+[22:05:40] ▶ backtest-router: python3 -m src.cli backtest-router
+📊 智能回测 (auto-engine)
+{
+  "available_engines": {
+    "legacy": true,
+    "vectorbt": false
+  },
+  "auto_chosen": "legacy"
+}
+[10/16/26 22:05:41] INFO     Walk-forward 回测: 316 快照, Top-10, rebalance=7d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-10, return=-8.79%,  
+                             equity=$9,121                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-10, return=+7.68%,  
+                             equity=$9,821                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-10, return=-1.18%,  
+                             equity=$9,705                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-10, return=+8.48%,  
+                             equity=$10,528                                     
+                    INFO       2026-03-18 → 2026-03-25: Top-10, return=-8.35%,  
+                             equity=$9,649                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-10, return=-4.99%,  
+                             equity=$9,168                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-10, return=-2.37%,  
+                             equity=$8,950                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-10, return=+9.21%,  
+                             equity=$9,774                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-10, return=+1.97%,  
+                             equity=$9,967                                      
+                    INFO       2026-04-22 → 2026-04-29: Top-10, return=+1.43%,  
+                             equity=$10,109                                     
+                    INFO       2026-04-29 → 2026-05-06: Top-10, return=-0.50%,  
+                             equity=$10,059                                     
+                    INFO       2026-05-06 → 2026-05-13: Top-10, return=+12.08%, 
+                             equity=$11,274                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-10, return=-5.65%,  
+                             equity=$10,637                                     
+                    INFO       2026-05-20 → 2026-05-27: Top-10, return=+11.76%, 
+                             equity=$11,888                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-10, return=-5.52%,  
+                             equity=$11,232                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-10, return=-22.97%, 
+                             equity=$8,652                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-10, return=+10.05%, 
+                             equity=$9,521                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-10, return=-12.46%, 
+                             equity=$8,335                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-10, return=+7.89%,  
+                             equity=$8,992                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-10, return=-13.70%, 
+                             equity=$7,760                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-10, return=+0.34%,  
+                             equity=$7,787                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-10, return=+0.77%,  
+                             equity=$7,847                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-10, return=-1.04%,  
+                             equity=$7,765                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-10, return=-12.20%, 
+                             equity=$6,818                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-10, return=+19.35%, 
+                             equity=$8,137                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-10, return=-1.56%,  
+                             equity=$8,010                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-10, return=+7.33%,  
+                             equity=$8,598                                      
+                    INFO       2026-08-26 → 2026-09-02: Top-10, return=-7.55%,  
+                             equity=$7,948                                      
+                    INFO       2026-09-02 → 2026-09-09: Top-10, return=+15.85%, 
+                             equity=$9,208                                      
+                    INFO       2026-09-09 → 2026-09-16: Top-10, return=-5.77%,  
+                             equity=$8,677                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-10, return=+32.45%, 
+                             equity=$11,493                                     
+                    INFO       2026-09-23 → 2026-09-30: Top-10, return=+2.81%,  
+                             equity=$11,815                                     
+                    INFO       2026-09-30 → 2026-10-07: Top-10, return=-1.98%,  
+                             equity=$11,581                                     
+                    INFO       2026-10-07 → 2026-10-14: Top-10, return=-10.97%, 
+                             equity=$10,310                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-10, return=-5.12%,  
+                             equity=$9,782                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -2.18%  年化: -3.29%                     
+                    INFO       Sharpe: 0.27  Sortino: 0.33  MaxDD: 42.65%       
+                    INFO       Calmar: -0.08  胜率: 46%                         
+                    INFO       vs BTC: -21.35% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+{
+  "ok": true,
+  "engine": "legacy",
+  "total_return": -0.0218,
+  "annual_return": -0.0329,
+  "sharpe": 0.27,
+  "max_drawdown": 0.4265,
+  "calmar": -0.08,
+  "win_rate": 0.4571,
+  "vs_btc_excess": -0.2135,
+  "top_n": 10,
+  "rebalance_days": 7,
+  "n_snapshots": 316,
+  "n_periods": 35,
+  "final_capital": 9782.44,
+  "start_date": "2026-02-18",
+  "end_date": "2026-10-16"
+}
+[22:05:41]   ✓ backtest-router 完成 (1s)
+[22:05:41] ▶ backtest-sweep: python3 -m src.cli backtest-router --sweep
+📊 智能回测 (auto-engine)
+{
+  "available_engines": {
+    "legacy": true,
+    "vectorbt": false
+  },
+  "auto_chosen": "legacy"
+}
+[10/16/26 22:05:42] INFO     Walk-forward 回测: 316 快照, Top-5, rebalance=3d,  
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-21: Top-5, return=-1.57%,   
+                             equity=$9,843                                      
+                    INFO       2026-02-21 → 2026-02-24: Top-5, return=-5.11%,   
+                             equity=$9,340                                      
+                    INFO       2026-02-24 → 2026-02-27: Top-5, return=-0.68%,   
+                             equity=$9,276                                      
+                    INFO       2026-02-27 → 2026-03-02: Top-5, return=-1.16%,   
+                             equity=$9,169                                      
+                    INFO       2026-03-02 → 2026-03-05: Top-5, return=+2.83%,   
+                             equity=$9,429                                      
+                    INFO       2026-03-05 → 2026-03-08: Top-5, return=-4.58%,   
+                             equity=$8,997                                      
+                    INFO       2026-03-08 → 2026-03-11: Top-5, return=+2.64%,   
+                             equity=$9,234                                      
+                    INFO       2026-03-11 → 2026-03-14: Top-5, return=+7.68%,   
+                             equity=$9,944                                      
+                    INFO       2026-03-14 → 2026-03-17: Top-5, return=+2.44%,   
+                             equity=$10,186                                     
+                    INFO       2026-03-17 → 2026-03-20: Top-5, return=-5.80%,   
+                             equity=$9,596                                      
+                    INFO       2026-03-20 → 2026-03-23: Top-5, return=-3.55%,   
+                             equity=$9,255                                      
+                    INFO       2026-03-23 → 2026-03-26: Top-5, return=+1.44%,   
+                             equity=$9,388                                      
+                    INFO       2026-03-26 → 2026-03-29: Top-5, return=-8.97%,   
+                             equity=$8,546                                      
+                    INFO       2026-03-29 → 2026-04-01: Top-5, return=+2.89%,   
+                             equity=$8,793                                      
+                    INFO       2026-04-01 → 2026-04-04: Top-5, return=-0.22%,   
+                             equity=$8,774                                      
+                    INFO       2026-04-04 → 2026-04-07: Top-5, return=+2.60%,   
+                             equity=$9,002                                      
+                    INFO       2026-04-07 → 2026-04-10: Top-5, return=+1.06%,   
+                             equity=$9,097                                      
+                    INFO       2026-04-10 → 2026-04-13: Top-5, return=+0.55%,   
+                             equity=$9,147                                      
+                    INFO       2026-04-13 → 2026-04-16: Top-5, return=+3.92%,   
+                             equity=$9,506                                      
+                    INFO       2026-04-16 → 2026-04-19: Top-5, return=+12.01%,  
+                             equity=$10,647                                     
+                    INFO       2026-04-19 → 2026-04-22: Top-5, return=-10.38%,  
+                             equity=$9,542                                      
+                    INFO       2026-04-22 → 2026-04-25: Top-5, return=+1.07%,   
+                             equity=$9,644                                      
+                    INFO       2026-04-25 → 2026-04-28: Top-5, return=+4.31%,   
+                             equity=$10,060                                     
+                    INFO       2026-04-28 → 2026-05-01: Top-5, return=-9.85%,   
+                             equity=$9,069                                      
+                    INFO       2026-05-01 → 2026-05-04: Top-5, return=+0.29%,   
+                             equity=$9,096                                      
+                    INFO       2026-05-04 → 2026-05-07: Top-5, return=+5.64%,   
+                             equity=$9,609                                      
+                    INFO       2026-05-07 → 2026-05-10: Top-5, return=+12.83%,  
+                             equity=$10,842                                     
+                    INFO       2026-05-10 → 2026-05-13: Top-5, return=+0.44%,   
+                             equity=$10,890                                     
+                    INFO       2026-05-13 → 2026-05-16: Top-5, return=+0.00%,   
+                             equity=$10,890                                     
+                    INFO       2026-05-16 → 2026-05-20: Top-5, return=-5.99%,   
+                             equity=$10,237                                     
+                    INFO       2026-05-20 → 2026-05-23: Top-5, return=+11.42%,  
+                             equity=$11,407                                     
+                    INFO       2026-05-23 → 2026-05-26: Top-5, return=+13.83%,  
+                             equity=$12,984                                     
+                    INFO       2026-05-26 → 2026-05-29: Top-5, return=-8.92%,   
+                             equity=$11,825                                     
+                    INFO       2026-05-29 → 2026-06-01: Top-5, return=+11.71%,  
+                             equity=$13,210                                     
+                    INFO       2026-06-01 → 2026-06-04: Top-5, return=-12.47%,  
+                             equity=$11,563                                     
+                    INFO       2026-06-04 → 2026-06-07: Top-5, return=+15.23%,  
+                             equity=$13,324                                     
+                    INFO       2026-06-07 → 2026-06-10: Top-5, return=+6.46%,   
+                             equity=$14,184                                     
+                    INFO       2026-06-10 → 2026-06-13: Top-5, return=-1.89%,   
+                             equity=$13,916                                     
+                    INFO       2026-06-13 → 2026-06-16: Top-5, return=-22.24%,  
+                             equity=$10,821                                     
+                    INFO       2026-06-16 → 2026-06-19: Top-5, return=-4.50%,   
+                             equity=$10,334                                     
+                    INFO       2026-06-19 → 2026-06-22: Top-5, return=+7.95%,   
+                             equity=$11,155                                     
+                    INFO       2026-06-22 → 2026-06-25: Top-5, return=+6.69%,   
+                             equity=$11,902                                     
+                    INFO       2026-06-25 → 2026-06-28: Top-5, return=+13.33%,  
+                             equity=$13,488                                     
+                    INFO       2026-06-28 → 2026-07-01: Top-5, return=+0.62%,   
+                             equity=$13,571                                     
+                    INFO       2026-07-01 → 2026-07-04: Top-5, return=-1.56%,   
+                             equity=$13,360                                     
+                    INFO       2026-07-04 → 2026-07-07: Top-5, return=-27.76%,  
+                             equity=$9,651                                      
+                    INFO       2026-07-07 → 2026-07-10: Top-5, return=-1.89%,   
+                             equity=$9,468                                      
+                    INFO       2026-07-10 → 2026-07-13: Top-5, return=-0.12%,   
+                             equity=$9,457                                      
+                    INFO       2026-07-13 → 2026-07-16: Top-5, return=-7.84%,   
+                             equity=$8,716                                      
+                    INFO       2026-07-16 → 2026-07-19: Top-5, return=-2.96%,   
+                             equity=$8,458                                      
+                    INFO       2026-07-19 → 2026-07-22: Top-5, return=+0.36%,   
+                             equity=$8,489                                      
+                    INFO       2026-07-22 → 2026-07-25: Top-5, return=+22.77%,  
+                             equity=$10,421                                     
+                    INFO       2026-07-25 → 2026-07-28: Top-5, return=+0.53%,   
+                             equity=$10,477                                     
+                    INFO       2026-07-28 → 2026-07-31: Top-5, return=-3.92%,   
+                             equity=$10,066                                     
+                    INFO       2026-07-31 → 2026-08-03: Top-5, return=-8.23%,   
+                             equity=$9,238                                      
+                    INFO       2026-08-03 → 2026-08-06: Top-5, return=+0.00%,   
+                             equity=$9,238                                      
+                    INFO       2026-08-06 → 2026-08-09: Top-5, return=+0.86%,   
+                             equity=$9,317                                      
+                    INFO       2026-08-09 → 2026-08-12: Top-5, return=-8.32%,   
+                             equity=$8,542                                      
+                    INFO       2026-08-12 → 2026-08-15: Top-5, return=-6.68%,   
+                             equity=$7,972                                      
+                    INFO       2026-08-15 → 2026-08-18: Top-5, return=-12.85%,  
+                             equity=$6,947                                      
+                    INFO       2026-08-18 → 2026-08-21: Top-5, return=+3.66%,   
+                             equity=$7,201                                      
+                    INFO       2026-08-21 → 2026-08-24: Top-5, return=+2.97%,   
+                             equity=$7,415                                      
+                    INFO       2026-08-24 → 2026-08-27: Top-5, return=-4.45%,   
+                             equity=$7,085                                      
+                    INFO       2026-08-27 → 2026-08-30: Top-5, return=-0.46%,   
+                             equity=$7,052                                      
+                    INFO       2026-08-30 → 2026-09-02: Top-5, return=-2.67%,   
+                             equity=$6,864                                      
+                    INFO       2026-09-02 → 2026-09-05: Top-5, return=+16.49%,  
+                             equity=$7,996                                      
+                    INFO       2026-09-05 → 2026-09-08: Top-5, return=-8.36%,   
+                             equity=$7,328                                      
+                    INFO       2026-09-08 → 2026-09-11: Top-5, return=-0.04%,   
+                             equity=$7,325                                      
+                    INFO       2026-09-11 → 2026-09-14: Top-5, return=-7.27%,   
+                             equity=$6,792                                      
+                    INFO       2026-09-14 → 2026-09-17: Top-5, return=-2.67%,   
+                             equity=$6,611                                      
+                    INFO       2026-09-17 → 2026-09-20: Top-5, return=+22.47%,  
+                             equity=$8,096                                      
+                    INFO       2026-09-20 → 2026-09-23: Top-5, return=-5.07%,   
+                             equity=$7,686                                      
+                    INFO       2026-09-23 → 2026-09-26: Top-5, return=+4.01%,   
+                             equity=$7,994                                      
+                    INFO       2026-09-26 → 2026-09-29: Top-5, return=+3.87%,   
+                             equity=$8,303                                      
+                    INFO       2026-09-29 → 2026-10-02: Top-5, return=-12.31%,  
+                             equity=$7,281                                      
+                    INFO       2026-10-02 → 2026-10-05: Top-5, return=+5.27%,   
+                             equity=$7,665                                      
+                    INFO       2026-10-05 → 2026-10-08: Top-5, return=-8.65%,   
+                             equity=$7,002                                      
+                    INFO       2026-10-08 → 2026-10-11: Top-5, return=+32.77%,  
+                             equity=$9,297                                      
+                    INFO       2026-10-11 → 2026-10-14: Top-5, return=-19.98%,  
+                             equity=$7,440                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-5, return=-4.78%,   
+                             equity=$7,084                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -29.16%  年化: -40.81%                   
+                    INFO       Sharpe: -0.02  Sortino: -0.02  MaxDD: 53.39%     
+                    INFO       Calmar: -0.76  胜率: 48%                         
+                    INFO       vs BTC: -49.98% (BTC: +20.82%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-5, rebalance=7d,  
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-5, return=-9.30%,   
+                             equity=$9,070                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-5, return=-0.64%,   
+                             equity=$9,011                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-5, return=-3.04%,   
+                             equity=$8,738                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-5, return=+10.88%,  
+                             equity=$9,688                                      
+                    INFO       2026-03-18 → 2026-03-25: Top-5, return=-8.34%,   
+                             equity=$8,880                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-5, return=-5.75%,   
+                             equity=$8,369                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-5, return=-1.32%,   
+                             equity=$8,259                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-5, return=+8.68%,   
+                             equity=$8,976                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-5, return=+1.11%,   
+                             equity=$9,075                                      
+                    INFO       2026-04-22 → 2026-04-29: Top-5, return=+3.05%,   
+                             equity=$9,351                                      
+                    INFO       2026-04-29 → 2026-05-06: Top-5, return=-4.40%,   
+                             equity=$8,939                                      
+                    INFO       2026-05-06 → 2026-05-13: Top-5, return=+13.12%,  
+                             equity=$10,112                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-5, return=-13.08%,  
+                             equity=$8,789                                      
+                    INFO       2026-05-20 → 2026-05-27: Top-5, return=+19.99%,  
+                             equity=$10,545                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-5, return=-0.43%,   
+                             equity=$10,500                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-5, return=-22.18%,  
+                             equity=$8,171                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-5, return=+0.58%,   
+                             equity=$8,218                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-5, return=-18.06%,  
+                             equity=$6,734                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-5, return=+8.92%,   
+                             equity=$7,335                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-5, return=-12.19%,  
+                             equity=$6,441                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-5, return=+2.19%,   
+                             equity=$6,582                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-5, return=+10.80%,  
+                             equity=$7,293                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-5, return=+0.30%,   
+                             equity=$7,314                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-5, return=-23.49%,  
+                             equity=$5,596                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-5, return=+13.46%,  
+                             equity=$6,350                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-5, return=-1.75%,   
+                             equity=$6,239                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-5, return=+2.35%,   
+                             equity=$6,386                                      
+                    INFO       2026-08-26 → 2026-09-02: Top-5, return=-2.06%,   
+                             equity=$6,254                                      
+                    INFO       2026-09-02 → 2026-09-09: Top-5, return=+8.65%,   
+                             equity=$6,795                                      
+                    INFO       2026-09-09 → 2026-09-16: Top-5, return=-5.55%,   
+                             equity=$6,418                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-5, return=+22.11%,  
+                             equity=$7,837                                      
+                    INFO       2026-09-23 → 2026-09-30: Top-5, return=-0.01%,   
+                             equity=$7,836                                      
+                    INFO       2026-09-30 → 2026-10-07: Top-5, return=-3.50%,   
+                             equity=$7,562                                      
+                    INFO       2026-10-07 → 2026-10-14: Top-5, return=-17.65%,  
+                             equity=$6,227                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-5, return=-4.78%,   
+                             equity=$5,929                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -40.71%  年化: -54.84%                   
+                    INFO       Sharpe: -0.65  Sortino: -0.66  MaxDD: 46.93%     
+                    INFO       Calmar: -1.17  胜率: 43%                         
+                    INFO       vs BTC: -59.88% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-5, rebalance=14d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-03-04: Top-5, return=-11.52%,  
+                             equity=$8,848                                      
+                    INFO       2026-03-04 → 2026-03-18: Top-5, return=+2.90%,   
+                             equity=$9,104                                      
+                    INFO       2026-03-18 → 2026-04-01: Top-5, return=-13.20%,  
+                             equity=$7,903                                      
+                    INFO       2026-04-01 → 2026-04-15: Top-5, return=+3.04%,   
+                             equity=$8,143                                      
+                    INFO       2026-04-15 → 2026-04-29: Top-5, return=+2.88%,   
+                             equity=$8,378                                      
+                    INFO       2026-04-29 → 2026-05-13: Top-5, return=+17.38%,  
+                             equity=$9,834                                      
+                    INFO       2026-05-13 → 2026-05-27: Top-5, return=+0.00%,   
+                             equity=$9,834                                      
+                    INFO       2026-05-27 → 2026-06-10: Top-5, return=-18.70%,  
+                             equity=$7,995                                      
+                    INFO       2026-06-10 → 2026-06-24: Top-5, return=-2.38%,   
+                             equity=$7,805                                      
+                    INFO       2026-06-24 → 2026-07-08: Top-5, return=-6.28%,   
+                             equity=$7,315                                      
+                    INFO       2026-07-08 → 2026-07-22: Top-5, return=+6.47%,   
+                             equity=$7,789                                      
+                    INFO       2026-07-22 → 2026-08-05: Top-5, return=-2.18%,   
+                             equity=$7,619                                      
+                    INFO       2026-08-05 → 2026-08-19: Top-5, return=+3.74%,   
+                             equity=$7,904                                      
+                    INFO       2026-08-19 → 2026-09-02: Top-5, return=+3.58%,   
+                             equity=$8,187                                      
+                    INFO       2026-09-02 → 2026-09-16: Top-5, return=+0.16%,   
+                             equity=$8,200                                      
+                    INFO       2026-09-16 → 2026-09-30: Top-5, return=+13.47%,  
+                             equity=$9,305                                      
+                    INFO       2026-09-30 → 2026-10-14: Top-5, return=-7.04%,   
+                             equity=$8,650                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-5, return=-4.78%,   
+                             equity=$8,236                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -17.64%  年化: -25.56%                   
+                    INFO       Sharpe: -0.49  Sortino: -0.44  MaxDD: 26.85%     
+                    INFO       Calmar: -0.95  胜率: 50%                         
+                    INFO       vs BTC: -36.81% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+[10/16/26 22:05:43] INFO     Walk-forward 回测: 316 快照, Top-10, rebalance=3d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-21: Top-10, return=-3.09%,  
+                             equity=$9,691                                      
+                    INFO       2026-02-21 → 2026-02-24: Top-10, return=-3.51%,  
+                             equity=$9,351                                      
+                    INFO       2026-02-24 → 2026-02-27: Top-10, return=+6.60%,  
+                             equity=$9,968                                      
+                    INFO       2026-02-27 → 2026-03-02: Top-10, return=-1.88%,  
+                             equity=$9,781                                      
+                    INFO       2026-03-02 → 2026-03-05: Top-10, return=+0.31%,  
+                             equity=$9,811                                      
+                    INFO       2026-03-05 → 2026-03-08: Top-10, return=-2.85%,  
+                             equity=$9,531                                      
+                    INFO       2026-03-08 → 2026-03-11: Top-10, return=+2.43%,  
+                             equity=$9,763                                      
+                    INFO       2026-03-11 → 2026-03-14: Top-10, return=+4.53%,  
+                             equity=$10,206                                     
+                    INFO       2026-03-14 → 2026-03-17: Top-10, return=+2.51%,  
+                             equity=$10,462                                     
+                    INFO       2026-03-17 → 2026-03-20: Top-10, return=-4.24%,  
+                             equity=$10,018                                     
+                    INFO       2026-03-20 → 2026-03-23: Top-10, return=-4.10%,  
+                             equity=$9,608                                      
+                    INFO       2026-03-23 → 2026-03-26: Top-10, return=+1.58%,  
+                             equity=$9,760                                      
+                    INFO       2026-03-26 → 2026-03-29: Top-10, return=-8.31%,  
+                             equity=$8,949                                      
+                    INFO       2026-03-29 → 2026-04-01: Top-10, return=+1.41%,  
+                             equity=$9,075                                      
+                    INFO       2026-04-01 → 2026-04-04: Top-10, return=-1.71%,  
+                             equity=$8,920                                      
+                    INFO       2026-04-04 → 2026-04-07: Top-10, return=+2.08%,  
+                             equity=$9,106                                      
+                    INFO       2026-04-07 → 2026-04-10: Top-10, return=+1.03%,  
+                             equity=$9,200                                      
+                    INFO       2026-04-10 → 2026-04-13: Top-10, return=+0.33%,  
+                             equity=$9,231                                      
+                    INFO       2026-04-13 → 2026-04-16: Top-10, return=+2.71%,  
+                             equity=$9,481                                      
+                    INFO       2026-04-16 → 2026-04-19: Top-10, return=+9.96%,  
+                             equity=$10,425                                     
+                    INFO       2026-04-19 → 2026-04-22: Top-10, return=-7.23%,  
+                             equity=$9,671                                      
+                    INFO       2026-04-22 → 2026-04-25: Top-10, return=+0.83%,  
+                             equity=$9,751                                      
+                    INFO       2026-04-25 → 2026-04-28: Top-10, return=+4.20%,  
+                             equity=$10,161                                     
+                    INFO       2026-04-28 → 2026-05-01: Top-10, return=-6.62%,  
+                             equity=$9,488                                      
+                    INFO       2026-05-01 → 2026-05-04: Top-10, return=-0.29%,  
+                             equity=$9,461                                      
+                    INFO       2026-05-04 → 2026-05-07: Top-10, return=+6.58%,  
+                             equity=$10,084                                     
+                    INFO       2026-05-07 → 2026-05-10: Top-10, return=+9.22%,  
+                             equity=$11,014                                     
+                    INFO       2026-05-10 → 2026-05-13: Top-10, return=-0.59%,  
+                             equity=$10,949                                     
+                    INFO       2026-05-13 → 2026-05-16: Top-10, return=-1.91%,  
+                             equity=$10,740                                     
+                    INFO       2026-05-16 → 2026-05-20: Top-10, return=-5.34%,  
+                             equity=$10,166                                     
+                    INFO       2026-05-20 → 2026-05-23: Top-10, return=+7.41%,  
+                             equity=$10,919                                     
+                    INFO       2026-05-23 → 2026-05-26: Top-10, return=+3.58%,  
+                             equity=$11,310                                     
+                    INFO       2026-05-26 → 2026-05-29: Top-10, return=-3.80%,  
+                             equity=$10,880                                     
+                    INFO       2026-05-29 → 2026-06-01: Top-10, return=+7.78%,  
+                             equity=$11,727                                     
+                    INFO       2026-06-01 → 2026-06-04: Top-10, return=-11.41%, 
+                             equity=$10,389                                     
+                    INFO       2026-06-04 → 2026-06-07: Top-10, return=+2.46%,  
+                             equity=$10,644                                     
+                    INFO       2026-06-07 → 2026-06-10: Top-10, return=+3.91%,  
+                             equity=$11,061                                     
+                    INFO       2026-06-10 → 2026-06-13: Top-10, return=+5.96%,  
+                             equity=$11,720                                     
+                    INFO       2026-06-13 → 2026-06-16: Top-10, return=-8.06%,  
+                             equity=$10,776                                     
+                    INFO       2026-06-16 → 2026-06-19: Top-10, return=-7.17%,  
+                             equity=$10,003                                     
+                    INFO       2026-06-19 → 2026-06-22: Top-10, return=+5.12%,  
+                             equity=$10,515                                     
+                    INFO       2026-06-22 → 2026-06-25: Top-10, return=+4.84%,  
+                             equity=$11,024                                     
+                    INFO       2026-06-25 → 2026-06-28: Top-10, return=+8.15%,  
+                             equity=$11,922                                     
+                    INFO       2026-06-28 → 2026-07-01: Top-10, return=+2.06%,  
+                             equity=$12,167                                     
+                    INFO       2026-07-01 → 2026-07-04: Top-10, return=-3.34%,  
+                             equity=$11,761                                     
+                    INFO       2026-07-04 → 2026-07-07: Top-10, return=-10.55%, 
+                             equity=$10,520                                     
+                    INFO       2026-07-07 → 2026-07-10: Top-10, return=-3.55%,  
+                             equity=$10,147                                     
+                    INFO       2026-07-10 → 2026-07-13: Top-10, return=-3.90%,  
+                             equity=$9,751                                      
+                    INFO       2026-07-13 → 2026-07-16: Top-10, return=-5.44%,  
+                             equity=$9,220                                      
+                    INFO       2026-07-16 → 2026-07-19: Top-10, return=-2.57%,  
+                             equity=$8,983                                      
+                    INFO       2026-07-19 → 2026-07-22: Top-10, return=-1.70%,  
+                             equity=$8,831                                      
+                    INFO       2026-07-22 → 2026-07-25: Top-10, return=+9.35%,  
+                             equity=$9,656                                      
+                    INFO       2026-07-25 → 2026-07-28: Top-10, return=+1.50%,  
+                             equity=$9,802                                      
+                    INFO       2026-07-28 → 2026-07-31: Top-10, return=-0.08%,  
+                             equity=$9,794                                      
+                    INFO       2026-07-31 → 2026-08-03: Top-10, return=-3.99%,  
+                             equity=$9,403                                      
+                    INFO       2026-08-03 → 2026-08-06: Top-10, return=-0.48%,  
+                             equity=$9,358                                      
+                    INFO       2026-08-06 → 2026-08-09: Top-10, return=-0.30%,  
+                             equity=$9,330                                      
+                    INFO       2026-08-09 → 2026-08-12: Top-10, return=-8.97%,  
+                             equity=$8,493                                      
+                    INFO       2026-08-12 → 2026-08-15: Top-10, return=-6.64%,  
+                             equity=$7,928                                      
+                    INFO       2026-08-15 → 2026-08-18: Top-10, return=-4.49%,  
+                             equity=$7,572                                      
+                    INFO       2026-08-18 → 2026-08-21: Top-10, return=+8.04%,  
+                             equity=$8,181                                      
+                    INFO       2026-08-21 → 2026-08-24: Top-10, return=+2.56%,  
+                             equity=$8,391                                      
+                    INFO       2026-08-24 → 2026-08-27: Top-10, return=-2.45%,  
+                             equity=$8,185                                      
+                    INFO       2026-08-27 → 2026-08-30: Top-10, return=+7.17%,  
+                             equity=$8,772                                      
+                    INFO       2026-08-30 → 2026-09-02: Top-10, return=-8.16%,  
+                             equity=$8,056                                      
+                    INFO       2026-09-02 → 2026-09-05: Top-10, return=+26.64%, 
+                             equity=$10,202                                     
+                    INFO       2026-09-05 → 2026-09-08: Top-10, return=-5.43%,  
+                             equity=$9,649                                      
+                    INFO       2026-09-08 → 2026-09-11: Top-10, return=-4.53%,  
+                             equity=$9,211                                      
+                    INFO       2026-09-11 → 2026-09-14: Top-10, return=-4.02%,  
+                             equity=$8,841                                      
+                    INFO       2026-09-14 → 2026-09-17: Top-10, return=-2.33%,  
+                             equity=$8,635                                      
+                    INFO       2026-09-17 → 2026-09-20: Top-10, return=+13.74%, 
+                             equity=$9,822                                      
+                    INFO       2026-09-20 → 2026-09-23: Top-10, return=-1.68%,  
+                             equity=$9,656                                      
+                    INFO       2026-09-23 → 2026-09-26: Top-10, return=+6.34%,  
+                             equity=$10,269                                     
+                    INFO       2026-09-26 → 2026-09-29: Top-10, return=+3.87%,  
+                             equity=$10,666                                     
+                    INFO       2026-09-29 → 2026-10-02: Top-10, return=-11.29%, 
+                             equity=$9,462                                      
+                    INFO       2026-10-02 → 2026-10-05: Top-10, return=+5.27%,  
+                             equity=$9,960                                      
+                    INFO       2026-10-05 → 2026-10-08: Top-10, return=-10.67%, 
+                             equity=$8,897                                      
+                    INFO       2026-10-08 → 2026-10-11: Top-10, return=+21.78%, 
+                             equity=$10,835                                     
+                    INFO       2026-10-11 → 2026-10-14: Top-10, return=-16.46%, 
+                             equity=$9,052                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-10, return=-5.12%,  
+                             equity=$8,589                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -14.11%  年化: -20.65%                   
+                    INFO       Sharpe: 0.02  Sortino: 0.02  MaxDD: 37.76%       
+                    INFO       Calmar: -0.55  胜率: 46%                         
+                    INFO       vs BTC: -34.93% (BTC: +20.82%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-10, rebalance=7d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-10, return=-8.79%,  
+                             equity=$9,121                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-10, return=+7.68%,  
+                             equity=$9,821                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-10, return=-1.18%,  
+                             equity=$9,705                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-10, return=+8.48%,  
+                             equity=$10,528                                     
+                    INFO       2026-03-18 → 2026-03-25: Top-10, return=-8.35%,  
+                             equity=$9,649                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-10, return=-4.99%,  
+                             equity=$9,168                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-10, return=-2.37%,  
+                             equity=$8,950                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-10, return=+9.21%,  
+                             equity=$9,774                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-10, return=+1.97%,  
+                             equity=$9,967                                      
+                    INFO       2026-04-22 → 2026-04-29: Top-10, return=+1.43%,  
+                             equity=$10,109                                     
+                    INFO       2026-04-29 → 2026-05-06: Top-10, return=-0.50%,  
+                             equity=$10,059                                     
+                    INFO       2026-05-06 → 2026-05-13: Top-10, return=+12.08%, 
+                             equity=$11,274                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-10, return=-5.65%,  
+                             equity=$10,637                                     
+                    INFO       2026-05-20 → 2026-05-27: Top-10, return=+11.76%, 
+                             equity=$11,888                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-10, return=-5.52%,  
+                             equity=$11,232                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-10, return=-22.97%, 
+                             equity=$8,652                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-10, return=+10.05%, 
+                             equity=$9,521                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-10, return=-12.46%, 
+                             equity=$8,335                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-10, return=+7.89%,  
+                             equity=$8,992                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-10, return=-13.70%, 
+                             equity=$7,760                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-10, return=+0.34%,  
+                             equity=$7,787                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-10, return=+0.77%,  
+                             equity=$7,847                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-10, return=-1.04%,  
+                             equity=$7,765                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-10, return=-12.20%, 
+                             equity=$6,818                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-10, return=+19.35%, 
+                             equity=$8,137                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-10, return=-1.56%,  
+                             equity=$8,010                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-10, return=+7.33%,  
+                             equity=$8,598                                      
+                    INFO       2026-08-26 → 2026-09-02: Top-10, return=-7.55%,  
+                             equity=$7,948                                      
+                    INFO       2026-09-02 → 2026-09-09: Top-10, return=+15.85%, 
+                             equity=$9,208                                      
+                    INFO       2026-09-09 → 2026-09-16: Top-10, return=-5.77%,  
+                             equity=$8,677                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-10, return=+32.45%, 
+                             equity=$11,493                                     
+                    INFO       2026-09-23 → 2026-09-30: Top-10, return=+2.81%,  
+                             equity=$11,815                                     
+                    INFO       2026-09-30 → 2026-10-07: Top-10, return=-1.98%,  
+                             equity=$11,581                                     
+                    INFO       2026-10-07 → 2026-10-14: Top-10, return=-10.97%, 
+                             equity=$10,310                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-10, return=-5.12%,  
+                             equity=$9,782                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -2.18%  年化: -3.29%                     
+                    INFO       Sharpe: 0.27  Sortino: 0.33  MaxDD: 42.65%       
+                    INFO       Calmar: -0.08  胜率: 46%                         
+                    INFO       vs BTC: -21.35% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-10, rebalance=14d,
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-03-04: Top-10, return=-1.72%,  
+                             equity=$9,828                                      
+                    INFO       2026-03-04 → 2026-03-18: Top-10, return=+5.74%,  
+                             equity=$10,392                                     
+                    INFO       2026-03-18 → 2026-04-01: Top-10, return=-11.40%, 
+                             equity=$9,208                                      
+                    INFO       2026-04-01 → 2026-04-15: Top-10, return=+3.66%,  
+                             equity=$9,544                                      
+                    INFO       2026-04-15 → 2026-04-29: Top-10, return=+4.72%,  
+                             equity=$9,995                                      
+                    INFO       2026-04-29 → 2026-05-13: Top-10, return=+12.99%, 
+                             equity=$11,293                                     
+                    INFO       2026-05-13 → 2026-05-27: Top-10, return=-13.35%, 
+                             equity=$9,785                                      
+                    INFO       2026-05-27 → 2026-06-10: Top-10, return=-23.50%, 
+                             equity=$7,486                                      
+                    INFO       2026-06-10 → 2026-06-24: Top-10, return=+12.34%, 
+                             equity=$8,409                                      
+                    INFO       2026-06-24 → 2026-07-08: Top-10, return=-0.26%,  
+                             equity=$8,388                                      
+                    INFO       2026-07-08 → 2026-07-22: Top-10, return=+5.74%,  
+                             equity=$8,869                                      
+                    INFO       2026-07-22 → 2026-08-05: Top-10, return=-3.29%,  
+                             equity=$8,577                                      
+                    INFO       2026-08-05 → 2026-08-19: Top-10, return=-0.23%,  
+                             equity=$8,557                                      
+                    INFO       2026-08-19 → 2026-09-02: Top-10, return=+10.31%, 
+                             equity=$9,440                                      
+                    INFO       2026-09-02 → 2026-09-16: Top-10, return=+8.83%,  
+                             equity=$10,274                                     
+                    INFO       2026-09-16 → 2026-09-30: Top-10, return=+21.86%, 
+                             equity=$12,519                                     
+                    INFO       2026-09-30 → 2026-10-14: Top-10, return=-4.99%,  
+                             equity=$11,895                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-10, return=-5.12%,  
+                             equity=$11,286                                     
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: +12.86%  年化: +20.20%                   
+                    INFO       Sharpe: 0.53  Sortino: 0.56  MaxDD: 33.72%       
+                    INFO       Calmar: 0.60  胜率: 50%                          
+                    INFO       vs BTC: -6.31% (BTC: +19.17%)                    
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-15, rebalance=3d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-21: Top-15, return=-3.79%,  
+                             equity=$9,621                                      
+                    INFO       2026-02-21 → 2026-02-24: Top-15, return=-4.00%,  
+                             equity=$9,236                                      
+                    INFO       2026-02-24 → 2026-02-27: Top-15, return=+7.80%,  
+                             equity=$9,956                                      
+                    INFO       2026-02-27 → 2026-03-02: Top-15, return=-1.69%,  
+                             equity=$9,788                                      
+                    INFO       2026-03-02 → 2026-03-05: Top-15, return=-1.26%,  
+                             equity=$9,665                                      
+                    INFO       2026-03-05 → 2026-03-08: Top-15, return=-1.75%,  
+                             equity=$9,495                                      
+                    INFO       2026-03-08 → 2026-03-11: Top-15, return=+1.80%,  
+                             equity=$9,666                                      
+                    INFO       2026-03-11 → 2026-03-14: Top-15, return=+4.03%,  
+                             equity=$10,055                                     
+                    INFO       2026-03-14 → 2026-03-17: Top-15, return=+3.13%,  
+                             equity=$10,370                                     
+                    INFO       2026-03-17 → 2026-03-20: Top-15, return=-3.86%,  
+                             equity=$9,970                                      
+                    INFO       2026-03-20 → 2026-03-23: Top-15, return=-3.97%,  
+                             equity=$9,574                                      
+                    INFO       2026-03-23 → 2026-03-26: Top-15, return=+0.82%,  
+                             equity=$9,653                                      
+                    INFO       2026-03-26 → 2026-03-29: Top-15, return=-6.70%,  
+                             equity=$9,006                                      
+                    INFO       2026-03-29 → 2026-04-01: Top-15, return=+1.49%,  
+                             equity=$9,141                                      
+                    INFO       2026-04-01 → 2026-04-04: Top-15, return=-2.04%,  
+                             equity=$8,954                                      
+                    INFO       2026-04-04 → 2026-04-07: Top-15, return=+2.44%,  
+                             equity=$9,172                                      
+                    INFO       2026-04-07 → 2026-04-10: Top-15, return=+1.07%,  
+                             equity=$9,271                                      
+                    INFO       2026-04-10 → 2026-04-13: Top-15, return=+0.30%,  
+                             equity=$9,299                                      
+                    INFO       2026-04-13 → 2026-04-16: Top-15, return=+2.23%,  
+                             equity=$9,506                                      
+                    INFO       2026-04-16 → 2026-04-19: Top-15, return=+9.10%,  
+                             equity=$10,371                                     
+                    INFO       2026-04-19 → 2026-04-22: Top-15, return=-5.86%,  
+                             equity=$9,764                                      
+                    INFO       2026-04-22 → 2026-04-25: Top-15, return=+1.55%,  
+                             equity=$9,916                                      
+                    INFO       2026-04-25 → 2026-04-28: Top-15, return=+4.38%,  
+                             equity=$10,350                                     
+                    INFO       2026-04-28 → 2026-05-01: Top-15, return=-5.60%,  
+                             equity=$9,770                                      
+                    INFO       2026-05-01 → 2026-05-04: Top-15, return=+0.09%,  
+                             equity=$9,779                                      
+                    INFO       2026-05-04 → 2026-05-07: Top-15, return=+6.01%,  
+                             equity=$10,366                                     
+                    INFO       2026-05-07 → 2026-05-10: Top-15, return=+8.73%,  
+                             equity=$11,271                                     
+                    INFO       2026-05-10 → 2026-05-13: Top-15, return=-0.82%,  
+                             equity=$11,179                                     
+                    INFO       2026-05-13 → 2026-05-16: Top-15, return=-1.91%,  
+                             equity=$10,966                                     
+                    INFO       2026-05-16 → 2026-05-20: Top-15, return=-6.48%,  
+                             equity=$10,255                                     
+                    INFO       2026-05-20 → 2026-05-23: Top-15, return=+6.29%,  
+                             equity=$10,900                                     
+                    INFO       2026-05-23 → 2026-05-26: Top-15, return=+2.09%,  
+                             equity=$11,127                                     
+                    INFO       2026-05-26 → 2026-05-29: Top-15, return=-4.09%,  
+                             equity=$10,672                                     
+                    INFO       2026-05-29 → 2026-06-01: Top-15, return=+7.16%,  
+                             equity=$11,437                                     
+                    INFO       2026-06-01 → 2026-06-04: Top-15, return=-12.02%, 
+                             equity=$10,062                                     
+                    INFO       2026-06-04 → 2026-06-07: Top-15, return=-1.46%,  
+                             equity=$9,915                                      
+                    INFO       2026-06-07 → 2026-06-10: Top-15, return=+17.82%, 
+                             equity=$11,682                                     
+                    INFO       2026-06-10 → 2026-06-13: Top-15, return=+6.37%,  
+                             equity=$12,426                                     
+                    INFO       2026-06-13 → 2026-06-16: Top-15, return=-5.85%,  
+                             equity=$11,700                                     
+                    INFO       2026-06-16 → 2026-06-19: Top-15, return=-7.59%,  
+                             equity=$10,812                                     
+                    INFO       2026-06-19 → 2026-06-22: Top-15, return=+1.03%,  
+                             equity=$10,923                                     
+                    INFO       2026-06-22 → 2026-06-25: Top-15, return=+0.42%,  
+                             equity=$10,969                                     
+                    INFO       2026-06-25 → 2026-06-28: Top-15, return=+2.34%,  
+                             equity=$11,226                                     
+                    INFO       2026-06-28 → 2026-07-01: Top-15, return=+2.19%,  
+                             equity=$11,471                                     
+                    INFO       2026-07-01 → 2026-07-04: Top-15, return=+9.46%,  
+                             equity=$12,556                                     
+                    INFO       2026-07-04 → 2026-07-07: Top-15, return=-7.41%,  
+                             equity=$11,625                                     
+                    INFO       2026-07-07 → 2026-07-10: Top-15, return=-4.48%,  
+                             equity=$11,105                                     
+                    INFO       2026-07-10 → 2026-07-13: Top-15, return=-3.24%,  
+                             equity=$10,745                                     
+                    INFO       2026-07-13 → 2026-07-16: Top-15, return=-8.32%,  
+                             equity=$9,851                                      
+                    INFO       2026-07-16 → 2026-07-19: Top-15, return=-2.36%,  
+                             equity=$9,619                                      
+                    INFO       2026-07-19 → 2026-07-22: Top-15, return=+0.05%,  
+                             equity=$9,624                                      
+                    INFO       2026-07-22 → 2026-07-25: Top-15, return=+4.17%,  
+                             equity=$10,025                                     
+                    INFO       2026-07-25 → 2026-07-28: Top-15, return=+1.28%,  
+                             equity=$10,154                                     
+                    INFO       2026-07-28 → 2026-07-31: Top-15, return=-0.92%,  
+                             equity=$10,060                                     
+                    INFO       2026-07-31 → 2026-08-03: Top-15, return=-7.53%,  
+                             equity=$9,302                                      
+                    INFO       2026-08-03 → 2026-08-06: Top-15, return=-0.42%,  
+                             equity=$9,263                                      
+                    INFO       2026-08-06 → 2026-08-09: Top-15, return=+0.02%,  
+                             equity=$9,266                                      
+                    INFO       2026-08-09 → 2026-08-12: Top-15, return=-6.90%,  
+                             equity=$8,626                                      
+                    INFO       2026-08-12 → 2026-08-15: Top-15, return=-6.86%,  
+                             equity=$8,034                                      
+                    INFO       2026-08-15 → 2026-08-18: Top-15, return=-6.58%,  
+                             equity=$7,506                                      
+                    INFO       2026-08-18 → 2026-08-21: Top-15, return=+9.16%,  
+                             equity=$8,194                                      
+                    INFO       2026-08-21 → 2026-08-24: Top-15, return=+2.07%,  
+                             equity=$8,364                                      
+                    INFO       2026-08-24 → 2026-08-27: Top-15, return=-2.27%,  
+                             equity=$8,174                                      
+                    INFO       2026-08-27 → 2026-08-30: Top-15, return=+1.69%,  
+                             equity=$8,312                                      
+                    INFO       2026-08-30 → 2026-09-02: Top-15, return=-10.77%, 
+                             equity=$7,417                                      
+                    INFO       2026-09-02 → 2026-09-05: Top-15, return=+22.53%, 
+                             equity=$9,088                                      
+                    INFO       2026-09-05 → 2026-09-08: Top-15, return=-3.64%,  
+                             equity=$8,757                                      
+                    INFO       2026-09-08 → 2026-09-11: Top-15, return=-3.77%,  
+                             equity=$8,427                                      
+                    INFO       2026-09-11 → 2026-09-14: Top-15, return=-3.51%,  
+                             equity=$8,131                                      
+                    INFO       2026-09-14 → 2026-09-17: Top-15, return=+0.42%,  
+                             equity=$8,165                                      
+                    INFO       2026-09-17 → 2026-09-20: Top-15, return=+9.21%,  
+                             equity=$8,917                                      
+                    INFO       2026-09-20 → 2026-09-23: Top-15, return=+1.17%,  
+                             equity=$9,022                                      
+                    INFO       2026-09-23 → 2026-09-26: Top-15, return=+5.75%,  
+                             equity=$9,541                                      
+                    INFO       2026-09-26 → 2026-09-29: Top-15, return=+3.87%,  
+                             equity=$9,910                                      
+                    INFO       2026-09-29 → 2026-10-02: Top-15, return=-8.49%,  
+                             equity=$9,068                                      
+                    INFO       2026-10-02 → 2026-10-05: Top-15, return=+5.27%,  
+                             equity=$9,546                                      
+                    INFO       2026-10-05 → 2026-10-08: Top-15, return=-9.97%,  
+                             equity=$8,594                                      
+                    INFO       2026-10-08 → 2026-10-11: Top-15, return=+15.77%, 
+                             equity=$9,950                                      
+                    INFO       2026-10-11 → 2026-10-14: Top-15, return=-13.89%, 
+                             equity=$8,567                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-15, return=-2.92%,  
+                             equity=$8,317                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -16.83%  年化: -24.44%                   
+                    INFO       Sharpe: -0.11  Sortino: -0.12  MaxDD: 40.93%     
+                    INFO       Calmar: -0.60  胜率: 51%                         
+                    INFO       vs BTC: -37.65% (BTC: +20.82%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-15, rebalance=7d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-15, return=-8.72%,  
+                             equity=$9,128                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-15, return=+6.21%,  
+                             equity=$9,695                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-15, return=-0.62%,  
+                             equity=$9,635                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-15, return=+9.27%,  
+                             equity=$10,529                                     
+                    INFO       2026-03-18 → 2026-03-25: Top-15, return=-7.75%,  
+                             equity=$9,712                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-15, return=-3.35%,  
+                             equity=$9,388                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-15, return=-1.50%,  
+                             equity=$9,247                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-15, return=+7.55%,  
+                             equity=$9,945                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-15, return=+1.18%,  
+                             equity=$10,062                                     
+                    INFO       2026-04-22 → 2026-04-29: Top-15, return=+2.12%,  
+                             equity=$10,275                                     
+                    INFO       2026-04-29 → 2026-05-06: Top-15, return=+0.32%,  
+                             equity=$10,308                                     
+                    INFO       2026-05-06 → 2026-05-13: Top-15, return=+10.49%, 
+                             equity=$11,390                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-15, return=-4.33%,  
+                             equity=$10,897                                     
+                    INFO       2026-05-20 → 2026-05-27: Top-15, return=+8.45%,  
+                             equity=$11,817                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-15, return=-5.00%,  
+                             equity=$11,227                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-15, return=-21.80%, 
+                             equity=$8,780                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-15, return=+12.93%, 
+                             equity=$9,915                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-15, return=-13.70%, 
+                             equity=$8,556                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-15, return=+4.42%,  
+                             equity=$8,935                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-15, return=+1.65%,  
+                             equity=$9,082                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-15, return=-4.29%,  
+                             equity=$8,692                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-15, return=+1.82%,  
+                             equity=$8,850                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-15, return=-3.18%,  
+                             equity=$8,569                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-15, return=+0.65%,  
+                             equity=$8,624                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-15, return=+13.83%, 
+                             equity=$9,817                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-15, return=-4.41%,  
+                             equity=$9,385                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-15, return=+6.56%,  
+                             equity=$10,000                                     
+                    INFO       2026-08-26 → 2026-09-02: Top-15, return=-4.97%,  
+                             equity=$9,503                                      
+[10/16/26 22:05:44] INFO       2026-09-02 → 2026-09-09: Top-15, return=+11.41%, 
+                             equity=$10,587                                     
+                    INFO       2026-09-09 → 2026-09-16: Top-15, return=-6.64%,  
+                             equity=$9,885                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-15, return=+27.45%, 
+                             equity=$12,598                                     
+                    INFO       2026-09-23 → 2026-09-30: Top-15, return=+1.57%,  
+                             equity=$12,796                                     
+                    INFO       2026-09-30 → 2026-10-07: Top-15, return=-4.80%,  
+                             equity=$12,181                                     
+                    INFO       2026-10-07 → 2026-10-14: Top-15, return=-4.61%,  
+                             equity=$11,620                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-15, return=-2.92%,  
+                             equity=$11,281                                     
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: +12.81%  年化: +20.12%                   
+                    INFO       Sharpe: 0.53  Sortino: 0.61  MaxDD: 27.59%       
+                    INFO       Calmar: 0.73  胜率: 51%                          
+                    INFO       vs BTC: -6.36% (BTC: +19.17%)                    
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-15, rebalance=14d,
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-03-04: Top-15, return=-2.69%,  
+                             equity=$9,731                                      
+                    INFO       2026-03-04 → 2026-03-18: Top-15, return=+7.32%,  
+                             equity=$10,443                                     
+                    INFO       2026-03-18 → 2026-04-01: Top-15, return=-11.74%, 
+                             equity=$9,217                                      
+                    INFO       2026-04-01 → 2026-04-15: Top-15, return=+4.21%,  
+                             equity=$9,605                                      
+                    INFO       2026-04-15 → 2026-04-29: Top-15, return=+2.95%,  
+                             equity=$9,889                                      
+                    INFO       2026-04-29 → 2026-05-13: Top-15, return=+12.44%, 
+                             equity=$11,119                                     
+                    INFO       2026-05-13 → 2026-05-27: Top-15, return=-13.35%, 
+                             equity=$9,634                                      
+                    INFO       2026-05-27 → 2026-06-10: Top-15, return=-22.05%, 
+                             equity=$7,509                                      
+                    INFO       2026-06-10 → 2026-06-24: Top-15, return=+11.45%, 
+                             equity=$8,369                                      
+                    INFO       2026-06-24 → 2026-07-08: Top-15, return=-0.39%,  
+                             equity=$8,336                                      
+                    INFO       2026-07-08 → 2026-07-22: Top-15, return=+1.38%,  
+                             equity=$8,452                                      
+                    INFO       2026-07-22 → 2026-08-05: Top-15, return=-5.56%,  
+                             equity=$7,982                                      
+                    INFO       2026-08-05 → 2026-08-19: Top-15, return=+4.37%,  
+                             equity=$8,331                                      
+                    INFO       2026-08-19 → 2026-09-02: Top-15, return=+1.38%,  
+                             equity=$8,445                                      
+                    INFO       2026-09-02 → 2026-09-16: Top-15, return=+8.42%,  
+                             equity=$9,156                                      
+                    INFO       2026-09-16 → 2026-09-30: Top-15, return=+21.60%, 
+                             equity=$11,134                                     
+                    INFO       2026-09-30 → 2026-10-14: Top-15, return=-8.44%,  
+                             equity=$10,195                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-15, return=-2.92%,  
+                             equity=$9,897                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -1.03%  年化: -1.56%                     
+                    INFO       Sharpe: 0.16  Sortino: 0.16  MaxDD: 32.46%       
+                    INFO       Calmar: -0.05  胜率: 56%                         
+                    INFO       vs BTC: -20.20% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-20, rebalance=3d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-21: Top-18, return=-5.56%,  
+                             equity=$9,444                                      
+                    INFO       2026-02-21 → 2026-02-24: Top-18, return=-4.87%,  
+                             equity=$8,984                                      
+                    INFO       2026-02-24 → 2026-02-27: Top-18, return=+8.73%,  
+                             equity=$9,768                                      
+                    INFO       2026-02-27 → 2026-03-02: Top-18, return=-2.12%,  
+                             equity=$9,561                                      
+                    INFO       2026-03-02 → 2026-03-05: Top-20, return=-1.74%,  
+                             equity=$9,395                                      
+                    INFO       2026-03-05 → 2026-03-08: Top-20, return=-1.46%,  
+                             equity=$9,258                                      
+                    INFO       2026-03-08 → 2026-03-11: Top-20, return=+1.80%,  
+                             equity=$9,424                                      
+                    INFO       2026-03-11 → 2026-03-14: Top-20, return=+3.58%,  
+                             equity=$9,762                                      
+                    INFO       2026-03-14 → 2026-03-17: Top-20, return=+3.35%,  
+                             equity=$10,088                                     
+                    INFO       2026-03-17 → 2026-03-20: Top-20, return=-3.38%,  
+                             equity=$9,747                                      
+                    INFO       2026-03-20 → 2026-03-23: Top-20, return=-3.47%,  
+                             equity=$9,409                                      
+                    INFO       2026-03-23 → 2026-03-26: Top-20, return=+1.67%,  
+                             equity=$9,567                                      
+                    INFO       2026-03-26 → 2026-03-29: Top-20, return=-6.88%,  
+                             equity=$8,909                                      
+                    INFO       2026-03-29 → 2026-04-01: Top-20, return=+2.15%,  
+                             equity=$9,101                                      
+                    INFO       2026-04-01 → 2026-04-04: Top-20, return=-1.75%,  
+                             equity=$8,941                                      
+                    INFO       2026-04-04 → 2026-04-07: Top-20, return=+2.70%,  
+                             equity=$9,183                                      
+                    INFO       2026-04-07 → 2026-04-10: Top-20, return=+0.62%,  
+                             equity=$9,239                                      
+                    INFO       2026-04-10 → 2026-04-13: Top-20, return=+0.19%,  
+                             equity=$9,257                                      
+                    INFO       2026-04-13 → 2026-04-16: Top-20, return=+2.21%,  
+                             equity=$9,462                                      
+                    INFO       2026-04-16 → 2026-04-19: Top-20, return=+8.34%,  
+                             equity=$10,251                                     
+                    INFO       2026-04-19 → 2026-04-22: Top-20, return=-5.25%,  
+                             equity=$9,713                                      
+                    INFO       2026-04-22 → 2026-04-25: Top-20, return=+1.22%,  
+                             equity=$9,831                                      
+                    INFO       2026-04-25 → 2026-04-28: Top-20, return=+3.97%,  
+                             equity=$10,222                                     
+                    INFO       2026-04-28 → 2026-05-01: Top-20, return=-5.22%,  
+                             equity=$9,688                                      
+                    INFO       2026-05-01 → 2026-05-04: Top-20, return=+0.09%,  
+                             equity=$9,697                                      
+                    INFO       2026-05-04 → 2026-05-07: Top-20, return=+5.39%,  
+                             equity=$10,219                                     
+                    INFO       2026-05-07 → 2026-05-10: Top-20, return=+7.05%,  
+                             equity=$10,940                                     
+                    INFO       2026-05-10 → 2026-05-13: Top-20, return=-0.99%,  
+                             equity=$10,832                                     
+                    INFO       2026-05-13 → 2026-05-16: Top-20, return=-2.64%,  
+                             equity=$10,545                                     
+                    INFO       2026-05-16 → 2026-05-20: Top-20, return=-6.67%,  
+                             equity=$9,842                                      
+                    INFO       2026-05-20 → 2026-05-23: Top-20, return=+5.04%,  
+                             equity=$10,338                                     
+                    INFO       2026-05-23 → 2026-05-26: Top-20, return=+0.40%,  
+                             equity=$10,379                                     
+                    INFO       2026-05-26 → 2026-05-29: Top-20, return=-4.09%,  
+                             equity=$9,955                                      
+                    INFO       2026-05-29 → 2026-06-01: Top-20, return=+6.11%,  
+                             equity=$10,563                                     
+                    INFO       2026-06-01 → 2026-06-04: Top-20, return=-12.50%, 
+                             equity=$9,242                                      
+                    INFO       2026-06-04 → 2026-06-07: Top-20, return=-3.08%,  
+                             equity=$8,958                                      
+                    INFO       2026-06-07 → 2026-06-10: Top-20, return=+11.35%, 
+                             equity=$9,975                                      
+                    INFO       2026-06-10 → 2026-06-13: Top-20, return=+5.28%,  
+                             equity=$10,501                                     
+                    INFO       2026-06-13 → 2026-06-16: Top-20, return=-8.34%,  
+                             equity=$9,625                                      
+                    INFO       2026-06-16 → 2026-06-19: Top-20, return=-4.91%,  
+                             equity=$9,152                                      
+                    INFO       2026-06-19 → 2026-06-22: Top-20, return=+0.07%,  
+                             equity=$9,158                                      
+                    INFO       2026-06-22 → 2026-06-25: Top-20, return=-2.46%,  
+                             equity=$8,933                                      
+                    INFO       2026-06-25 → 2026-06-28: Top-20, return=+1.65%,  
+                             equity=$9,080                                      
+                    INFO       2026-06-28 → 2026-07-01: Top-20, return=+1.88%,  
+                             equity=$9,251                                      
+                    INFO       2026-07-01 → 2026-07-04: Top-20, return=+7.13%,  
+                             equity=$9,910                                      
+                    INFO       2026-07-04 → 2026-07-07: Top-20, return=-5.08%,  
+                             equity=$9,407                                      
+                    INFO       2026-07-07 → 2026-07-10: Top-20, return=-5.18%,  
+                             equity=$8,920                                      
+                    INFO       2026-07-10 → 2026-07-13: Top-20, return=-1.71%,  
+                             equity=$8,767                                      
+                    INFO       2026-07-13 → 2026-07-16: Top-20, return=-7.59%,  
+                             equity=$8,102                                      
+                    INFO       2026-07-16 → 2026-07-19: Top-20, return=-1.42%,  
+                             equity=$7,987                                      
+                    INFO       2026-07-19 → 2026-07-22: Top-20, return=+0.57%,  
+                             equity=$8,032                                      
+                    INFO       2026-07-22 → 2026-07-25: Top-20, return=+1.87%,  
+                             equity=$8,183                                      
+                    INFO       2026-07-25 → 2026-07-28: Top-20, return=-0.75%,  
+                             equity=$8,121                                      
+                    INFO       2026-07-28 → 2026-07-31: Top-20, return=-1.23%,  
+                             equity=$8,022                                      
+                    INFO       2026-07-31 → 2026-08-03: Top-20, return=-5.81%,  
+                             equity=$7,556                                      
+                    INFO       2026-08-03 → 2026-08-06: Top-20, return=-0.66%,  
+                             equity=$7,506                                      
+                    INFO       2026-08-06 → 2026-08-09: Top-20, return=+0.47%,  
+                             equity=$7,542                                      
+                    INFO       2026-08-09 → 2026-08-12: Top-20, return=-7.13%,  
+                             equity=$7,004                                      
+                    INFO       2026-08-12 → 2026-08-15: Top-20, return=-6.79%,  
+                             equity=$6,529                                      
+                    INFO       2026-08-15 → 2026-08-18: Top-20, return=-5.05%,  
+                             equity=$6,199                                      
+                    INFO       2026-08-18 → 2026-08-21: Top-20, return=+11.27%, 
+                             equity=$6,898                                      
+                    INFO       2026-08-21 → 2026-08-24: Top-20, return=+2.93%,  
+                             equity=$7,100                                      
+                    INFO       2026-08-24 → 2026-08-27: Top-20, return=-2.27%,  
+                             equity=$6,939                                      
+                    INFO       2026-08-27 → 2026-08-30: Top-20, return=+1.45%,  
+                             equity=$7,040                                      
+                    INFO       2026-08-30 → 2026-09-02: Top-20, return=-7.10%,  
+                             equity=$6,540                                      
+                    INFO       2026-09-02 → 2026-09-05: Top-20, return=+29.90%, 
+                             equity=$8,495                                      
+                    INFO       2026-09-05 → 2026-09-08: Top-20, return=-5.14%,  
+                             equity=$8,059                                      
+                    INFO       2026-09-08 → 2026-09-11: Top-20, return=-3.54%,  
+                             equity=$7,774                                      
+                    INFO       2026-09-11 → 2026-09-14: Top-20, return=-5.31%,  
+                             equity=$7,361                                      
+                    INFO       2026-09-14 → 2026-09-17: Top-20, return=+2.03%,  
+                             equity=$7,510                                      
+                    INFO       2026-09-17 → 2026-09-20: Top-20, return=+9.86%,  
+                             equity=$8,251                                      
+                    INFO       2026-09-20 → 2026-09-23: Top-20, return=+3.18%,  
+                             equity=$8,513                                      
+                    INFO       2026-09-23 → 2026-09-26: Top-20, return=+7.07%,  
+                             equity=$9,114                                      
+                    INFO       2026-09-26 → 2026-09-29: Top-20, return=+3.87%,  
+                             equity=$9,467                                      
+                    INFO       2026-09-29 → 2026-10-02: Top-20, return=-8.49%,  
+                             equity=$8,663                                      
+                    INFO       2026-10-02 → 2026-10-05: Top-20, return=+5.27%,  
+                             equity=$9,120                                      
+                    INFO       2026-10-05 → 2026-10-08: Top-20, return=-9.78%,  
+                             equity=$8,228                                      
+                    INFO       2026-10-08 → 2026-10-11: Top-20, return=+13.83%, 
+                             equity=$9,365                                      
+                    INFO       2026-10-11 → 2026-10-14: Top-20, return=-13.03%, 
+                             equity=$8,145                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-20, return=-3.47%,  
+                             equity=$7,862                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -21.38%  年化: -30.64%                   
+                    INFO       Sharpe: -0.24  Sortino: -0.27  MaxDD: 43.34%     
+                    INFO       Calmar: -0.71  胜率: 49%                         
+                    INFO       vs BTC: -42.20% (BTC: +20.82%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-20, rebalance=7d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-18, return=-10.82%, 
+                             equity=$8,918                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-18, return=+7.18%,  
+                             equity=$9,558                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-20, return=-1.04%,  
+                             equity=$9,458                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-20, return=+9.14%,  
+                             equity=$10,323                                     
+                    INFO       2026-03-18 → 2026-03-25: Top-20, return=-7.95%,  
+                             equity=$9,503                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-20, return=-3.26%,  
+                             equity=$9,193                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-20, return=-0.78%,  
+                             equity=$9,121                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-20, return=+6.06%,  
+                             equity=$9,673                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-20, return=+0.94%,  
+                             equity=$9,765                                      
+                    INFO       2026-04-22 → 2026-04-29: Top-20, return=+1.49%,  
+                             equity=$9,910                                      
+                    INFO       2026-04-29 → 2026-05-06: Top-20, return=+0.52%,  
+                             equity=$9,961                                      
+                    INFO       2026-05-06 → 2026-05-13: Top-20, return=+10.25%, 
+                             equity=$10,981                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-20, return=-5.92%,  
+                             equity=$10,331                                     
+                    INFO       2026-05-20 → 2026-05-27: Top-20, return=+6.60%,  
+                             equity=$11,013                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-20, return=-2.79%,  
+                             equity=$10,705                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-20, return=-21.10%, 
+                             equity=$8,446                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-20, return=+10.76%, 
+                             equity=$9,355                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-20, return=-14.37%, 
+                             equity=$8,011                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-20, return=+5.64%,  
+                             equity=$8,462                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-20, return=+1.22%,  
+                             equity=$8,566                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-20, return=-3.20%,  
+                             equity=$8,291                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-20, return=+1.62%,  
+                             equity=$8,426                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-20, return=-3.94%,  
+                             equity=$8,094                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-20, return=+0.19%,  
+                             equity=$8,110                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-20, return=+12.38%, 
+                             equity=$9,114                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-20, return=-4.13%,  
+                             equity=$8,738                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-20, return=+5.99%,  
+                             equity=$9,261                                      
+                    INFO       2026-08-26 → 2026-09-02: Top-20, return=-4.72%,  
+                             equity=$8,823                                      
+                    INFO       2026-09-02 → 2026-09-09: Top-20, return=+13.20%, 
+                             equity=$9,988                                      
+                    INFO       2026-09-09 → 2026-09-16: Top-20, return=-7.73%,  
+                             equity=$9,216                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-20, return=+22.05%, 
+                             equity=$11,248                                     
+                    INFO       2026-09-23 → 2026-09-30: Top-20, return=+1.81%,  
+                             equity=$11,452                                     
+                    INFO       2026-09-30 → 2026-10-07: Top-20, return=-5.23%,  
+                             equity=$10,853                                     
+                    INFO       2026-10-07 → 2026-10-14: Top-20, return=-5.54%,  
+                             equity=$10,252                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-20, return=-3.47%,  
+                             equity=$9,896                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -1.04%  年化: -1.58%                     
+                    INFO       Sharpe: 0.21  Sortino: 0.22  MaxDD: 27.26%       
+                    INFO       Calmar: -0.06  胜率: 51%                         
+                    INFO       vs BTC: -20.22% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-20, rebalance=14d,
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-03-04: Top-18, return=-4.46%,  
+                             equity=$9,554                                      
+                    INFO       2026-03-04 → 2026-03-18: Top-20, return=+6.93%,  
+                             equity=$10,215                                     
+                    INFO       2026-03-18 → 2026-04-01: Top-20, return=-11.37%, 
+                             equity=$9,053                                      
+                    INFO       2026-04-01 → 2026-04-15: Top-20, return=+5.22%,  
+                             equity=$9,526                                      
+                    INFO       2026-04-15 → 2026-04-29: Top-20, return=+2.69%,  
+                             equity=$9,781                                      
+                    INFO       2026-04-29 → 2026-05-13: Top-20, return=+11.54%, 
+                             equity=$10,910                                     
+                    INFO       2026-05-13 → 2026-05-27: Top-20, return=-6.75%,  
+                             equity=$10,174                                     
+                    INFO       2026-05-27 → 2026-06-10: Top-20, return=-19.16%, 
+                             equity=$8,225                                      
+                    INFO       2026-06-10 → 2026-06-24: Top-20, return=+10.01%, 
+                             equity=$9,048                                      
+                    INFO       2026-06-24 → 2026-07-08: Top-20, return=+3.69%,  
+                             equity=$9,382                                      
+                    INFO       2026-07-08 → 2026-07-22: Top-20, return=+0.68%,  
+                             equity=$9,446                                      
+                    INFO       2026-07-22 → 2026-08-05: Top-20, return=-6.04%,  
+                             equity=$8,876                                      
+                    INFO       2026-08-05 → 2026-08-19: Top-20, return=+8.39%,  
+                             equity=$9,620                                      
+                    INFO       2026-08-19 → 2026-09-02: Top-20, return=+1.36%,  
+                             equity=$9,751                                      
+                    INFO       2026-09-02 → 2026-09-16: Top-20, return=+9.20%,  
+                             equity=$10,648                                     
+                    INFO       2026-09-16 → 2026-09-30: Top-20, return=+20.33%, 
+                             equity=$12,813                                     
+                    INFO       2026-09-30 → 2026-10-14: Top-20, return=-9.84%,  
+                             equity=$11,552                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-20, return=-3.47%,  
+                             equity=$11,151                                     
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: +11.51%  年化: +18.02%                   
+                    INFO       Sharpe: 0.49  Sortino: 0.47  MaxDD: 24.61%       
+                    INFO       Calmar: 0.73  胜率: 61%                          
+                    INFO       vs BTC: -7.67% (BTC: +19.17%)                    
+                    INFO     ===================================================
+                             =========                                          
+[10/16/26 22:05:45] INFO     Walk-forward 回测: 316 快照, Top-30, rebalance=3d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-21: Top-18, return=-5.56%,  
+                             equity=$9,444                                      
+                    INFO       2026-02-21 → 2026-02-24: Top-18, return=-4.87%,  
+                             equity=$8,984                                      
+                    INFO       2026-02-24 → 2026-02-27: Top-18, return=+8.73%,  
+                             equity=$9,768                                      
+                    INFO       2026-02-27 → 2026-03-02: Top-18, return=-2.12%,  
+                             equity=$9,561                                      
+                    INFO       2026-03-02 → 2026-03-05: Top-29, return=-2.13%,  
+                             equity=$9,357                                      
+                    INFO       2026-03-05 → 2026-03-08: Top-29, return=-0.94%,  
+                             equity=$9,270                                      
+                    INFO       2026-03-08 → 2026-03-11: Top-29, return=+1.31%,  
+                             equity=$9,391                                      
+                    INFO       2026-03-11 → 2026-03-14: Top-29, return=+3.78%,  
+                             equity=$9,746                                      
+                    INFO       2026-03-14 → 2026-03-17: Top-29, return=+3.17%,  
+                             equity=$10,055                                     
+                    INFO       2026-03-17 → 2026-03-20: Top-29, return=-2.17%,  
+                             equity=$9,836                                      
+                    INFO       2026-03-20 → 2026-03-23: Top-29, return=-3.63%,  
+                             equity=$9,480                                      
+                    INFO       2026-03-23 → 2026-03-26: Top-29, return=+1.85%,  
+                             equity=$9,655                                      
+                    INFO       2026-03-26 → 2026-03-29: Top-29, return=-6.94%,  
+                             equity=$8,985                                      
+                    INFO       2026-03-29 → 2026-04-01: Top-29, return=+1.83%,  
+                             equity=$9,149                                      
+                    INFO       2026-04-01 → 2026-04-04: Top-29, return=-1.77%,  
+                             equity=$8,987                                      
+                    INFO       2026-04-04 → 2026-04-07: Top-29, return=+2.71%,  
+                             equity=$9,231                                      
+                    INFO       2026-04-07 → 2026-04-10: Top-29, return=-0.01%,  
+                             equity=$9,230                                      
+                    INFO       2026-04-10 → 2026-04-13: Top-29, return=-0.06%,  
+                             equity=$9,225                                      
+                    INFO       2026-04-13 → 2026-04-16: Top-29, return=+1.85%,  
+                             equity=$9,395                                      
+                    INFO       2026-04-16 → 2026-04-19: Top-29, return=+7.87%,  
+                             equity=$10,134                                     
+                    INFO       2026-04-19 → 2026-04-22: Top-29, return=-4.34%,  
+                             equity=$9,695                                      
+                    INFO       2026-04-22 → 2026-04-25: Top-29, return=+1.26%,  
+                             equity=$9,817                                      
+                    INFO       2026-04-25 → 2026-04-28: Top-29, return=+3.90%,  
+                             equity=$10,200                                     
+                    INFO       2026-04-28 → 2026-05-01: Top-29, return=-4.83%,  
+                             equity=$9,707                                      
+                    INFO       2026-05-01 → 2026-05-04: Top-29, return=+0.15%,  
+                             equity=$9,722                                      
+                    INFO       2026-05-04 → 2026-05-07: Top-29, return=+5.17%,  
+                             equity=$10,224                                     
+                    INFO       2026-05-07 → 2026-05-10: Top-29, return=+6.55%,  
+                             equity=$10,894                                     
+                    INFO       2026-05-10 → 2026-05-13: Top-29, return=-1.18%,  
+                             equity=$10,765                                     
+                    INFO       2026-05-13 → 2026-05-16: Top-30, return=-2.64%,  
+                             equity=$10,480                                     
+                    INFO       2026-05-16 → 2026-05-20: Top-29, return=-6.37%,  
+                             equity=$9,812                                      
+                    INFO       2026-05-20 → 2026-05-23: Top-30, return=+4.73%,  
+                             equity=$10,276                                     
+                    INFO       2026-05-23 → 2026-05-26: Top-29, return=-0.65%,  
+                             equity=$10,209                                     
+                    INFO       2026-05-26 → 2026-05-29: Top-30, return=-4.37%,  
+                             equity=$9,763                                      
+                    INFO       2026-05-29 → 2026-06-01: Top-29, return=+4.47%,  
+                             equity=$10,199                                     
+                    INFO       2026-06-01 → 2026-06-04: Top-29, return=-13.07%, 
+                             equity=$8,866                                      
+                    INFO       2026-06-04 → 2026-06-07: Top-30, return=+0.76%,  
+                             equity=$8,934                                      
+                    INFO       2026-06-07 → 2026-06-10: Top-30, return=+13.73%, 
+                             equity=$10,161                                     
+                    INFO       2026-06-10 → 2026-06-13: Top-30, return=+3.04%,  
+                             equity=$10,469                                     
+                    INFO       2026-06-13 → 2026-06-16: Top-30, return=-7.42%,  
+                             equity=$9,693                                      
+                    INFO       2026-06-16 → 2026-06-19: Top-30, return=-3.11%,  
+                             equity=$9,391                                      
+                    INFO       2026-06-19 → 2026-06-22: Top-30, return=-0.71%,  
+                             equity=$9,324                                      
+                    INFO       2026-06-22 → 2026-06-25: Top-30, return=-3.54%,  
+                             equity=$8,995                                      
+                    INFO       2026-06-25 → 2026-06-28: Top-30, return=+2.74%,  
+                             equity=$9,242                                      
+                    INFO       2026-06-28 → 2026-07-01: Top-30, return=+1.55%,  
+                             equity=$9,384                                      
+                    INFO       2026-07-01 → 2026-07-04: Top-30, return=+6.92%,  
+                             equity=$10,034                                     
+                    INFO       2026-07-04 → 2026-07-07: Top-30, return=-3.01%,  
+                             equity=$9,732                                      
+                    INFO       2026-07-07 → 2026-07-10: Top-30, return=-4.57%,  
+                             equity=$9,287                                      
+                    INFO       2026-07-10 → 2026-07-13: Top-30, return=-1.91%,  
+                             equity=$9,110                                      
+                    INFO       2026-07-13 → 2026-07-16: Top-30, return=-4.46%,  
+                             equity=$8,704                                      
+                    INFO       2026-07-16 → 2026-07-19: Top-30, return=-2.28%,  
+                             equity=$8,505                                      
+                    INFO       2026-07-19 → 2026-07-22: Top-30, return=+0.60%,  
+                             equity=$8,556                                      
+                    INFO       2026-07-22 → 2026-07-25: Top-30, return=-0.01%,  
+                             equity=$8,556                                      
+                    INFO       2026-07-25 → 2026-07-28: Top-30, return=-0.75%,  
+                             equity=$8,491                                      
+                    INFO       2026-07-28 → 2026-07-31: Top-30, return=-1.77%,  
+                             equity=$8,341                                      
+                    INFO       2026-07-31 → 2026-08-03: Top-30, return=-4.04%,  
+                             equity=$8,004                                      
+                    INFO       2026-08-03 → 2026-08-06: Top-30, return=-0.52%,  
+                             equity=$7,962                                      
+                    INFO       2026-08-06 → 2026-08-09: Top-29, return=+0.91%,  
+                             equity=$8,035                                      
+                    INFO       2026-08-09 → 2026-08-12: Top-30, return=-1.65%,  
+                             equity=$7,902                                      
+                    INFO       2026-08-12 → 2026-08-15: Top-30, return=-5.11%,  
+                             equity=$7,498                                      
+                    INFO       2026-08-15 → 2026-08-18: Top-30, return=-3.47%,  
+                             equity=$7,238                                      
+                    INFO       2026-08-18 → 2026-08-21: Top-30, return=+12.51%, 
+                             equity=$8,143                                      
+                    INFO       2026-08-21 → 2026-08-24: Top-30, return=+4.08%,  
+                             equity=$8,475                                      
+                    INFO       2026-08-24 → 2026-08-27: Top-30, return=-1.92%,  
+                             equity=$8,313                                      
+                    INFO       2026-08-27 → 2026-08-30: Top-29, return=+0.35%,  
+                             equity=$8,342                                      
+                    INFO       2026-08-30 → 2026-09-02: Top-30, return=-6.57%,  
+                             equity=$7,794                                      
+                    INFO       2026-09-02 → 2026-09-05: Top-30, return=+26.66%, 
+                             equity=$9,872                                      
+                    INFO       2026-09-05 → 2026-09-08: Top-30, return=-2.09%,  
+                             equity=$9,665                                      
+                    INFO       2026-09-08 → 2026-09-11: Top-30, return=-0.94%,  
+                             equity=$9,575                                      
+                    INFO       2026-09-11 → 2026-09-14: Top-30, return=-3.89%,  
+                             equity=$9,203                                      
+                    INFO       2026-09-14 → 2026-09-17: Top-30, return=+3.47%,  
+                             equity=$9,522                                      
+                    INFO       2026-09-17 → 2026-09-20: Top-30, return=+7.50%,  
+                             equity=$10,237                                     
+                    INFO       2026-09-20 → 2026-09-23: Top-30, return=+3.95%,  
+                             equity=$10,641                                     
+                    INFO       2026-09-23 → 2026-09-26: Top-30, return=+7.56%,  
+                             equity=$11,445                                     
+                    INFO       2026-09-26 → 2026-09-29: Top-30, return=+3.74%,  
+                             equity=$11,874                                     
+                    INFO       2026-09-29 → 2026-10-02: Top-29, return=-7.23%,  
+                             equity=$11,015                                     
+                    INFO       2026-10-02 → 2026-10-05: Top-30, return=+6.26%,  
+                             equity=$11,705                                     
+                    INFO       2026-10-05 → 2026-10-08: Top-29, return=-9.78%,  
+                             equity=$10,561                                     
+                    INFO       2026-10-08 → 2026-10-11: Top-30, return=+11.66%, 
+                             equity=$11,792                                     
+                    INFO       2026-10-11 → 2026-10-14: Top-30, return=-11.88%, 
+                             equity=$10,391                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-30, return=-2.78%,  
+                             equity=$10,102                                     
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: +1.02%  年化: +1.56%                     
+                    INFO       Sharpe: 0.27  Sortino: 0.34  MaxDD: 33.56%       
+                    INFO       Calmar: 0.05  胜率: 44%                          
+                    INFO       vs BTC: -19.80% (BTC: +20.82%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-30, rebalance=7d, 
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-02-25: Top-18, return=-10.82%, 
+                             equity=$8,918                                      
+                    INFO       2026-02-25 → 2026-03-04: Top-18, return=+7.18%,  
+                             equity=$9,558                                      
+                    INFO       2026-03-04 → 2026-03-11: Top-29, return=-0.88%,  
+                             equity=$9,474                                      
+                    INFO       2026-03-11 → 2026-03-18: Top-29, return=+9.43%,  
+                             equity=$10,367                                     
+                    INFO       2026-03-18 → 2026-03-25: Top-29, return=-7.29%,  
+                             equity=$9,611                                      
+                    INFO       2026-03-25 → 2026-04-01: Top-29, return=-3.94%,  
+                             equity=$9,232                                      
+                    INFO       2026-04-01 → 2026-04-08: Top-29, return=-1.19%,  
+                             equity=$9,123                                      
+                    INFO       2026-04-08 → 2026-04-15: Top-29, return=+5.40%,  
+                             equity=$9,615                                      
+                    INFO       2026-04-15 → 2026-04-22: Top-29, return=+1.61%,  
+                             equity=$9,770                                      
+                    INFO       2026-04-22 → 2026-04-29: Top-29, return=+1.42%,  
+                             equity=$9,909                                      
+                    INFO       2026-04-29 → 2026-05-06: Top-29, return=+0.67%,  
+                             equity=$9,975                                      
+                    INFO       2026-05-06 → 2026-05-13: Top-29, return=+9.61%,  
+                             equity=$10,934                                     
+                    INFO       2026-05-13 → 2026-05-20: Top-30, return=-5.30%,  
+                             equity=$10,355                                     
+                    INFO       2026-05-20 → 2026-05-27: Top-30, return=+5.85%,  
+                             equity=$10,961                                     
+                    INFO       2026-05-27 → 2026-06-03: Top-29, return=-3.85%,  
+                             equity=$10,539                                     
+                    INFO       2026-06-03 → 2026-06-10: Top-29, return=-19.10%, 
+                             equity=$8,526                                      
+                    INFO       2026-06-10 → 2026-06-17: Top-30, return=+9.27%,  
+                             equity=$9,317                                      
+                    INFO       2026-06-17 → 2026-06-24: Top-30, return=-14.31%, 
+                             equity=$7,984                                      
+                    INFO       2026-06-24 → 2026-07-01: Top-30, return=+2.70%,  
+                             equity=$8,200                                      
+                    INFO       2026-07-01 → 2026-07-08: Top-30, return=+1.65%,  
+                             equity=$8,335                                      
+                    INFO       2026-07-08 → 2026-07-15: Top-30, return=-2.63%,  
+                             equity=$8,116                                      
+                    INFO       2026-07-15 → 2026-07-22: Top-30, return=+1.17%,  
+                             equity=$8,211                                      
+                    INFO       2026-07-22 → 2026-07-29: Top-30, return=-7.77%,  
+                             equity=$7,573                                      
+                    INFO       2026-07-29 → 2026-08-05: Top-30, return=+3.19%,  
+                             equity=$7,814                                      
+                    INFO       2026-08-05 → 2026-08-12: Top-30, return=+7.30%,  
+                             equity=$8,385                                      
+                    INFO       2026-08-12 → 2026-08-19: Top-30, return=-1.53%,  
+                             equity=$8,256                                      
+                    INFO       2026-08-19 → 2026-08-26: Top-30, return=+8.40%,  
+                             equity=$8,950                                      
+                    INFO       2026-08-26 → 2026-09-02: Top-30, return=-3.45%,  
+                             equity=$8,641                                      
+                    INFO       2026-09-02 → 2026-09-09: Top-30, return=+10.33%, 
+                             equity=$9,534                                      
+                    INFO       2026-09-09 → 2026-09-16: Top-30, return=-5.43%,  
+                             equity=$9,017                                      
+                    INFO       2026-09-16 → 2026-09-23: Top-30, return=+22.01%, 
+                             equity=$11,002                                     
+                    INFO       2026-09-23 → 2026-09-30: Top-30, return=+4.84%,  
+                             equity=$11,534                                     
+                    INFO       2026-09-30 → 2026-10-07: Top-30, return=-5.13%,  
+                             equity=$10,942                                     
+                    INFO       2026-10-07 → 2026-10-14: Top-30, return=-4.97%,  
+                             equity=$10,399                                     
+                    INFO       2026-10-14 → 2026-10-16: Top-30, return=-2.78%,  
+                             equity=$10,110                                     
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: +1.10%  年化: +1.67%                     
+                    INFO       Sharpe: 0.24  Sortino: 0.25  MaxDD: 30.91%       
+                    INFO       Calmar: 0.05  胜率: 51%                          
+                    INFO       vs BTC: -18.07% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+                    INFO     Walk-forward 回测: 316 快照, Top-30, rebalance=14d,
+                             capital=$10,000                                    
+                    INFO       2026-02-18 → 2026-03-04: Top-18, return=-4.46%,  
+                             equity=$9,554                                      
+                    INFO       2026-03-04 → 2026-03-18: Top-29, return=+8.47%,  
+                             equity=$10,363                                     
+                    INFO       2026-03-18 → 2026-04-01: Top-29, return=-10.96%, 
+                             equity=$9,227                                      
+                    INFO       2026-04-01 → 2026-04-15: Top-29, return=+4.17%,  
+                             equity=$9,612                                      
+                    INFO       2026-04-15 → 2026-04-29: Top-29, return=+3.04%,  
+                             equity=$9,904                                      
+                    INFO       2026-04-29 → 2026-05-13: Top-29, return=+10.34%, 
+                             equity=$10,928                                     
+                    INFO       2026-05-13 → 2026-05-27: Top-30, return=-6.75%,  
+                             equity=$10,190                                     
+                    INFO       2026-05-27 → 2026-06-10: Top-29, return=-20.50%, 
+                             equity=$8,101                                      
+                    INFO       2026-06-10 → 2026-06-24: Top-30, return=+4.25%,  
+                             equity=$8,446                                      
+                    INFO       2026-06-24 → 2026-07-08: Top-30, return=+3.69%,  
+                             equity=$8,757                                      
+                    INFO       2026-07-08 → 2026-07-22: Top-30, return=-0.87%,  
+                             equity=$8,681                                      
+                    INFO       2026-07-22 → 2026-08-05: Top-30, return=-7.86%,  
+                             equity=$7,999                                      
+                    INFO       2026-08-05 → 2026-08-19: Top-30, return=+6.29%,  
+                             equity=$8,502                                      
+                    INFO       2026-08-19 → 2026-09-02: Top-30, return=+5.47%,  
+                             equity=$8,967                                      
+                    INFO       2026-09-02 → 2026-09-16: Top-30, return=+3.02%,  
+                             equity=$9,238                                      
+                    INFO       2026-09-16 → 2026-09-30: Top-30, return=+20.63%, 
+                             equity=$11,143                                     
+                    INFO       2026-09-30 → 2026-10-14: Top-30, return=-10.43%, 
+                             equity=$9,982                                      
+                    INFO       2026-10-14 → 2026-10-16: Top-30, return=-2.78%,  
+                             equity=$9,704                                      
+                    INFO                                                        
+                             ===================================================
+                             =========                                          
+                    INFO     回测结果: 2026-02-18 ~ 2026-10-16 (240d)           
+                    INFO       总收益: -2.96%  年化: -4.46%                     
+                    INFO       Sharpe: 0.07  Sortino: 0.06  MaxDD: 26.80%       
+                    INFO       Calmar: -0.17  胜率: 56%                         
+                    INFO       vs BTC: -22.13% (BTC: +19.17%)                   
+                    INFO     ===================================================
+                             =========                                          
+{
+  "ok": true,
+  "configs_tested": 15,
+  "best_config": {
+    "top_n": 10,
+    "rebalance_days": 14,
+    "total_return": 0.1286,
+    "annual_return": 0.202,
+    "sharpe": 0.53,
+    "max_drawdown": 0.3372,
+    "win_rate": 0.5,
+    "vs_btc": -0.0631
+  },
+  "all_results": [
+    {
+      "top_n": 10,
+      "rebalance_days": 14,
+      "total_return": 0.1286,
+      "annual_return": 0.202,
+      "sharpe": 0.53,
+      "max_drawdown": 0.3372,
+      "win_rate": 0.5,
+      "vs_btc": -0.0631
+    },
+    {
+      "top_n": 15,
+      "rebalance_days": 7,
+      "total_return": 0.1281,
+      "annual_return": 0.2012,
+      "sharpe": 0.53,
+      "max_drawdown": 0.2759,
+      "win_rate": 0.5143,
+      "vs_btc": -0.0636
+    },
+    {
+      "top_n": 20,
+      "rebalance_days": 14,
+      "total_return": 0.1151,
+      "annual_return": 0.1802,
+      "sharpe": 0.49,
+      "max_drawdown": 0.2461,
+      "win_rate": 0.6111,
+      "vs_btc": -0.0767
+    },
+    {
+      "top_n": 10,
+      "rebalance_days": 7,
+      "total_return": -0.0218,
+      "annual_return": -0.0329,
+      "sharpe": 0.27,
+      "max_drawdown": 0.4265,
+      "win_rate": 0.4571,
+      "vs_btc": -0.2135
+    },
+    {
+      "top_n": 30,
+      "rebalance_days": 3,
+      "total_return": 0.0102,
+      "annual_return": 0.0156,
+      "sharpe": 0.27,
+      "max_drawdown": 0.3356,
+      "win_rate": 0.4375,
+      "vs_btc": -0.198
+    },
+    {
+      "top_n": 30,
+      "rebalance_days": 7,
+      "total_return": 0.011,
+      "annual_return": 0.0167,
+      "sharpe": 0.24,
+      "max_drawdown": 0.3091,
+      "win_rate": 0.5143,
+      "vs_btc": -0.1807
+    },
+    {
+      "top_n": 20,
+      "rebalance_days": 7,
+      "total_return": -0.0104,
+      "annual_return": -0.0158,
+      "sharpe": 0.21,
+      "max_drawdown": 0.2726,
+      "win_rate": 0.5143,
+      "vs_btc": -0.2022
+    },
+    {
+      "top_n": 15,
+      "rebalance_days": 14,
+      "total_return": -0.0103,
+      "annual_return": -0.0156,
+      "sharpe": 0.16,
+      "max_drawdown": 0.3246,
+      "win_rate": 0.5556,
+      "vs_btc": -0.202
+    },
+    {
+      "top_n": 30,
+      "rebalance_days": 14,
+      "total_return": -0.0296,
+      "annual_return": -0.0446,
+      "sharpe": 0.07,
+      "max_drawdown": 0.268,
+      "win_rate": 0.5556,
+      "vs_btc": -0.2213
+    },
+    {
+      "top_n": 10,
+      "rebalance_days": 3,
+      "total_return": -0.1411,
+      "annual_return": -0.2065,
+      "sharpe": 0.02,
+      "max_drawdown": 0.3776,
+      "win_rate": 0.4625,
+      "vs_btc": -0.3493
+    },
+    {
+      "top_n": 5,
+      "rebalance_days": 3,
+      "total_return": -0.2916,
+      "annual_return": -0.4081,
+      "sharpe": -0.02,
+      "max_drawdown": 0.5339,
+      "win_rate": 0.475,
+      "vs_btc": -0.4998
+    },
+    {
+      "top_n": 15,
+      "rebalance_days": 3,
+      "total_return": -0.1683,
+      "annual_return": -0.2444,
+      "sharpe": -0.11,
+      "max_drawdown": 0.4093,
+      "win_rate": 0.5125,
+      "vs_btc": -0.3765
+    },
+    {
+      "top_n": 20,
+      "rebalance_days": 3,
+      "total_return": -0.2138,
+      "annual_return": -0.3064,
+      "sharpe": -0.24,
+      "max_drawdown": 0.4334,
+      "win_rate": 0.4875,
+      "vs_btc": -0.422
+    },
+    {
+      "top_n": 5,
+      "rebalance_days": 14,
+      "total_return": -0.1764,
+      "annual_return": -0.2556,
+      "sharpe": -0.49,
+      "max_drawdown": 0.2685,
+      "win_rate": 0.5,
+      "vs_btc": -0.3681
+    },
+    {
+      "top_n": 5,
+      "rebalance_days": 7,
+      "total_return": -0.4071,
+      "annual_return": -0.5484,
+      "sharpe": -0.65,
+      "max_drawdown": 0.4693,
+      "win_rate": 0.4286,
+      "vs_btc": -0.5988
+    }
+  ]
+}
+[22:05:45]   ✓ backtest-sweep 完成 (4s)
+[22:05:45] ▶ rd-agent: python3 -m src.cli rd-agent --rounds 1
+🧬 RD-Agent (rounds=1, n_hyps=5, llm=False)
+[10/16/26 22:05:46] INFO                                                        
+                             === R&D Round 1/1 ===                              
+                    INFO       ▶ round start (n_hyps=5, prefer_llm=False)       
+                    INFO         hypotheses generated: 5                        
+                    INFO         experiments: 5/5 ok                            
+                    INFO         verdicts: 0/5 promoted                         
+                    INFO                                                        
+                             [rd_agent] done in 1 rounds, 0 factors promoted    
+  rounds run: 1
+  factors promoted: 0
+  state: data/rd_agent/trajectory_latest.json
+[22:05:47]   ✓ rd-agent 完成 (2s)
+[22:05:47] ▶ discover-alpha: python3 -m src.cli discover-alpha
+🧬 LLM 因子自动发现 (LLM模式)
+[10/16/26 22:05:47] INFO     Step 1: 生成候选因子...                            
+                    WARNING  LLM 生成失败: Claude CLI not found — 请先运行: curl
+                             -fsSL https://claude.ai/install.sh | bash,         
+                             降级到离线模式                                     
+                    INFO       生成 20 个候选                                   
+                    INFO     Step 2: IC 评估...                                 
+[10/16/26 22:05:48] INFO     Step 3: 更新候选池...                              
+                    INFO     进化完成: +20 候选, 0 晋升, 0 淘汰, 池中 20 个     
+✓ 进化完成!
+  生成: 20  新增: 20  晋升: 0  淘汰: 0
+  候选池: 20  已毕业: 0
+
+Top 候选因子:
+  alpha_sigmoid_onchain_activity  IC=+0.1142  (1 records)  
+sigmoid(onchain_activity * 3)
+       alpha_log_volume_turnover  IC=+0.0051  (1 records)  
+log(abs(volume_turnover) + 1) * sign(volume_turnover)
+        alpha_sq_volume_turnover  IC=+0.0051  (1 records)  sign(volume_turnover)
+* pow(abs(volume_turnover), 0.5)
+      alpha_sigmoid_dev_activity  IC=+0.0000  (1 records)  sigmoid(dev_activity 
+* 3)
+          alpha_log_dev_activity  IC=+0.0000  (1 records)  log(abs(dev_activity)
++ 1) * sign(dev_activity)
+[22:05:48]   ✓ discover-alpha 完成 (1s)
+[22:05:48] ▶ watchdog: python3 -m src.cli watchdog check
+🚨 Watchdog · check
+[10/16/26 22:05:49] INFO     watchdog 完成, 触发 0 条告警                       
+✓ 当前无告警触发
+  阈值: peg>50bps · funding>0.1% · F&G ≥80/≤20 · DEX TVL ±10%
+[22:05:49]   ✓ watchdog 完成 (1s)
+[22:05:49] ▶ llm-brief: python3 -c 
+import sys; sys.path.insert(0, '.')
+from src.llm_brief import generate_brief, save_brief
+b = generate_brief()
+if b.get('ok'):
+    save_brief(b)
+    print('AI 简报已保存 (%s), out tokens = %s' % (b.get('usage', {}).get('provider'), b.get('usage', {}).get('output_tokens')))
+else:
+    print('AI 简报跳过:', b.get('error'))
+
+[10/16/26 22:06:01] INFO     LLM brief OK (gemini): in=2285 out=1826            
+AI 简报已保存 (gemini), out tokens = 1826
+[22:06:01]   ✓ llm-brief 完成 (12s)
+[22:06:01] ▶ push-feishu: python3 -m src.cli push-feishu
+[10/16/26 22:06:03] INFO     Feishu push: 1/1 OK                                
+{
+  "ok": true,
+  "pushed": 1,
+  "failed": 0,
+  "groups": [
+    {
+      "name": "财富密码",
+      "ok": true,
+      "error": null
+    }
+  ]
+}
+[22:06:03]   ✓ push-feishu 完成 (2s)
+[22:06:03] 
+[22:06:03] ═══ 预算报告 ═══
+💰 LLM Token 预算 (今天 2026-10-16)
+  今日:        0 tokens / 200,000 上限 (0.0%)
+        in=0  out=0  calls=0  fails=0
+  本月:        0 tokens / 5,000,000 上限 (0.0%)
+
+✓ 熔断器 CLOSED  连续失败: 0
+
+最近 7 天:
+  2026-10-16       0 tokens    0 calls  0 fails
+[22:06:03] ✓ snapshot-check: 今天有 1 个真实 meta 快照
+[22:06:03] 
+[22:06:03] ═══ Nightly 完成 · 失败 0 步 ═══

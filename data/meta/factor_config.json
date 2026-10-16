@@ -1,19 +1,14 @@
 {
   "version": 1,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-15T22:07:33.579222+00:00",
+  "updated": "2026-10-16T22:05:40.647711+00:00",
   "regime": "unknown",
   "factors": {
     "momentum_30d": {
-      "weight": 0.065244,
+      "weight": 0.060213,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
-        {
-          "date": "2026-05-22",
-          "ic": 0.0795,
-          "lookback": 7
-        },
         {
           "date": "2026-05-25",
           "ic": 0.0558,
@@ -158,21 +153,21 @@
           "date": "2026-10-15",
           "ic": -0.0794,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": 0.0046,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "momentum_7d": {
-      "weight": 0.038398,
+      "weight": 0.035414,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-22",
-          "ic": -0.0467,
-          "lookback": 7
-        },
         {
           "date": "2026-05-25",
           "ic": -0.0422,
@@ -317,21 +312,21 @@
           "date": "2026-10-15",
           "ic": -0.0693,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": 0.0078,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "ath_drawdown": {
-      "weight": 0.170837,
+      "weight": 0.162399,
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-22",
-          "ic": 0.0069,
-          "lookback": 7
-        },
         {
           "date": "2026-05-25",
           "ic": 0.0983,
@@ -476,6 +471,11 @@
           "date": "2026-10-15",
           "ic": -0.2107,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": -0.0205,
+          "lookback": 7
         }
       ],
       "enabled": true,
@@ -486,11 +486,6 @@
       "min": 0.03,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": -0.2651,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": 0.0134,
@@ -635,6 +630,11 @@
           "date": "2026-10-15",
           "ic": 0.0591,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": -0.0755,
+          "lookback": 7
         }
       ],
       "enabled": false,
@@ -643,15 +643,10 @@
       "degenerate_runs": 0
     },
     "tvl_mcap": {
-      "weight": 0.214419,
+      "weight": 0.224391,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": -0.2046,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": -0.0995,
@@ -796,21 +791,21 @@
           "date": "2026-10-15",
           "ic": 0.0043,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": 0.0087,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "market_cap_size": {
-      "weight": 0.148739,
+      "weight": 0.146683,
       "min": 0.02,
       "max": 0.15,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": -0.0021,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": 0.0386,
@@ -955,21 +950,21 @@
           "date": "2026-10-15",
           "ic": -0.0822,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": -0.0501,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     },
     "onchain_activity": {
-      "weight": 0.193107,
+      "weight": 0.201314,
       "min": 0.03,
       "max": 0.25,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": 0.0016,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": -0.1392,
@@ -1114,6 +1109,11 @@
           "date": "2026-10-15",
           "ic": 0.1158,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": 0.0995,
+          "lookback": 7
         }
       ],
       "enabled": true,
@@ -1125,7 +1125,7 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 4
+      "degenerate_runs": 5
     },
     "funding_rate": {
       "weight": 0.0,
@@ -1133,18 +1133,13 @@
       "max": 0.15,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 3
+      "degenerate_runs": 4
     },
     "narrative_heat": {
-      "weight": 0.169256,
+      "weight": 0.169587,
       "min": 0.02,
       "max": 0.2,
       "ic_history": [
-        {
-          "date": "2026-05-18",
-          "ic": 0.0569,
-          "lookback": 7
-        },
         {
           "date": "2026-05-22",
           "ic": -0.0577,
@@ -1289,11 +1284,16 @@
           "date": "2026-10-15",
           "ic": -0.0308,
           "lookback": 7
+        },
+        {
+          "date": "2026-10-16",
+          "ic": -0.0401,
+          "lookback": 7
         }
       ],
       "enabled": true,
       "degenerate_runs": 0
     }
   },
-  "last_weight_update_date": "2026-10-15"
+  "last_weight_update_date": "2026-10-16"
 }
