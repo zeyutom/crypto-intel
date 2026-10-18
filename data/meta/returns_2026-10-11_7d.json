@@ -1,0 +1,229 @@
+{
+  "ok": true,
+  "snapshot_date": "2026-10-11",
+  "snapshot_file": "snapshot_20261011_2250.json",
+  "entry_ts": "2026-10-11T22:50:08.140479+00:00",
+  "synthetic": false,
+  "lookback_days": 7,
+  "graded": 30,
+  "matched_coins": 24,
+  "coverage": 0.8,
+  "low_coverage": false,
+  "unmatched": [
+    "HUMA",
+    "MUBARAK",
+    "DOS",
+    "VELO",
+    "MEGA",
+    "RE"
+  ],
+  "stats": {
+    "avg_return": -0.1804,
+    "median_return": -0.1739,
+    "win_rate": 0.17,
+    "best_coin": "BAT",
+    "best_return": 0.0763,
+    "worst_coin": "STRK",
+    "worst_return": -0.489
+  },
+  "vs_btc": -0.1487,
+  "btc_entry_missing": false,
+  "btc_entry_source": "defillama",
+  "vs_universe_ew": -0.0754,
+  "vs_universe_median": -0.0313,
+  "universe_n": 157,
+  "coins": [
+    {
+      "symbol": "BAT",
+      "coin_id": null,
+      "old_price": 0.160396,
+      "new_price": 0.172637,
+      "return_pct": 0.0763,
+      "composite_score": 0.4465
+    },
+    {
+      "symbol": "BR",
+      "coin_id": null,
+      "old_price": 0.486679,
+      "new_price": 0.50464,
+      "return_pct": 0.0369,
+      "composite_score": 0.3992
+    },
+    {
+      "symbol": "TIA",
+      "coin_id": null,
+      "old_price": 0.575319,
+      "new_price": 0.587466,
+      "return_pct": 0.0211,
+      "composite_score": 0.4026
+    },
+    {
+      "symbol": "SENT",
+      "coin_id": null,
+      "old_price": 0.02159412,
+      "new_price": 0.02177937,
+      "return_pct": 0.0086,
+      "composite_score": 0.4311
+    },
+    {
+      "symbol": "REUR",
+      "coin_id": null,
+      "old_price": 4.13,
+      "new_price": 4.13,
+      "return_pct": 0.0,
+      "composite_score": 0.4195
+    },
+    {
+      "symbol": "ZK",
+      "coin_id": null,
+      "old_price": 0.01576322,
+      "new_price": 0.01425173,
+      "return_pct": -0.0959,
+      "composite_score": 0.4302
+    },
+    {
+      "symbol": "RUNE",
+      "coin_id": null,
+      "old_price": 0.696465,
+      "new_price": 0.62342,
+      "return_pct": -0.1049,
+      "composite_score": 0.4491
+    },
+    {
+      "symbol": "ARB",
+      "coin_id": null,
+      "old_price": 0.198483,
+      "new_price": 0.177276,
+      "return_pct": -0.1068,
+      "composite_score": 0.3951
+    },
+    {
+      "symbol": "PENDLE",
+      "coin_id": null,
+      "old_price": 2.2,
+      "new_price": 1.95,
+      "return_pct": -0.1136,
+      "composite_score": 0.4025
+    },
+    {
+      "symbol": "ZRO",
+      "coin_id": null,
+      "old_price": 2.08,
+      "new_price": 1.77,
+      "return_pct": -0.149,
+      "composite_score": 0.4051
+    },
+    {
+      "symbol": "EIGEN",
+      "coin_id": null,
+      "old_price": 0.270529,
+      "new_price": 0.22682,
+      "return_pct": -0.1616,
+      "composite_score": 0.4126
+    },
+    {
+      "symbol": "OP",
+      "coin_id": null,
+      "old_price": 0.144322,
+      "new_price": 0.11948,
+      "return_pct": -0.1721,
+      "composite_score": 0.5066
+    },
+    {
+      "symbol": "S",
+      "coin_id": null,
+      "old_price": 0.060892,
+      "new_price": 0.050196,
+      "return_pct": -0.1757,
+      "composite_score": 0.4469
+    },
+    {
+      "symbol": "IO",
+      "coin_id": null,
+      "old_price": 0.178978,
+      "new_price": 0.143956,
+      "return_pct": -0.1957,
+      "composite_score": 0.4021
+    },
+    {
+      "symbol": "CFX",
+      "coin_id": null,
+      "old_price": 0.066922,
+      "new_price": 0.05074,
+      "return_pct": -0.2418,
+      "composite_score": 0.4082
+    },
+    {
+      "symbol": "MET",
+      "coin_id": null,
+      "old_price": 0.424438,
+      "new_price": 0.319374,
+      "return_pct": -0.2475,
+      "composite_score": 0.5646
+    },
+    {
+      "symbol": "ENA",
+      "coin_id": null,
+      "old_price": 0.236736,
+      "new_price": 0.177624,
+      "return_pct": -0.2497,
+      "composite_score": 0.4167
+    },
+    {
+      "symbol": "PLUME",
+      "coin_id": null,
+      "old_price": 0.02268976,
+      "new_price": 0.01689149,
+      "return_pct": -0.2555,
+      "composite_score": 0.4263
+    },
+    {
+      "symbol": "ORCA",
+      "coin_id": null,
+      "old_price": 2.36,
+      "new_price": 1.73,
+      "return_pct": -0.2669,
+      "composite_score": 0.4233
+    },
+    {
+      "symbol": "RLC",
+      "coin_id": null,
+      "old_price": 1.043,
+      "new_price": 0.735174,
+      "return_pct": -0.2951,
+      "composite_score": 0.4498
+    },
+    {
+      "symbol": "CKB",
+      "coin_id": null,
+      "old_price": 0.00206707,
+      "new_price": 0.00141325,
+      "return_pct": -0.3163,
+      "composite_score": 0.445
+    },
+    {
+      "symbol": "W",
+      "coin_id": null,
+      "old_price": 0.02167878,
+      "new_price": 0.01263775,
+      "return_pct": -0.417,
+      "composite_score": 0.547
+    },
+    {
+      "symbol": "CHIP",
+      "coin_id": null,
+      "old_price": 0.067369,
+      "new_price": 0.03921188,
+      "return_pct": -0.418,
+      "composite_score": 0.5614
+    },
+    {
+      "symbol": "STRK",
+      "coin_id": null,
+      "old_price": 0.115447,
+      "new_price": 0.058992,
+      "return_pct": -0.489,
+      "composite_score": 0.527
+    }
+  ]
+}
