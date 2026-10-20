@@ -332,6 +332,44 @@ def test_fetch_prices_records_failed_pages(monkeypatch, caplog):
     assert any("page 5/5" in r.getMessage() for r in caplog.records)
 
 
+def test_fetch_prices_stops_requesting_after_time_budget(monkeypatch, caplog):
+    """429 + Retry-After 让每页拖很久: 超出 FETCH_BUDGET_S 后剩余页不再请求, 记入 pages_missing."""
+    clock = {"t": 0.0}
+    calls = []
+
+    def _fake(url, params=None):
+        calls.append(params["page"])
+        clock["t"] += 100.0          # 每页 (含退避重试) 耗时 100s
+        return [{"id": f"coin-{params['page']}", "symbol": "x", "current_price": 1.0}]
+    monkeypatch.setattr(rt, "_get_json", _fake)
+    monkeypatch.setattr(rt, "FETCH_BUDGET_S", 300)
+    monkeypatch.setattr(rt.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rt.log, "propagate", True)
+    missing: list[int] = []
+    with caplog.at_level("WARNING", logger="returns_tracker"):
+        prices = rt._fetch_current_prices([], pages_missing=missing)
+    assert calls == [1, 2, 3]                 # 第 4 页开始时已用 300s, 不再请求
+    assert missing == [4, 5]
+    assert prices["coin-3"] == 1.0 and "coin-4" not in prices
+    assert any("预算" in r.getMessage() for r in caplog.records)
+
+
+def test_build_scorecard_page_missing_with_unmatched_lists_them():
+    """缺页且确有 Top-N 币未定价: 缺页行 + 未定价清单都要出现."""
+    r = {
+        "ok": True, "snapshot_date": "2026-10-13", "lookback_days": 7,
+        "graded": 30, "matched_coins": 28, "coverage": 28 / 30, "low_coverage": True,
+        "pages_missing": [5], "unmatched": ["AAA", "BBB"],
+        "stats": {"avg_return": 0.01, "median_return": 0.01, "win_rate": 0.6},
+        "vs_btc": 0.0, "vs_universe_ew": None, "coins": [],
+    }
+    _, lines, _ = rt._build_scorecard(r)
+    body = "\n".join(lines)
+    assert "CoinGecko 第 5 页" in body
+    assert "覆盖率不足, 未定价: AAA, BBB" in body
+
+
 def test_verify_returns_missing_page_sets_low_coverage(meta_dir, monkeypatch, now_utc):
     """覆盖率 100% 但有页没拉到 → low_coverage=True, pages_missing 落盘, 卡片有说明."""
     prices = _snapshot_with_returns(meta_dir, now_utc, [0.1] * 30, [0.0] * 70)
@@ -344,6 +382,9 @@ def test_verify_returns_missing_page_sets_low_coverage(meta_dir, monkeypatch, no
     assert saved["pages_missing"] == [5]
     _, lines, _ = rt._build_scorecard(r)
     assert any("CoinGecko 第 5 页" in ln and "偏向大市值" in ln for ln in lines)
+    # Top-N 全部定价 (unmatched 为空): 不能再出"覆盖率不足, 未定价: <空>", 与"覆盖 100%"矛盾
+    assert r["unmatched"] == []
+    assert not any("覆盖率不足" in ln for ln in lines)
 
 
 def test_verify_returns_no_missing_pages(meta_dir, monkeypatch, now_utc):

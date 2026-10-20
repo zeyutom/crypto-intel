@@ -34,6 +34,11 @@ BTC_FALLBACK_MAX_DRIFT_SEC = 24 * 3600
 # 匹配到当前价格的币占 Top-N 的比例低于此值 → 记分卡标记 low_coverage
 LOW_COVERAGE_THRESHOLD = 0.7
 TOP_N = 30
+# 记分卡拉当前价的总时长预算 (秒)。HttpClient 尊重 Retry-After, CoinGecko 紧跟 screen
+# 时 429 常给 ~60s, 每页 3 次重试最坏 ~3 分钟; 5 页全卡住会拖到 ~15 分钟, 而 scorecard
+# 在 nightly_run.sh 里没套 run_with_timeout, 整个 job 只有 30 分钟 → 超时被取消,
+# 当天的快照/权重/日志都推不上去。超预算后剩余页不再请求, 记入 pages_missing。
+FETCH_BUDGET_S = 300
 
 
 # ====================================================================
@@ -60,9 +65,20 @@ def _fetch_current_prices(symbols: list[str],
     用完, 第 5 页 (rank 401-500) 429 后整页丢失, Top-N 的小市值端全变 unmatched 却
     无任何日志。现在经 HttpClient 退避重试; 仍失败的页号写进 pages_missing (可选出参)
     并告警, 由 verify_returns 标 low_coverage。
+
+    总耗时受 FETCH_BUDGET_S 约束: 每页请求前检查, 超预算的剩余页直接记入 pages_missing。
     """
     prices: dict[str, float] = {}
+    t0 = time.monotonic()
     for page in range(1, 6):
+        elapsed = time.monotonic() - t0
+        if elapsed >= FETCH_BUDGET_S:
+            skipped = list(range(page, 6))
+            log.warning(f"CoinGecko 拉价已用 {elapsed:.0f}s, 超出 {FETCH_BUDGET_S}s 预算, "
+                        f"第 {skipped} 页不再请求 (按缺页处理)")
+            if pages_missing is not None:
+                pages_missing.extend(skipped)
+            break
         try:
             data = _get_json(
                 "https://api.coingecko.com/api/v3/coins/markets",
@@ -429,10 +445,13 @@ def _build_scorecard(r: dict) -> tuple:
     ]
     if r.get("pages_missing"):
         pages = ", ".join(str(p) for p in r["pages_missing"])
-        lines.append(f"⚠️ CoinGecko 第 {pages} 页 (每页 100 币, 按市值) 拉取失败: "
+        lines.append(f"⚠️ CoinGecko 第 {pages} 页 (每页 100 币, 按市值) 拉取失败或超时未拉: "
                      f"小市值端未定价, 结果偏向大市值")
-    if r.get("low_coverage"):
-        lines.append(f"⚠️ 覆盖率不足, 未定价: {', '.join(r.get('unmatched') or [])[:120]}")
+    # low_coverage 也可能只因缺页而置位 (Top-N 全部定价): 此时上面的缺页行已说明,
+    # 不再输出"覆盖率不足, 未定价: <空>" — 否则与"匹配 30/30 (覆盖 100%)"自相矛盾
+    unmatched = r.get("unmatched") or []
+    if r.get("low_coverage") and (unmatched or (coverage or 0) < LOW_COVERAGE_THRESHOLD):
+        lines.append(f"⚠️ 覆盖率不足, 未定价: {', '.join(unmatched)[:120]}")
     lines += [
         "",
         f"{arrow} 平均收益 **{pct(avg)}** · 中位 {pct(s.get('median_return'))} · "
