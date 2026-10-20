@@ -22,6 +22,10 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 st.set_page_config(page_title="🚀 控制中心 · Crypto Intel", layout="wide")
+# 密码门: 本页能跑 nightly / pip install / 下载全部快照, 必须和其它页一样先过密码
+from src.dashboard_utils import require_password
+require_password()
+
 st.title("🚀 Crypto Intel · 控制中心")
 st.caption("不用写代码 — 每个按钮都是一个完整流程")
 
@@ -510,7 +514,8 @@ with tabs[7]:
     if not log_dir.exists():
         st.info("还没有任何 nightly 运行记录. 点上面 ▶️ 立刻跑一次 nightly 开始.")
     else:
-        log_files = sorted(log_dir.glob("*.log"), reverse=True)[:7]
+        # 只认 YYYY-MM-DD.log; watchdog.log / launchd*.log 等本地残留会挤占 7 个槽位
+        log_files = sorted(log_dir.glob("20??-??-??.log"), reverse=True)[:7]
         if not log_files:
             st.caption("(目录存在但还没日志)")
         else:
