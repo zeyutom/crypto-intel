@@ -356,6 +356,27 @@ def test_etf_outflow_yesterday_fires(tmp_db):
     assert a.value == pytest.approx(350e6)
 
 
+def test_etf_outflow_day_ended_over_24h_ago_is_no_data(tmp_db):
+    """交易日结束已 25h (ts = now-49h): 不能再触发.
+
+    旧窗口 (DB_FRESH_HOURS+24 = 50h) 下这行仍可见, 而 24h 去重已过期 → 同一天的
+    流出被推两次 (例: 周六 00:30 refresh 落周五行, 01:23 推过, 周日 01:23 又推).
+    """
+    tmp_db.upsert_raw([{**_etf_row(datetime.now(timezone.utc), -900.0),
+                        "ts": _ts(49)}])
+    res = wd.check_etf_outflow()
+    assert isinstance(res, wd.NoData)
+    assert "24h" in res.reason
+
+
+def test_etf_outflow_day_ended_23h_ago_fires(tmp_db):
+    """交易日结束 23h (ts = now-47h) 仍在窗口内."""
+    tmp_db.upsert_raw([{**_etf_row(datetime.now(timezone.utc), -900.0),
+                        "ts": _ts(47)}])
+    a = wd.check_etf_outflow()
+    assert isinstance(a, Alert) and a.type == "etf_outflow"
+
+
 # ────────────────────────────────────────────────────────────────────
 #  pipeline_stale: dead-man, 只看真实快照
 # ────────────────────────────────────────────────────────────────────

@@ -15,7 +15,8 @@
   - 检测器三态: 返回 Alert (触发) / None (有数据, 未触发) / NoData(reason) (无数据).
     run_check 把因无数据被跳过的检测器记进 LAST_RUN 并打一行汇总日志,
     "无告警" 不再掩盖拿不到数据的盲区 (清算/ETF 曾数月静默无数据)
-  - DB 类检测器 (清算 / ETF) 只认 26h 内的行, 旧行不会在去重窗口过期后反复触发
+  - DB 类检测器只认新鲜行 (清算: 26h 内; ETF: 交易日结束 ≤24h),
+    旧行不会在去重窗口过期后反复触发
   - 触发去重: 24h 内同一类型告警只发一次 (state 持久化);
     飞书推送失败的告警不记去重, 下一轮 (2h 后) 重试
   - 复用 notifier 推飞书 + 同时写到 data/alerts.log
@@ -75,8 +76,14 @@ THRESHOLDS = {
 # 告警去重窗口 (秒)
 DEDUP_WINDOW = int(os.environ.get("WATCHDOG_DEDUP_SEC", "86400"))  # 24h
 
-# DB 类检测器 (清算 / ETF) 只认这么新的 raw_metrics 行; refresh 每天一次, 留 2h 余量
+# 清算检测器只认这么新的 raw_metrics 行; refresh 每天一次, 留 2h 余量
 DB_FRESH_HOURS = _env_float("WATCHDOG_DB_FRESH_H", 26.0)
+
+# ETF 是日粒度行 (ts=交易日 00:00Z), 新鲜度按交易日结束 (ts+24h) 算, 只认结束 ≤ 这么多小时的交易日.
+# 交易日 D 的行最早 D+1 00:00 落库, D+2 00:00 起就看不到 → 最多可见 24h, 不超过 24h 去重窗口,
+# 同一天的流出不会推两次; refresh 平常 ~05:00 UTC 落库, 当天仍有 ~19h 可触发.
+# 不走 env: 调大会让一行可见超过去重窗口
+ETF_DAY_END_FRESH_HOURS = 24.0
 
 # dead-man: 最新真实快照超过这么多小时 → 夜间流水线停摆.
 # 历史上 nightly 跨午夜延迟跑, 相邻真实快照最长隔 28.9h; 真漏跑 (09-29) 隔 47.1h
@@ -341,7 +348,8 @@ def check_etf_outflow() -> Alert | NoData | None:
     """BTC 现货 ETF 单日大额净流出 (farside, 只认新鲜的行).
 
     farside 行的 ts 是交易日 00:00Z (日粒度), 当天流量要到该日结束才完整,
-    所以新鲜度按该日结束 (ts + 24h) 算: 只认结束不超过 DB_FRESH_HOURS 的交易日。
+    所以新鲜度按该日结束 (ts + 24h) 算: 只认结束不超过 ETF_DAY_END_FRESH_HOURS 的交易日,
+    保证一行可见时长不超过 24h 去重窗口 (见常量注释)。
     farside 云端 403 且 CoinGlass 兜底已死, 目前没有数据 → 每轮报 no_data。
     """
     try:
@@ -351,11 +359,11 @@ def check_etf_outflow() -> Alert | NoData | None:
                WHERE source='farside_etf' AND asset_id='bitcoin'
                  AND metric='etf_net_flow_musd' AND ts >= ?
                ORDER BY ts DESC LIMIT 1""",
-            (_db_cutoff(DB_FRESH_HOURS + 24),),
+            (_db_cutoff(24 + ETF_DAY_END_FRESH_HOURS),),
         )
         if df.empty or _missing(df.iloc[0]["value"]):
             return NoData(f"无近期 farside_etf etf_net_flow_musd 数据 "
-                          f"(交易日结束 ≤{DB_FRESH_HOURS:.0f}h)")
+                          f"(交易日结束 ≤{ETF_DAY_END_FRESH_HOURS:.0f}h)")
         flow_musd = float(df.iloc[0]["value"])      # 单位: 百万美元; 负=净流出
         outflow_usd = -flow_musd * 1e6
         if outflow_usd > THRESHOLDS["etf_outflow_usd"]:
