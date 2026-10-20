@@ -519,7 +519,7 @@ def test_nightly_yml_failure_alert_step_is_last():
     steps = _nightly_wf()["jobs"]["nightly"]["steps"]
     last = steps[-1]
     assert last["if"].replace(" ", "") == "failure()||cancelled()"
-    assert "push_alert" in last["run"] and "github.run_id" in last["run"]
+    assert "push_alert" in last["run"] and "github.run_id" in last["env"]["RUN_URL"]
 
 
 def test_nightly_yml_timeouts_and_schedule():

@@ -163,17 +163,52 @@ jobs:
           retention-days: 14
 
       # job 失败/超时/被取消: nightly_run.sh 自己的失败告警跑不到 (脚本被杀) → 在这里补一条
+      # 主路径 src.notifier.push_alert; 依赖安装失败时它根本 import 不进来 (httpx/pandas…),
+      # 退回纯标准库 urllib 直推 FEISHU_GROUP_1_URL (签名同 notifier._sign), 否则恰恰这种失败没告警。
       - name: Alert on job failure or cancel
         if: failure() || cancelled()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_NO: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          python -c "
-          import sys; sys.path.insert(0, '.')
-          from src.notifier import push_alert
-          r = push_alert('🚨 Crypto Intel nightly workflow 失败/超时/被取消', [
-              '**run ${{ github.run_id }}** (#${{ github.run_number }}) 没有正常完成',
+          python3 - <<'PY' || echo "飞书告警发送失败"
+          import os, sys
+          sys.path.insert(0, '.')
+          title = '🚨 Crypto Intel nightly workflow 失败/超时/被取消'
+          lines = [
+              f"**run {os.environ.get('RUN_ID', '?')}** (#{os.environ.get('RUN_NO', '?')}) 没有正常完成",
               '可能: job 超时 / 被取消 / 产物 git push 失败 / 依赖安装失败',
               '今天的快照、权重、日志可能没提交到仓库',
-              '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
-          ])
-          print('alert:', r.get('ok'), r.get('error') or ('pushed %s' % r.get('pushed')))
-          " || echo "飞书告警发送失败"
+              os.environ.get('RUN_URL', ''),
+          ]
+          try:
+              from src.notifier import push_alert
+          except Exception as e:
+              print('src.notifier 导入失败 (%s), 改用标准库直推' % type(e).__name__)
+              import base64, hashlib, hmac, json, time, urllib.request
+              url = os.environ.get('FEISHU_GROUP_1_URL', '').strip()
+              if not url:
+                  sys.exit('未配置 FEISHU_GROUP_1_URL')
+              msg = {'msg_type': 'text', 'content': {'text': title + '\n' + '\n'.join(lines)}}
+              secret = os.environ.get('FEISHU_GROUP_1_SECRET', '').strip()
+              if secret:
+                  ts = str(int(time.time()))
+                  digest = hmac.new(f'{ts}\n{secret}'.encode('utf-8'), digestmod=hashlib.sha256).digest()
+                  msg['timestamp'] = ts
+                  msg['sign'] = base64.b64encode(digest).decode('utf-8')
+              req = urllib.request.Request(url, data=json.dumps(msg).encode('utf-8'),
+                                           headers={'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as resp:
+                      data = json.loads(resp.read().decode('utf-8', 'replace') or '{}')
+              except Exception as e2:
+                  # 只打异常类型: 异常文本可能带 webhook URL, 而仓库/Actions 日志是公开的
+                  sys.exit('stdlib 告警失败: %s' % type(e2).__name__)
+              print('alert (stdlib):', data)
+              if data.get('code') not in (0, None):   # 飞书出错也回 HTTP 200, 看 code
+                  sys.exit(1)
+          else:
+              r = push_alert(title, lines)
+              print('alert:', r.get('ok'), r.get('error') or ('pushed %s' % r.get('pushed')))
+          PY
