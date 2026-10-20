@@ -179,11 +179,17 @@ class LLMBudget:
     # ── 记录 ─────────────────────────────────────────────────────────
 
     def record_call(self, prompt_chars: int, response_chars: int, success: bool):
+        """按字符数估算 token 记一次调用 (Claude CLI 拿不到真实用量时用)。"""
+        self.record_tokens(self.chars_to_tokens(prompt_chars),
+                           self.chars_to_tokens(response_chars), success)
+
+    def record_tokens(self, tokens_in: int, tokens_out: int, success: bool):
+        """按 provider 实际返回的 token 数记一次调用 (Gemini/Groq/Anthropic API 有 usage)。"""
         with self._lock:
             today = self._today()
             today.calls += 1
-            today.tokens_in += self.chars_to_tokens(prompt_chars)
-            today.tokens_out += self.chars_to_tokens(response_chars)
+            today.tokens_in += max(0, int(tokens_in or 0))
+            today.tokens_out += max(0, int(tokens_out or 0))
             today.last_call = datetime.utcnow().isoformat()
 
             if success:

@@ -68,8 +68,11 @@ def generate_brief_via_cli(claude_path: str | None = None,
                 "error": f"Claude CLI 调用失败: {e}"}
 
     if result.returncode != 0:
+        # CLI 的认证错误 (401 OAuth expired 等) 打在 stdout 而不是 stderr: 只取 stderr 时错误是
+        # "Claude CLI rc=1: " 后面一片空白, 106 次失败都看不出原因
+        detail = (result.stderr or "").strip() or (result.stdout or "").strip()
         return {"ok": False, "markdown": "", "model": "claude-cli-subscription",
-                "error": f"Claude CLI rc={result.returncode}: {result.stderr[-500:]}"}
+                "error": f"Claude CLI rc={result.returncode}: {detail[-500:]}"}
 
     md = result.stdout.strip()
     if not md or len(md) < 100:
@@ -93,6 +96,7 @@ def run_local_brief() -> dict:
         save_brief({
             "ok": True,
             "markdown": result["markdown"],
-            "usage": {"output_tokens": len(result["markdown"]) // 4},  # 粗估
+            "usage": {"output_tokens": len(result["markdown"]) // 4,  # 粗估
+                      "provider": "claude-cli", "model": result.get("model")},
         })
     return result

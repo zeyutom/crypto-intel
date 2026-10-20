@@ -119,7 +119,7 @@ def _gather_summary() -> dict:
     missing = sorted(expected - set(src_df["source"].tolist()))
     briefing = build_briefing(sig_df, fact_df, regime, missing)
 
-    # AI 简报
+    # AI 简报: latest_brief 默认只返回 36h 内的 (曾经把 2026-06-18 的旧简报当今天的分析推了 4 个月)
     ai = latest_brief()
 
     return {
@@ -135,7 +135,33 @@ def _gather_summary() -> dict:
         "headline": briefing.headline,
         "ai_markdown": ai["markdown"] if ai else None,
         "ai_ts": ai["ts"] if ai else None,
+        "ai_provider": ai.get("provider") if ai else None,
+        "ai_model": ai.get("model") if ai else None,
     }
+
+
+# provider → 卡片上的来源名。只有 Claude CLI / Anthropic API 路径带 web 搜索。
+_PROVIDER_LABELS = {
+    "claude-cli": "Claude CLI", "anthropic": "Claude API",
+    "gemini": "Gemini", "groq": "Groq",
+}
+_PROVIDERS_WITH_SEARCH = {"claude-cli", "anthropic"}
+
+
+def _ai_section_title(provider: str | None, ts: str | None) -> str:
+    """AI 简报小节标题: 标明来源 + 生成时间 (北京时间), 让过期/非 Claude 的简报一眼可辨。"""
+    label = _PROVIDER_LABELS.get(provider or "", provider or "AI")
+    parts = [f"🤖 AI 简报 · {label}"]
+    if provider and provider not in _PROVIDERS_WITH_SEARCH:
+        parts.append("无 web 搜索")
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        parts.append("生成于 " + (dt + timedelta(hours=8)).strftime("%m-%d %H:%M") + " 北京时间")
+    except (TypeError, ValueError):
+        pass
+    return " · ".join(parts) + " (节选)"
 
 
 def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app/") -> dict:
@@ -211,14 +237,20 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
                                  "content": f"**🎯 PM 行动建议**\n{action_md}"}},
     ])
 
-    # AI 简报节选
+    # AI 简报节选 (标题带来源 + 生成时间); 没有 36h 内的简报就明说, 不拿旧的充数
     if d["ai_markdown"]:
         # 取前 500 字符, 避开代码块等
         excerpt = d["ai_markdown"][:500].rsplit("\n", 1)[0]
+        title = _ai_section_title(d.get("ai_provider"), d.get("ai_ts"))
         elements.extend([
             {"tag": "hr"},
             {"tag": "div", "text": {"tag": "lark_md",
-                                     "content": f"**🤖 Claude 深度简报 (节选)**\n\n{excerpt}...\n\n*[完整版见仪表盘]*"}},
+                                     "content": f"**{title}**\n\n{excerpt}...\n\n*[完整版见仪表盘]*"}},
+        ])
+    else:
+        elements.extend([
+            {"tag": "hr"},
+            {"tag": "div", "text": {"tag": "lark_md", "content": "🤖 *今日 AI 简报未生成*"}},
         ])
 
     # 操作按钮
@@ -234,11 +266,12 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
              "type": "default",
              "url": f"{dashboard_url}因子详解"},
         ]},
-        # 页脚
+        # 页脚: 只有简报真来自 Claude CLI (Max 订阅) 才这么写; 云端是 Gemini
         {"tag": "note", "elements": [
             {"tag": "plain_text",
              "content": f"生成时间: {_beijing_now()} 北京时间 · "
-                        f"12 数据源 · 15 因子 · Claude Max 订阅驱动"},
+                        f"12 数据源 · 15 因子"
+                        + (" · Claude Max 订阅驱动" if d.get("ai_provider") == "claude-cli" else "")},
         ]},
     ])
 
@@ -247,7 +280,8 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
         "card": {
             "header": {
                 "title": {"tag": "plain_text",
-                           "content": f"📋 Crypto Intel 早会简报 · {datetime.now().strftime('%m-%d')}"},
+                           # 北京日期 (与页脚一致): runner 是 UTC, 曾经北京早上收到的卡片标着昨天的日期
+                           "content": f"📋 Crypto Intel 早会简报 · {_beijing_now()[5:10]}"},
                 "template": _regime_color(d["regime"]),
             },
             "elements": elements,
