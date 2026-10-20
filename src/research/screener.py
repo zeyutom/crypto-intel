@@ -67,6 +67,16 @@ FROZEN_SNAPSHOTS = 3
 REAL_SNAPSHOT_MIN_COINS = 100
 # CoinGecko last_updated 超过此时长视为陈旧报价
 STALE_QUOTE_HOURS = 24
+# 这些原因排除的币仍把当日报价写进快照 _meta.excluded_rows, 供冻结判定延续历史
+# (否则被排除的那天快照里没有它, 接下来 3 次运行历史凑不满 3 条, 冻结币 4 天只排除 1 天)
+HISTORY_KEPT_EXCLUSIONS = ("frozen", "stale")
+# load_recent_snapshot_prices 结果里按 coin_id 索引的 key 前缀
+# (symbol 一律大写, 小写前缀不会与之冲突)
+_ID_KEY_PREFIX = "id:"
+
+# DeFiLlama /protocols 中不算 DeFi TVL 的类别: CEX = 交易所托管储备 (用户资金),
+# 曾让 BNB/OKB/GT/MX/BP/BORG/NEXO 的 f_tvl_mcap 恒为 1.0, BP/MX/OKB 挤进 Top-10
+EXCLUDED_PROTOCOL_CATEGORIES = {"CEX"}
 
 # ── 链名 → 代币映射 (用于匹配 DeFiLlama chain TVL) ──
 CHAIN_TO_TOKEN = {
@@ -145,13 +155,17 @@ def fetch_defillama_protocols() -> dict[str, float]:
         log.warning("    ✗ DeFiLlama protocols 失败")
         return {}
     tvl_map: dict[str, float] = {}
+    skipped_cex = 0
     for p in data:
+        if p.get("category") in EXCLUDED_PROTOCOL_CATEGORIES:
+            skipped_cex += 1
+            continue
         sym = (p.get("symbol") or "").upper().strip()
         tvl = p.get("tvl") or 0
         if sym and tvl > 0:
             # 同 symbol 可能有多个协议 (如 AAVE v2/v3), 累加
             tvl_map[sym] = tvl_map.get(sym, 0) + tvl
-    log.info(f"    ✓ {len(tvl_map)} protocols with TVL")
+    log.info(f"    ✓ {len(tvl_map)} protocols with TVL (跳过 {skipped_cex} 个 CEX 储备)")
     return tvl_map
 
 
@@ -199,16 +213,26 @@ def fetch_binance_volumes() -> dict[str, float]:
 #  排除规则 (稳定币 / wrapped / 非加密资产 / 冻结或陈旧报价)
 # ====================================================================
 
+def _id_key(coin_id: str) -> str:
+    """load_recent_snapshot_prices 结果里 coin_id 维度的 key。"""
+    return _ID_KEY_PREFIX + coin_id.lower()
+
+
 def load_recent_snapshot_prices(n: int = FROZEN_SNAPSHOTS,
                                 min_coins: int = REAL_SNAPSHOT_MIN_COINS
                                 ) -> dict[str, list[tuple[float, float | None]]]:
-    """读取最近 n 个真实快照的 (价格, 市值): {SYMBOL: [(price, mcap)_latest, ...]}。
+    """读取最近 n 个真实快照的 (价格, 市值): {key: [(price, mcap)_latest, ...]}。
+
+    key 有两种: 大写 SYMBOL (旧快照无 coin_id 时也能用), 以及 _id_key(coin_id)
+    (同名币如两个 VELO 各有各的历史); 查询用 _prior_history, coin_id 优先、symbol 回退。
 
     同时带上市值: CoinGecko 对 >= $1 的价格只给 2 位小数, 单看价格会把
     慢涨慢跌的真币 (如 LPT 连续 3 天 1.79) 误判为冻结, 市值 (price x 供应量,
     整数精度) 才能区分 "报价冻结" 和 "价格四舍五入后碰巧相同"。
-    跳过回填的合成快照 (_meta.synthetic 或币数 < min_coins); 同一快照内重复
-    symbol 只取第一条, 保证每个快照最多贡献一条记录。
+    除 coins 外还合并 _meta.excluded_rows (当日因冻结/陈旧被排除的币): 否则冻结币
+    被排除那天快照里没有它, 后 3 次运行历史凑不满, 4 天里只排除 1 天。
+    跳过回填的合成快照 (_meta.synthetic 或币数 < min_coins); 同一快照内同一 key
+    只取第一条, 保证每个快照最多贡献一条记录。
     目录缺失 / 文件损坏一律容忍, 返回能读到的部分。
     """
     prices: dict[str, list[tuple[float, float | None]]] = {}
@@ -225,20 +249,42 @@ def load_recent_snapshot_prices(n: int = FROZEN_SNAPSHOTS,
         except Exception:
             continue
         coins = snap.get("coins") or []
-        if (snap.get("_meta") or {}).get("synthetic") or len(coins) < min_coins:
+        meta = snap.get("_meta") or {}
+        if meta.get("synthetic") or len(coins) < min_coins:
             continue
         found += 1
+        excluded_rows = meta.get("excluded_rows")
+        rows = list(coins) + (list(excluded_rows)
+                              if isinstance(excluded_rows, list) else [])
         seen: set[str] = set()
-        for c in coins:
-            sym = c.get("symbol")
-            p = c.get("price")
-            if not sym or sym in seen or not isinstance(p, (int, float)):
+        for c in rows:
+            if not isinstance(c, dict):
                 continue
-            seen.add(sym)
+            p = c.get("price")
+            if not isinstance(p, (int, float)):
+                continue
             m = c.get("market_cap")
-            prices.setdefault(sym, []).append(
-                (p, m if isinstance(m, (int, float)) else None))
+            entry = (p, m if isinstance(m, (int, float)) else None)
+            sym = str(c.get("symbol") or "").upper()
+            cid = c.get("coin_id")
+            keys = ([sym] if sym else []) + (
+                [_id_key(cid)] if isinstance(cid, str) and cid else [])
+            for k in keys:
+                if k in seen:
+                    continue
+                seen.add(k)
+                prices.setdefault(k, []).append(entry)
     return prices
+
+
+def _prior_history(prior_prices: dict[str, list[tuple[float, float | None]]],
+                   coin_id: str, sym: str) -> list[tuple[float, float | None]]:
+    """某币的历史报价: 有 coin_id 历史就用它, 否则回退 symbol (旧快照无 coin_id)。"""
+    if coin_id:
+        hist = prior_prices.get(_id_key(coin_id))
+        if hist:
+            return hist
+    return prior_prices.get(sym) or []
 
 
 def _is_frozen_quote(price: float, mcap: float, chg_24h,
@@ -317,7 +363,7 @@ def is_excluded(c: dict,
     # (d2) 冻结报价: 价格+市值与最近 FROZEN_SNAPSHOTS 个真实快照一致且 24h 涨跌为 0
     if prior_prices and _is_frozen_quote(price, c.get("market_cap") or 0,
                                          c.get("price_change_percentage_24h"),
-                                         prior_prices.get(sym) or []):
+                                         _prior_history(prior_prices, cid, sym)):
         return "frozen"
     return None
 
@@ -336,12 +382,16 @@ def score_coins(coins: list[dict],
                 real_onchain: dict = None,
                 prior_prices: dict[str, list[tuple[float, float | None]]] = None,
                 exclusion_stats: dict[str, int] = None,
-                now: datetime | None = None) -> list[dict]:
+                now: datetime | None = None,
+                excluded_rows: list[dict] = None) -> list[dict]:
     """10 因子量化打分 (元学习动态权重)。
 
     prior_prices: load_recent_snapshot_prices() 的结果, 用于冻结报价判定。
     exclusion_stats: 可选 dict, 原地写入各类排除计数
       {"stable": n, "wrapped": n, "non_crypto": n, "frozen": n, "stale": n}。
+    excluded_rows: 可选 list, 原地追加因 HISTORY_KEPT_EXCLUSIONS 被排除的币
+      {symbol, coin_id, price, market_cap, reason}; run_screen 写进快照
+      _meta.excluded_rows (不进 coins, IC / 记分卡输入不变)。
     now: 判定陈旧报价用的"当前时刻", 默认 datetime.now(UTC); 测试传固定时刻,
       否则用写死日期构造的 last_updated 过一天就全被判 stale。
 
@@ -393,6 +443,14 @@ def score_coins(coins: list[dict],
         reason = is_excluded(c, prior_prices, now)
         if reason:
             excluded[reason] = excluded.get(reason, 0) + 1
+            if excluded_rows is not None and reason in HISTORY_KEPT_EXCLUSIONS:
+                excluded_rows.append({
+                    "symbol": sym,
+                    "coin_id": c.get("id", ""),
+                    "price": price,
+                    "market_cap": mcap,
+                    "reason": reason,
+                })
             continue
 
         chg_30d = c.get("price_change_percentage_30d_in_currency") or 0
@@ -618,13 +676,15 @@ def run_screen(top_n: int = 30) -> dict:
     # 最近 3 个真实快照的价格+市值 → 冻结报价判定 (REUR 之类)
     prior_prices = load_recent_snapshot_prices()
     excluded: dict[str, int] = {}
+    excluded_rows: list[dict] = []
     scored = score_coins(coins, tvl_proto, tvl_chain, bn_vol,
                          onchain_data=onchain_data,
                          funding_rates=funding_rates,
                          weights=weights,
                          real_onchain=real_onchain,
                          prior_prices=prior_prices,
-                         exclusion_stats=excluded)
+                         exclusion_stats=excluded,
+                         excluded_rows=excluded_rows)
 
     # ── Step 5: Pipeline 因子叠加 (市场级信号) ──
     log.info("加载 pipeline 市场级因子...")
@@ -658,6 +718,8 @@ def run_screen(top_n: int = 30) -> dict:
         "regime": regime,
         "weights_in_force": weights,
         "sources": sources,
+        # 冻结/陈旧报价被排除的币: 只供下次冻结判定延续历史, 不进 coins
+        "excluded_rows": excluded_rows,
     }
     # 按签名判断而不是 try/except TypeError: 后者会把 save_snapshot 内部的
     # 真实 TypeError 吞掉并重跑一遍写盘

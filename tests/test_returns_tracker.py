@@ -95,8 +95,12 @@ def no_btc_fallback_network(monkeypatch):
     monkeypatch.setattr(rt, "_fetch_btc_price_at", lambda entry_ts: None)
 
 
-def _patch_prices(monkeypatch, prices: dict):
-    monkeypatch.setattr(rt, "_fetch_current_prices", lambda symbols: dict(prices))
+def _patch_prices(monkeypatch, prices: dict, missing_pages: list[int] | None = None):
+    def _fake(symbols, pages_missing=None):
+        if pages_missing is not None:
+            pages_missing.extend(missing_pages or [])
+        return dict(prices)
+    monkeypatch.setattr(rt, "_fetch_current_prices", _fake)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -279,34 +283,147 @@ def test_fetch_prices_symbol_collision_first_occurrence_wins(monkeypatch):
         2: [{"id": "fake-eth", "symbol": "eth", "current_price": 0.01},
             {"id": "zero-price", "symbol": "zzz", "current_price": 0}],
     }
-
-    class _Resp:
-        def __init__(self, rows):
-            self.status_code = 200
-            self._rows = rows
-
-        def json(self):
-            return self._rows
-
-    import httpx
-    monkeypatch.setattr(httpx, "get",
-                        lambda url, params=None, **kw: _Resp(pages.get(params["page"], [])))
+    monkeypatch.setattr(rt, "_get_json",
+                        lambda url, params=None: pages.get(params["page"], []))
     monkeypatch.setattr(rt.time, "sleep", lambda s: None)
 
-    prices = rt._fetch_current_prices(["BTC", "ETH"])
+    missing: list[int] = []
+    prices = rt._fetch_current_prices(["BTC", "ETH"], pages_missing=missing)
     assert prices["ETH"] == 10.0            # 先到先得
     assert prices["ethereum"] == 10.0       # 按 coin_id 也能查
     assert prices["fake-eth"] == 0.01       # coin_id 不冲突, 照常保留
     assert prices["bitcoin"] == 100.0 and prices["BTC"] == 100.0
     assert "zero-price" not in prices and "ZZZ" not in prices
+    assert missing == []                    # 空页也算拉到了
 
 
-def test_lookup_prefers_coin_id_then_symbol():
+def test_fetch_prices_goes_through_shared_http_client_with_retries(monkeypatch):
+    """价格请求走 http_client (限速 + 429 退避), 不缓存, 带重试."""
+    from src import http_client
+    calls = []
+
+    def _fake_get_json(url, **kw):
+        calls.append(kw)
+        return [{"id": f"c{kw['params']['page']}", "symbol": "x", "current_price": 1.0}]
+    monkeypatch.setattr(http_client.http, "get_json", _fake_get_json)
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    prices = rt._fetch_current_prices([])
+    assert len(calls) == 5
+    assert all(c["retries"] >= 1 and c["ttl"] == 0 for c in calls)
+    assert [c["params"]["page"] for c in calls] == [1, 2, 3, 4, 5]
+    assert prices["c5"] == 1.0
+
+
+def test_fetch_prices_records_failed_pages(monkeypatch, caplog):
+    """第 5 页重试后仍失败 (get_json 返回 None): 记入 pages_missing 并告警, 不静默丢弃."""
+    def _fake(url, params=None):
+        page = params["page"]
+        if page == 5:
+            return None
+        return [{"id": f"coin-{page}", "symbol": f"c{page}", "current_price": float(page)}]
+    monkeypatch.setattr(rt, "_get_json", _fake)
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rt.log, "propagate", True)
+    missing: list[int] = []
+    with caplog.at_level("WARNING", logger="returns_tracker"):
+        prices = rt._fetch_current_prices([], pages_missing=missing)
+    assert missing == [5]
+    assert prices["coin-4"] == 4.0 and "coin-5" not in prices
+    assert any("page 5/5" in r.getMessage() for r in caplog.records)
+
+
+def test_fetch_prices_stops_requesting_after_time_budget(monkeypatch, caplog):
+    """429 + Retry-After 让每页拖很久: 超出 FETCH_BUDGET_S 后剩余页不再请求, 记入 pages_missing."""
+    clock = {"t": 0.0}
+    calls = []
+
+    def _fake(url, params=None):
+        calls.append(params["page"])
+        clock["t"] += 100.0          # 每页 (含退避重试) 耗时 100s
+        return [{"id": f"coin-{params['page']}", "symbol": "x", "current_price": 1.0}]
+    monkeypatch.setattr(rt, "_get_json", _fake)
+    monkeypatch.setattr(rt, "FETCH_BUDGET_S", 300)
+    monkeypatch.setattr(rt.time, "monotonic", lambda: clock["t"])
+    monkeypatch.setattr(rt.time, "sleep", lambda s: None)
+    monkeypatch.setattr(rt.log, "propagate", True)
+    missing: list[int] = []
+    with caplog.at_level("WARNING", logger="returns_tracker"):
+        prices = rt._fetch_current_prices([], pages_missing=missing)
+    assert calls == [1, 2, 3]                 # 第 4 页开始时已用 300s, 不再请求
+    assert missing == [4, 5]
+    assert prices["coin-3"] == 1.0 and "coin-4" not in prices
+    assert any("预算" in r.getMessage() for r in caplog.records)
+
+
+def test_build_scorecard_page_missing_with_unmatched_lists_them():
+    """缺页且确有 Top-N 币未定价: 缺页行 + 未定价清单都要出现."""
+    r = {
+        "ok": True, "snapshot_date": "2026-10-13", "lookback_days": 7,
+        "graded": 30, "matched_coins": 28, "coverage": 28 / 30, "low_coverage": True,
+        "pages_missing": [5], "unmatched": ["AAA", "BBB"],
+        "stats": {"avg_return": 0.01, "median_return": 0.01, "win_rate": 0.6},
+        "vs_btc": 0.0, "vs_universe_ew": None, "coins": [],
+    }
+    _, lines, _ = rt._build_scorecard(r)
+    body = "\n".join(lines)
+    assert "CoinGecko 第 5 页" in body
+    assert "覆盖率不足, 未定价: AAA, BBB" in body
+
+
+def test_verify_returns_missing_page_sets_low_coverage(meta_dir, monkeypatch, now_utc):
+    """覆盖率 100% 但有页没拉到 → low_coverage=True, pages_missing 落盘, 卡片有说明."""
+    prices = _snapshot_with_returns(meta_dir, now_utc, [0.1] * 30, [0.0] * 70)
+    _patch_prices(monkeypatch, prices, missing_pages=[5])
+    r = rt.verify_returns(lookback_days=7)
+    assert r["ok"] and r["coverage"] == 1.0
+    assert r["pages_missing"] == [5]
+    assert r["low_coverage"] is True
+    saved = json.loads(next(meta_dir.glob("returns_*_7d.json")).read_text())
+    assert saved["pages_missing"] == [5]
+    _, lines, _ = rt._build_scorecard(r)
+    assert any("CoinGecko 第 5 页" in ln and "偏向大市值" in ln for ln in lines)
+    # Top-N 全部定价 (unmatched 为空): 不能再出"覆盖率不足, 未定价: <空>", 与"覆盖 100%"矛盾
+    assert r["unmatched"] == []
+    assert not any("覆盖率不足" in ln for ln in lines)
+
+
+def test_verify_returns_no_missing_pages(meta_dir, monkeypatch, now_utc):
+    prices = _snapshot_with_returns(meta_dir, now_utc, [0.1] * 30, [0.0] * 70)
+    _patch_prices(monkeypatch, prices)
+    r = rt.verify_returns(lookback_days=7)
+    assert r["pages_missing"] == [] and r["low_coverage"] is False
+    _, lines, _ = rt._build_scorecard(r)
+    assert not any("CoinGecko 第" in ln for ln in lines)
+
+
+def test_lookup_coin_id_only_when_present():
     prices = {"ethereum": 10.0, "ETH": 0.01, "SOL": 5.0}
     assert rt._lookup_price({"coin_id": "ethereum", "symbol": "ETH"}, prices) == 10.0
     assert rt._lookup_price({"symbol": "SOL"}, prices) == 5.0            # 无 coin_id 回退 symbol
-    assert rt._lookup_price({"coin_id": "missing", "symbol": "SOL"}, prices) == 5.0
+    assert rt._lookup_price({"coin_id": "", "symbol": "SOL"}, prices) == 5.0
+    # 有 coin_id 但查不到 → unmatched, 不能借同名 symbol 的价格
+    assert rt._lookup_price({"coin_id": "missing", "symbol": "SOL"}, prices) is None
     assert rt._lookup_price({"coin_id": "nope", "symbol": "NOPE"}, prices) is None
+
+
+def test_coin_id_row_not_graded_with_same_symbol_coin(meta_dir, monkeypatch, now_utc):
+    """VELO 案例: velodrome-finance 掉出当前 Top 500, 同名 velo 还在 →
+    velodrome 记 unmatched, 不能用 velo 的价格算出 -88% 的假收益."""
+    target = now_utc - timedelta(days=7)
+    coins = _real_coins()
+    coins[3].update({"symbol": "VELO", "coin_id": "velodrome-finance", "price": 0.03473})
+    coins[60].update({"symbol": "VELO", "coin_id": "velo", "price": 0.00407})
+    _write_snapshot(meta_dir, target, coins)
+    prices = {f"coin-{i}": 1.1 for i in range(120)}
+    prices.update({"bitcoin": 100.0, "velo": 0.0041, "VELO": 0.0041})
+    _patch_prices(monkeypatch, prices)
+    r = rt.verify_returns(lookback_days=7)
+    assert r["ok"]
+    assert "VELO" in r["unmatched"]
+    assert all(c["coin_id"] != "velodrome-finance" for c in r["coins"])
+    assert r["stats"]["worst_return"] > -0.5
+    # universe 里 velo 自己照常定价, velodrome 不算
+    assert r["universe_n"] == 119
 
 
 def test_duplicate_symbol_without_coin_id_only_largest_cap_priced(meta_dir, monkeypatch, now_utc):

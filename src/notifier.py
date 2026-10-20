@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import httpx
 import pandas as pd
-from .db import query_df
+from .db import query_df, latest_quotes
 from .factors._metadata import asset_cn, regime_cn
 from .report.insights import build_briefing
 from .llm_brief import latest_brief
@@ -61,36 +61,17 @@ def _gather_summary() -> dict:
     )
     regime = sig_df.iloc[0]["regime"] if not sig_df.empty else "UNKNOWN"
 
-    # 行情快照 (BTC / ETH)
-    snap = query_df(
-        """SELECT asset_id, price FROM (
-              SELECT r.asset_id, r.value AS price,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    chg = query_df(
-        """SELECT asset_id, pct FROM (
-              SELECT r.asset_id, r.value AS pct,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
+    # 行情快照 (BTC / ETH / SOL): 先新鲜度、再源优先级, 价格与 24h 涨跌取自同一条报价
+    # (之前源优先级在前, 卡片上的 BTC 价冻在 06-05 的 binance 旧值 $62,810 达 4.5 个月)
+    quotes = latest_quotes()
     prices = {}
-    if not snap.empty:
-        m1 = dict(zip(snap["asset_id"], snap["price"]))
-        m2 = dict(zip(chg["asset_id"], chg["pct"])) if not chg.empty else {}
+    if not quotes.empty:
+        by_asset = {r.asset_id: r for r in quotes.itertuples(index=False)}
         for a in ["bitcoin", "ethereum", "solana"]:
-            if a in m1:
-                prices[a] = {"price": float(m1[a]), "chg": float(m2.get(a, 0))}
+            if a in by_asset:
+                q = by_asset[a]
+                prices[a] = {"price": float(q.price),
+                             "chg": float(q.change_24h) if pd.notna(q.change_24h) else 0.0}
 
     # F&G
     fg_df = query_df(
