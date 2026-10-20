@@ -329,6 +329,21 @@ def _load_groups() -> list[dict]:
     return groups
 
 
+def _redact_webhook(text: str, url: str) -> str:
+    """把 webhook URL (含 token) 从错误文本里抹掉。
+
+    httpx 的 HTTPStatusError 文本自带完整 URL ("... for url 'https://open.feishu.cn/.../hook/<token>'"),
+    push-feishu 的结果会打进 nightly 日志, 而日志提交到公开仓库 = token 泄露。
+    """
+    if not url:
+        return text
+    text = text.replace(url, "<feishu-webhook>")
+    token = url.rstrip("/").rsplit("/", 1)[-1]
+    if len(token) >= 8:          # URL 被规范化/编码后整串对不上时, 至少把 token 段抹掉
+        text = text.replace(token, "<token>")
+    return text
+
+
 def _push_one(payload: dict, group: dict) -> dict:
     """推单个群, 返回 {ok, error, group_name}。"""
     url, secret, name = group["url"], group["secret"], group["name"]
@@ -342,7 +357,8 @@ def _push_one(payload: dict, group: dict) -> dict:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return {"ok": False, "error": f"HTTP 错误: {e}", "group_name": name}
+        return {"ok": False, "error": "HTTP 错误: " + _redact_webhook(str(e), url),
+                "group_name": name}
     if data.get("code") not in (0, None):
         return {"ok": False, "error": f"飞书返回: {data}", "group_name": name}
     return {"ok": True, "group_name": name, "response": data}
@@ -429,5 +445,5 @@ def push_test_message(webhook_url: str, secret: str = "") -> dict:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": _redact_webhook(str(e), webhook_url)}
     return {"ok": data.get("code") in (0, None), "response": data}

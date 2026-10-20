@@ -105,3 +105,52 @@ def test_gather_summary_keeps_fresh_brief_with_provider(summary_env):
     summary_env.append((ts, "llm_brief:gemini", "昨晚的简报"))
     d = notifier._gather_summary()
     assert d["ai_markdown"] == "昨晚的简报" and d["ai_ts"] == ts and d["ai_provider"] == "gemini"
+
+
+# ── webhook token 不进错误文本 (nightly 日志入库, 仓库公开) ──────────────────
+
+_TOKEN = "a1b2c3d4-5e6f-7a8b-9c0d-ef1234567890"
+_HOOK = f"https://open.feishu.cn/open-apis/bot/v2/hook/{_TOKEN}"
+
+
+def _mock_post(monkeypatch, handler):
+    """httpx.post → 走 MockTransport 的 Client (离线)。"""
+    import httpx
+    transport = httpx.MockTransport(handler)
+
+    def fake_post(url, **kw):
+        kw.pop("timeout", None)
+        with httpx.Client(transport=transport) as c:
+            return c.post(url, **kw)
+    monkeypatch.setattr(notifier.httpx, "post", fake_post)
+
+
+def test_push_error_does_not_leak_webhook_token(monkeypatch):
+    import httpx
+    _mock_post(monkeypatch, lambda req: httpx.Response(502, request=req))
+    monkeypatch.setattr(notifier, "_build_card", lambda dashboard_url=None: {"msg_type": "text"})
+    r = notifier.push_to_feishu(webhook_url=_HOOK)
+    err = r["groups"][0]["error"]
+    assert r["ok"] is False and "502" in err
+    assert _TOKEN not in err and _HOOK not in err
+
+    # push_alert / push_test_message 走同一出口, 同样不能带 token
+    for k in [k for k in list(notifier.os.environ) if k.startswith("FEISHU_")]:
+        monkeypatch.delenv(k)
+    monkeypatch.setenv("FEISHU_GROUP_1_URL", _HOOK)
+    a = notifier.push_alert("t", ["x"])
+    assert a["ok"] is False and _TOKEN not in str(a)
+    t = notifier.push_test_message(_HOOK)
+    assert t["ok"] is False and _TOKEN not in str(t)
+
+
+def test_push_connect_error_does_not_leak_webhook_token(monkeypatch):
+    import httpx
+
+    def boom(req):
+        raise httpx.ConnectError(f"connect failed for {req.url}", request=req)
+    _mock_post(monkeypatch, boom)
+    monkeypatch.setattr(notifier, "_build_card", lambda dashboard_url=None: {"msg_type": "text"})
+    r = notifier.push_to_feishu(webhook_url=_HOOK)
+    assert r["ok"] is False and _TOKEN not in r["groups"][0]["error"]
+    assert "connect failed" in r["groups"][0]["error"]
