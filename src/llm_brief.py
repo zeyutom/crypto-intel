@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from typing import Any
 import httpx
 import pandas as pd
-from .db import query_df, latest_factors
+from .db import query_df, latest_factors, latest_quotes
 from .factors._metadata import factor_meta, asset_cn, regime_cn
 from .utils import setup_logger
 
@@ -68,31 +68,16 @@ def _gather_factor_summary() -> str:
 
 
 def _gather_market_snapshot() -> str:
-    snap = query_df(
-        """SELECT asset_id, value AS price FROM (
-              SELECT r.asset_id, r.value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
+    # 先新鲜度、再源优先级; 价格和 24h 涨跌来自同一条报价 (之前价格是 06-05 的
+    # binance 旧值、涨跌却是最新一条, 喂给 Gemini 的是错配的组合)
+    snap = latest_quotes()
     if snap.empty:
         return "(无行情数据)"
-    chg = query_df(
-        """SELECT asset_id, value AS pct FROM (
-              SELECT r.asset_id, r.value, ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                ORDER BY r.ts DESC) AS rn FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    merged = snap.merge(chg, on="asset_id", how="left")
     lines = []
-    for _, r in merged.iterrows():
+    for _, r in snap.iterrows():
+        pct = r["change_24h"] if pd.notna(r["change_24h"]) else 0.0
         lines.append(f"- {asset_cn(r['asset_id'])}: ${r['price']:,.2f} "
-                     f"(24h {(r['pct'] or 0):+.2f}%)")
+                     f"(24h {pct:+.2f}%)")
     return "\n".join(lines)
 
 

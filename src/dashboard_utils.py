@@ -4,7 +4,8 @@ import streamlit as st
 import pandas as pd
 import json
 from datetime import datetime, timezone
-from .db import query_df, latest_factors, latest_reviews
+from .db import (query_df, latest_factors, latest_reviews, latest_quotes,
+                 source_status, EXPECTED_SOURCES)
 from .config import CFG
 from .factors._metadata import asset_cn, regime_cn, factor_meta, signal_label
 
@@ -70,9 +71,9 @@ def require_password() -> bool:
 
 # ============ 公共页面顶栏 ============
 def page_header(title: str, subtitle: str = "") -> None:
-    src_count = int(query_df(
-        "SELECT COUNT(DISTINCT source) AS c FROM raw_metrics WHERE source != '_meta'"
-    ).iloc[0]["c"])
+    # 分子 = 期望源中本次新鲜的个数 (之前数的是历史上出现过的全部源, 显示 "10/6")
+    src_status = source_status(EXPECTED_SOURCES)
+    src_fresh = sum(1 for s in src_status if s["ok"])
     factor_count = int(query_df("SELECT COUNT(DISTINCT factor) AS c FROM factors").iloc[0]["c"])
 
     sig_df = query_df("SELECT regime FROM signals ORDER BY ts DESC LIMIT 1")
@@ -98,7 +99,7 @@ def page_header(title: str, subtitle: str = "") -> None:
       </div>
       <div style='text-align:right; font-size:12.5px; color:{COLOR["muted"]};'>
         <div>Regime: <b style='color:{COLOR["accent"]}'>{rgm_cn}</b></div>
-        <div>数据源 {src_count}/6 · 因子 {factor_count}</div>
+        <div>数据源 {src_fresh}/{len(src_status)} · 因子 {factor_count}</div>
         <div>最近采集: {last_run_str}</div>
       </div>
     </div>
@@ -202,31 +203,10 @@ def load_signals() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_snapshot() -> pd.DataFrame:
-    snap = query_df(
-        """SELECT asset_id, value AS price FROM (
-              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    chg = query_df(
-        """SELECT asset_id, value AS change_24h FROM (
-              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    if snap.empty:
+    # 先新鲜度、再源优先级 (之前 06-05 的 binance 旧价压过每天新鲜的 okx/coingecko)
+    df = latest_quotes()
+    if df.empty:
         return pd.DataFrame()
-    df = snap.merge(chg, on="asset_id", how="left")
     df["symbol"] = df["asset_id"].apply(
         lambda a: next((x["symbol"] for x in CFG["universe"] if x["id"] == a), a))
     df["cn_name"] = df["asset_id"].apply(asset_cn)
@@ -292,21 +272,8 @@ def load_reviews() -> pd.DataFrame:
 
 @st.cache_data(ttl=60)
 def load_source_status() -> list[dict]:
-    sources_df = query_df(
-        """SELECT source, COUNT(*) AS n, MAX(ts) AS last_ts FROM raw_metrics
-           WHERE source != '_meta' GROUP BY source"""
-    )
-    expected = ["coingecko", "binance", "coinbase", "defillama", "feargreed", "farside_etf"]
-    actual = set(sources_df["source"].tolist())
-    out = []
-    for s in expected:
-        if s in actual:
-            row = sources_df[sources_df["source"] == s].iloc[0]
-            out.append({"source": s, "ok": True, "n": int(row["n"]),
-                        "last_ts": row["last_ts"][:16].replace("T", " ")})
-        else:
-            out.append({"source": s, "ok": False, "n": 0, "last_ts": "—"})
-    return out
+    """期望源的新鲜度 (见 db.source_status): 过期的源 ok=False, 进覆盖度警告。"""
+    return source_status(EXPECTED_SOURCES)
 
 
 def signal_pill(signal: int) -> str:
