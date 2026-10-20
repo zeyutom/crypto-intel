@@ -13,6 +13,7 @@
 from __future__ import annotations
 import json
 import yaml
+import pandas as pd
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from ..db import query_df, insert_evolution_log
@@ -56,6 +57,16 @@ def _gather_week_data() -> str:
              AND ts >= ?
            ORDER BY ts""", (cutoff,)
     )
+    # 云端 nightly 的简报不进仓库里的 intel.db, 只经 data/meta/ai_brief_latest.json 回推: 补进来
+    try:
+        from ..llm_brief import _read_brief_file
+        bf = _read_brief_file()
+        if bf and bf["ts"] >= cutoff and bf["ts"] not in set(briefs["ts"].astype(str)):
+            row = pd.DataFrame([{"ts": bf["ts"], "value_text": bf["markdown"]}])
+            briefs = row if briefs.empty else (
+                pd.concat([briefs, row], ignore_index=True).sort_values("ts"))
+    except Exception as e:
+        log.warning("读 ai_brief_latest.json 失败: %s", e)
 
     # 过去 7 天因子值 (聚合)
     factors = query_df(
@@ -108,14 +119,17 @@ def run_weekly_review() -> dict:
     week_iso = today.strftime("%Y-W%V")
 
     data_md = _gather_week_data()
-    user_prompt = (
+    base_prompt = (
         f"{data_md}\n\n---\n\n"
         f"请基于以上数据做本周复盘。今天是 {today.strftime('%Y-%m-%d')}。"
-        f"如果你想查最新事件, 用 web_search 验证。"
     )
+    user_prompt = base_prompt + "如果你想查最新事件, 用 web_search 验证。"
 
-    log.info("Running weekly review via Claude CLI...")
-    result = run_claude(user_prompt, system=SYSTEM, timeout=900)
+    # 云端 runner 没有 Claude CLI, 本地 OAuth 也会过期: 打开 api_fallback, CLI 不可用时改走
+    # Gemini/Groq/Anthropic API (无 web 搜索 → 用不含 web_search 指令的 prompt)。
+    log.info("Running weekly review via Claude CLI (API fallback enabled)...")
+    result = run_claude(user_prompt, system=SYSTEM, timeout=900,
+                        api_fallback=True, fallback_prompt=base_prompt)
     if not result["ok"]:
         log.warning("Weekly review failed: %s", result.get("error"))
         return result
@@ -155,4 +169,4 @@ def run_weekly_review() -> dict:
         log.warning("Feishu push weekly review failed: %s", e)
 
     return {"ok": True, "file": str(out_path), "week": week_iso,
-            "chars": len(md)}
+            "chars": len(md), "provider": result.get("provider", "claude-cli")}
