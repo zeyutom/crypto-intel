@@ -325,17 +325,26 @@ def main() -> None:
         console.print("[bold cyan]📈 因子池健康报告[/]")
         report = generate_factor_report()
         cfg = load_factor_config()
+        # regime 取自最新真实快照 (factor_config 不保存 regime)
         console.print(f"\nRegime: [bold]{report.get('regime', 'unknown').upper()}[/]")
-        console.print(f"因子数: {report.get('total_factors', 0)}")
-        console.print(f"配置更新: {cfg.get('updated', 'N/A')}\n")
-        console.print("[bold]因子状态:[/]")
+        console.print(f"因子数: {report.get('total_factors', 0)}  "
+                      f"(config v{report.get('config_version', 1)})")
+        console.print(f"配置更新: {cfg.get('updated', 'N/A')}  "
+                      f"上次调权: {report.get('last_weight_update') or 'N/A'}\n")
+        console.print("[bold]因子状态[/] (IC = 合格记录: schema 2 旧快照、30 天内、按天衰减):")
+        status_colors = {"strong": "green", "healthy": "blue", "noisy": "yellow",
+                         "weak_negative": "red", "disabled": "red", "locked": "red"}
         for fname, finfo in report.get("factors", {}).items():
-            status_colors = {"strong": "green", "healthy": "blue", "noisy": "yellow", "weak_negative": "red"}
             sc = status_colors.get(finfo["status"], "white")
+            status = finfo["status"]
+            if finfo.get("disabled_reason") and status in ("disabled", "locked"):
+                status = f"{status}:{finfo['disabled_reason']}"
+            prior = finfo.get("prior")
             console.print(f"  {fname:>20s}  权重={finfo['weight']:.1%}  "
-                          f"IC={finfo['avg_ic_10']:+.4f}  "
-                          f"记录={finfo['ic_records']:>2d}  "
-                          f"[{sc}]{finfo['status']}[/]")
+                          f"prior={(prior or 0):.1%}  "
+                          f"IC={finfo['avg_ic_10']:+.4f}  信号={finfo.get('signal', 0):+.4f}  "
+                          f"记录={finfo['ic_records']:>2d}/{finfo.get('ic_records_total', 0):<2d}  "
+                          f"[{sc}]{status}[/]")
     elif cmd == "ic-backtest":
         from .research.meta_learner import run_ic_backtest
         days = 7
@@ -354,6 +363,14 @@ def main() -> None:
                                      key=lambda x: abs(x[1]), reverse=True):
                 color = "green" if ic > 0.05 else "red" if ic < -0.05 else "yellow"
                 console.print(f"  {fname:>25s}  IC = [{color}]{ic:+.4f}[/]")
+            if result.get("constant_factors"):
+                console.print(f"[dim]截面常数 (IC 未定义): {', '.join(result['constant_factors'])}[/]")
+            if result.get("low_coverage_factors"):
+                cov = result.get("coverage", {})
+                console.print("[dim]低覆盖 (非零币数太少, 不参与学习): " + ", ".join(
+                    f"{f}({cov.get(f)})" for f in result["low_coverage_factors"]) + "[/]")
+            console.print(f"[dim]旧快照 {result.get('snapshot_file')} (schema {result.get('base_schema')}) "
+                          f"→ {result.get('latest_file')}, 实际跨度 {result.get('realized_days')}d[/]")
         else:
             console.print(f"[yellow]{result.get('error')}[/]")
     elif cmd == "update-weights":
@@ -382,18 +399,22 @@ def main() -> None:
                 return str(v)
 
             skip_reason = {
-                "already_updated_today": "今天已调过权重, 本次只刷新 IC 记录",
+                "already_updated_for_snapshot": "这个价格快照已调过权重, 本次只刷新 IC 记录",
                 "not_weight_writer": "本机不是权重写入方, 不改写权重 (云端 nightly 负责调权; "
                                      "本机需要调权时设置 CRYPTO_INTEL_WEIGHT_WRITER=1)",
             }
             if update_result.get("ok"):
                 console.print(f"[green]✓ {update_result.get('factors_updated', 0)} 个因子权重已更新[/]")
-                # skipped = 本次没有调权的原因; disabled = 权重为 0 的因子 (截面常数的死因子或人工锁定)
+                # skipped = 本次没有调权的原因; disabled = 权重为 0 的因子
+                # (原因: constant 截面常数 / low_coverage 覆盖不足 / negative_ic 持续负 IC / locked 人工)
                 if update_result.get("skipped"):
                     s = update_result["skipped"]
                     console.print(f"[yellow]⏭ 跳过: {skip_reason.get(s, _fmt_items(s))}[/]")
                 if update_result.get("disabled"):
-                    console.print(f"[red]⛔ 已关闭因子: {_fmt_items(update_result['disabled'])}[/]")
+                    reasons = update_result.get("disabled_reasons") or {}
+                    console.print("[red]⛔ 已关闭因子: " + ", ".join(
+                        f"{f}({reasons[f]})" if reasons.get(f) else str(f)
+                        for f in update_result["disabled"]) + "[/]")
                 console.print("\n[bold]新权重:[/]")
                 for fname, w in sorted(update_result.get("new_weights", {}).items(),
                                         key=lambda x: x[1], reverse=True):

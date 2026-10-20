@@ -603,8 +603,11 @@ def run_screen(top_n: int = 30) -> dict:
                 "price": c.get("current_price") or 0,
             }
             break
-    regime = detect_regime(btc_data)
-    log.info(f"  市场 Regime: {regime.upper()}")
+    # 上一次的 regime (最新真实快照) 用于迟滞, 避免贴着阈值的小波动让卡片来回切换
+    from .meta_learner import latest_snapshot_meta
+    prev_regime = latest_snapshot_meta().get("regime")
+    regime = detect_regime(btc_data, prev_regime=prev_regime)
+    log.info(f"  市场 Regime: {regime.upper()} (上次: {prev_regime or 'n/a'})")
 
     # 根据 regime 调整权重
     weights = apply_regime_adjustment(base_weights, regime)
@@ -670,7 +673,7 @@ def run_screen(top_n: int = 30) -> dict:
     end = datetime.now(timezone.utc)
 
     # 因子健康报告
-    factor_report = generate_factor_report()
+    factor_report = generate_factor_report(regime=regime)
 
     result = {
         "ok": True,

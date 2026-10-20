@@ -143,11 +143,11 @@ def test_update_weights_prints_skipped_and_disabled(quiet_cli, monkeypatch, caps
     """meta_learner 实际返回: skipped 是原因字符串, disabled 是因子名列表."""
     _patch_meta(monkeypatch, {"ok": True, "factors_updated": 0,
                               "new_weights": {"momentum_30d": 0.6, "tvl_mcap": 0.4},
-                              "skipped": "already_updated_today",
+                              "skipped": "already_updated_for_snapshot",
                               "disabled": ["dev_activity", "volume_turnover"]})
     assert _run(["update-weights", "7"]) is None
     out = capsys.readouterr().out
-    assert "跳过" in out and "今天已调过权重" in out
+    assert "跳过" in out and "这个价格快照已调过权重" in out
     assert "已关闭因子" in out and "dev_activity" in out and "volume_turnover" in out
 
 
