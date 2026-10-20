@@ -6,6 +6,9 @@
     set_page_config 之后、任何其它 st.* 调用之前调 require_password()。
   * C43: 控制中心 "最近 7 天 nightly" 用 glob("*.log"), 本地残留的 watchdog.log /
     launchd*.log 反向排序排在日期前面, 挤掉 3 天真实运行记录。
+  * C13: 因子有效性页把被降权的因子标成 "默认", 并声称 IR < 0 的因子权重为 0。
+  * C14: 历史复盘页混入合成快照、按 symbol 建键 — 逻辑已移到 src.research.dashboard
+    (见 tests/test_dash_history.py), 这里只确认页面确实调用了它们。
 """
 from __future__ import annotations
 import ast
@@ -17,6 +20,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 PAGES_DIR = ROOT / "pages"
 PAGE_FILES = sorted(PAGES_DIR.glob("*.py"))
 CONTROL_PAGE = next((p for p in PAGE_FILES if p.name.startswith("0_")), None)
+FACTOR_IR_PAGE = next((p for p in PAGE_FILES if p.name.startswith("7_")), None)
+HISTORY_PAGE = next((p for p in PAGE_FILES if p.name.startswith("9_")), None)
 
 
 def _parse(path: pathlib.Path) -> ast.Module:
@@ -38,7 +43,7 @@ def _is_require_password_stmt(stmt: ast.stmt) -> bool:
 
 def test_pages_dir_found():
     assert len(PAGE_FILES) >= 8, PAGE_FILES
-    assert CONTROL_PAGE is not None
+    assert CONTROL_PAGE is not None and FACTOR_IR_PAGE is not None and HISTORY_PAGE is not None
 
 
 @pytest.mark.parametrize("path", PAGE_FILES + [ROOT / "streamlit_app.py"],
@@ -91,3 +96,23 @@ def test_control_page_nightly_table_only_lists_dated_logs(tmp_path):
     # 与页面同样的选取方式: 反向排序取 7 个
     picked = sorted(tmp_path.glob(_nightly_log_glob_pattern()), reverse=True)[:7]
     assert [p.name for p in picked] == sorted(dated, reverse=True)[:7]
+
+
+def test_factor_ir_page_labels_by_multiplier_and_states_real_rule():
+    src = FACTOR_IR_PAGE.read_text(encoding="utf-8")
+    # 旧文案: 负 IR 因子"权重为 0 (淘汰)" — 实际最低 0.5× 默认, 从不归零
+    assert "权重为 0" not in src and "自动淘汰" not in src
+    # 旧逻辑: 只有 eff > default 才算 IR 动态, 被降权的因子全标成默认
+    assert "if eff_w > default_w" not in src
+    assert "ir_weight_source(" in src and "ir_weight_rule_text()" in src
+    # 排行用信号合成同口径的 IR (get_latest_ir_weights 按因子平均), 而不是 max
+    assert "get_latest_ir_weights" in src and "factor_mean_ir(" in src
+
+
+def test_history_page_uses_tested_helpers():
+    src = HISTORY_PAGE.read_text(encoding="utf-8")
+    assert "load_real_snapshots(" in src and "forward_returns(" in src
+    # 旧实现按 symbol 建 dict / 按 top_n 加权累计命中率
+    assert 'c["symbol"]: c.get("price")' not in src
+    assert "cumulative_total += top_n" not in src
+    assert "全市场中位" not in src
