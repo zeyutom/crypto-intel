@@ -5,6 +5,11 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+  # bot (GITHUB_TOKEN) 的 commit 不触发 CI; 每周定时跑一次, 写死日期之类的测试腐烂
+  # 和依赖漂移 (requirements 全是 >=) 一周内就能暴露, 不必等下一次人工 push
+  schedule:
+    - cron: '0 6 * * 1'   # 每周一 UTC 06:00
+  workflow_dispatch:
 
 jobs:
   test:
@@ -34,22 +39,13 @@ jobs:
         run: |
           ruff check src tests scripts --output-format=github || true
 
+      # 跑整个 tests/ (pytest.ini testpaths), 不再手维护文件白名单 (曾漏掉
+      # test_watchdog / test_llm_budget 两个文件); 真联网的测试标 @pytest.mark.network
       - name: Run pytest (offline tests only)
         env:
           CRYPTO_INTEL_USE_BERT: "0"   # 加速 + 避免下载 BERT 模型
         run: |
-          python -m pytest tests/test_overfitting.py \
-                          tests/test_alpha158.py \
-                          tests/test_backtest_router.py \
-                          tests/test_rd_agent.py \
-                          tests/test_http_client.py \
-                          tests/test_meta_learner.py \
-                          tests/test_screener_filters.py \
-                          tests/test_returns_tracker.py \
-                          tests/test_signals_regime_ir.py \
-                          tests/test_cli_exit_codes.py \
-                          tests/test_smoke.py \
-                          -v --tb=short -p no:cacheprovider
+          python -m pytest -m "not network" -v --tb=short -p no:cacheprovider
 
       - name: Smoke test (OSS 集成)
         env:

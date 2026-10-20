@@ -85,12 +85,16 @@ def test_ttl_normalize_invalid_returns_default():
     assert c._normalize_ttl("nonsense") == 60
 
 
-def test_in_memory_cache_roundtrip():
+def test_in_memory_cache_roundtrip(monkeypatch, tmp_path):
+    """_set_cached 也会落盘: 重定向 CACHE_DIR, 别往真实 data/cache/http 写垃圾."""
+    import src.http_client as m
+    monkeypatch.setattr(m, "CACHE_DIR", tmp_path)
     c = HttpClient()
     key = "test_key_xyz"
     c._set_cached(key, {"foo": "bar"})
     got = c._get_cached(key, ttl=60)
     assert got == {"foo": "bar"}
+    assert (tmp_path / f"{key}.json").exists()
 
 
 def test_in_memory_cache_expires(monkeypatch, tmp_path):
