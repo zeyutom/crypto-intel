@@ -430,12 +430,23 @@ def score_coins(coins: list[dict],
     excluded = {"stable": 0, "wrapped": 0, "non_crypto": 0, "frozen": 0, "stale": 0}
     now = now or datetime.now(timezone.utc)
 
+    # 同一 symbol 有多个币时 (VELO = velodrome-finance / velo), 按 symbol 匹配的外部数据
+    # (DeFiLlama TVL、Binance 成交量、资金费率、链上/社区) 只归市值最大的那个币,
+    # 否则小币会拿到大币的 TVL, 直接顶满权重最高的 tvl_mcap 因子
+    sym_owner: dict[str, tuple[float, str]] = {}
+    for c in coins:
+        s_ = (c.get("symbol") or "").upper()
+        m_ = c.get("market_cap") or 0
+        if s_ and (s_ not in sym_owner or m_ > sym_owner[s_][0]):
+            sym_owner[s_] = (m_, c.get("id") or "")
+
     scored = []
     for c in coins:
         sym = (c.get("symbol") or "").upper()
         mcap = c.get("market_cap") or 0
         price = c.get("current_price") or 0
         rank = c.get("market_cap_rank") or 999
+        owns_sym = sym_owner.get(sym, (0, ""))[1] == (c.get("id") or "")
 
         # 过滤
         if mcap < 1_000_000 or price <= 0:
@@ -460,16 +471,16 @@ def score_coins(coins: list[dict],
         ath_pct = c.get("ath_change_percentage") or 0
         vol_24h = c.get("total_volume") or 0
 
-        # TVL 匹配
-        tvl = tvl_protocol.get(sym, 0)
+        # TVL 匹配 (同名币里只有市值最大的那个拿按 symbol 匹配的数据)
+        tvl = tvl_protocol.get(sym, 0) if owns_sym else 0
         for chain_name, chain_sym in CHAIN_TO_TOKEN.items():
-            if chain_sym == sym:
+            if chain_sym == sym and owns_sym:
                 chain_tvl = tvl_chain.get(chain_name, 0)
                 if chain_tvl > tvl:
                     tvl = chain_tvl
                 break
 
-        bn_vol = binance_vol.get(sym, 0)
+        bn_vol = binance_vol.get(sym, 0) if owns_sym else 0
         total_vol = max(vol_24h, bn_vol)
 
         # ── 10 因子计算 ──
@@ -511,9 +522,9 @@ def score_coins(coins: list[dict],
             f_size = 0.10
 
         # F7: 链上+社区活跃度 (CoinGecko + 真实链上数据融合)
-        coin_ext = onchain_data.get(sym, {})
+        coin_ext = onchain_data.get(sym, {}) if owns_sym else {}
         f_onchain_cg = calc_onchain_activity_score(coin_ext)
-        f_onchain_real = calc_real_onchain_score(sym, real_onchain)
+        f_onchain_real = calc_real_onchain_score(sym, real_onchain) if owns_sym else 0
         # 有真实链上数据时: 60% 真实 + 40% CoinGecko; 否则用 CoinGecko
         if f_onchain_real > 0:
             f_onchain = f_onchain_real * 0.6 + f_onchain_cg * 0.4
@@ -524,7 +535,7 @@ def score_coins(coins: list[dict],
         f_dev = calc_dev_activity_score(coin_ext)
 
         # F9: 资金费率
-        fr = funding_rates.get(sym, 0)
+        fr = funding_rates.get(sym, 0) if owns_sym else 0
         f_funding = calc_funding_rate_score(fr)
 
         # F10: 叙事热度

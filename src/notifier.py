@@ -94,10 +94,12 @@ def _gather_summary() -> dict:
     # 规则版 briefing
     from .db import latest_factors
     fact_df = latest_factors()
-    src_df = query_df("SELECT DISTINCT source FROM raw_metrics WHERE source != '_meta'")
-    expected = {"coingecko", "binance", "okx", "coinbase", "defillama", "feargreed",
-                "farside_etf", "cg_global", "cg_trending", "coinglass", "yfinance_macro"}
-    missing = sorted(expected - set(src_df["source"].tolist()))
+    # 缺失 = 从未采到 或 已过期 (db.source_status 按新鲜度判定)。以前只要库里出现过就算有,
+    # 云端 binance 常年 451, 卡片的覆盖度警告从不触发
+    from .db import source_status
+    expected = ["coingecko", "binance", "okx", "coinbase", "defillama", "feargreed",
+                "farside_etf", "cg_global", "cg_trending", "coinglass", "yfinance_macro"]
+    missing = sorted(s["source"] for s in source_status(expected) if not s["ok"])
     briefing = build_briefing(sig_df, fact_df, regime, missing)
 
     # AI 简报: latest_brief 默认只返回 36h 内的 (曾经把 2026-06-18 的旧简报当今天的分析推了 4 个月)

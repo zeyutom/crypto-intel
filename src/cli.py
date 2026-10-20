@@ -344,6 +344,11 @@ def main() -> None:
         console.print("[bold cyan]🩺 数据自愈 (快照缺口检测 + backfill + 核心源掉线告警)[/]")
         r = run_data_quality(push=not no_push, backfill=not no_backfill)
         console.print(f"快照缺口: {len(r['gaps_before'])} → {len(r['gaps_after'])} (backfill 后)")
+        rs = r.get("real_snapshot") or {}
+        if rs:
+            color = "red" if rs.get("stale") else "green"
+            console.print(f"[{color}]最新真实快照: {rs.get('newest') or '无'} "
+                          f"({rs.get('age_hours', '?')}h 前){' — 断更!' if rs.get('stale') else ''}[/]")
         if r["recent_gaps"]:
             console.print(f"[yellow]近 2 天缺口: {r['recent_gaps']} (云端可能漏跑)[/]")
         if r["dry_sources"]:

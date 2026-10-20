@@ -73,8 +73,11 @@ def _scan_real_snapshots(snap_files: list[Path]) -> tuple[dict | None, int]:
 def _factor_rows_html(factor_cfg: dict) -> str:
     """因子 IC 健康卡片: 停用 / 锁定的因子要标出来, 没有 IC 历史显示 n/a 而不是 +0.000。"""
     out = ""
-    for fname, fdata in (factor_cfg.get("factors") or {}).items():
-        weight = fdata.get("weight", 0) or 0
+    factors = factor_cfg.get("factors") or {}
+    # 存储的 weight 是 prior 尺度 (和不为 1); 显示实际生效的归一化权重, 与 screener 口径一致
+    tot = sum((v.get("weight") or 0) for v in factors.values() if v.get("enabled", True)) or 1.0
+    for fname, fdata in factors.items():
+        weight = ((fdata.get("weight", 0) or 0) / tot) if fdata.get("enabled", True) else 0.0
         ic_hist = fdata.get("ic_history") or []
         last_ic = ic_hist[-1].get("ic") if ic_hist else None
         if isinstance(last_ic, (int, float)) and math.isfinite(last_ic):
