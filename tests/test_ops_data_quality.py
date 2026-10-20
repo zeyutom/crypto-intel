@@ -60,8 +60,8 @@ def test_newest_real_snapshot_skips_synthetic(meta_dir):
     assert n["file"] == real
 
 
-def test_missed_run_alerts_even_after_backfill(meta_dir, monkeypatch):
-    """上一份真实快照 47h 前 (漏跑一晚); backfill 补了合成快照, 仍必须告警。"""
+def test_missed_run_alerts_even_after_backfill(meta_dir, monkeypatch, caplog):
+    """上一份真实快照 47h 前 (漏跑一晚); backfill 补了合成快照, 仍必须告警 (且写进 nightly 日志)。"""
     _write_snap(meta_dir.path, NOW - timedelta(hours=47))
 
     def fake_backfill(days):
@@ -71,8 +71,13 @@ def test_missed_run_alerts_even_after_backfill(meta_dir, monkeypatch):
         return {"ok": True}
 
     monkeypatch.setattr(dq, "_run_backfill", fake_backfill)
-    r = dq.run_data_quality(push=True)
+    monkeypatch.setattr(dq.log, "propagate", True)
+    with caplog.at_level(logging.WARNING, logger="data_quality"):
+        r = dq.run_data_quality(push=True)
     assert r["real_snapshot"]["stale"] is True and r["real_snapshot"]["age_hours"] >= 46
+    # 断更信息落日志 (nightly 日志入库; 推送失败/没配飞书时这是唯一记录)
+    logged = [rec.getMessage() for rec in caplog.records if rec.levelno >= logging.WARNING]
+    assert any("真实快照断更" in m and r["real_snapshot"]["newest"] in m for m in logged)
     assert r["gaps_after"] == []                       # backfill 把日期缺口全补上了 ...
     assert r["alerted"] is True                        # ... 但断更告警照样推
     assert any("真实快照断更" in ln for ln in meta_dir.pushed[0][1])

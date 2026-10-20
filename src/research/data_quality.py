@@ -188,6 +188,12 @@ def run_data_quality(push: bool = True, window_days: int = 14,
     if still and alert_lines:   # 仅在已经要告警时附带, 不单独触发
         alert_lines.append(f"🩹 (另: backfill 后仍缺 {len(still)} 天, 多为窗口边缘/较久以前, 影响小)")
 
+    # 先落日志再推送: nightly 日志会入库, 推送失败/没配飞书时这里是唯一的记录
+    for ln in alert_lines:
+        log.warning(ln)
+    if staleness["stale"]:
+        log.warning(f"真实快照断更: {staleness}")
+
     pushed = None
     if push and alert_lines:
         from ..notifier import push_alert
