@@ -116,3 +116,7 @@ def test_history_page_uses_tested_helpers():
     assert 'c["symbol"]: c.get("price")' not in src
     assert "cumulative_total += top_n" not in src
     assert "全市场中位" not in src
+    # 出场快照是 schema 2 全量宇宙时 (10-06 ~ 10-11 + 7 天) 没有 "仍在前 200" 的幸存者偏差:
+    # 旧说明对所有截断入场日一概这么写; 现在按 truncated_baseline_counts 分开计数
+    assert "且只含 N 天后仍在前 200 的币" not in src
+    assert "truncated_baseline_counts(" in src and "exit_snapshot_dates(" in src

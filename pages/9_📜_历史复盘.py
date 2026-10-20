@@ -37,7 +37,8 @@ META_DIR = ROOT / "data" / "meta"
 
 # 纯函数放在 src.research.dashboard (可单测): 剔除合成快照 / coin_id 优先定价 / 同名币不互相覆盖
 from src.research.dashboard import (
-    forward_returns, is_full_universe, load_real_snapshots, topn_hit_rate,
+    exit_snapshot_dates, forward_returns, is_full_universe, load_real_snapshots,
+    topn_hit_rate, truncated_baseline_counts,
 )
 
 
@@ -129,10 +130,15 @@ c4.metric(
 )
 _sel_snap = _by_date.get(sel_date) or {}
 _n_coins = len(_sel_snap.get("coins") or [])
+_exit_date = exit_snapshot_dates(snaps, lookahead).get(sel_date)
+_exit_snap = _by_date.get(_exit_date) or {}
 st.caption(
     f"基准 = 该快照里 {lookahead} 天后仍能匹配到价格的 {stats['n_compared']} 个币 · 入场快照宇宙: "
     + (f"全量评分宇宙 ({_n_coins} 币)" if is_full_universe(_sel_snap)
        else f"⚠️ 只有 composite 前 {_n_coins} 名 (2026-10-12 之前的快照被截断, 不是全市场)")
+    + f" · 出场快照 {_exit_date}: "
+    + ("全量评分宇宙" if is_full_universe(_exit_snap)
+       else f"⚠️ 也被截断, 只能匹配到 {lookahead} 天后仍在前 200 的币")
 )
 
 # 单币种表
@@ -204,10 +210,17 @@ if len(forward) >= 3:
                      f"{beat_btc}/{len(hist_rows)}",
                      f"{beat_btc/len(hist_rows)*100:.0f}%")
         col_c.metric("可比快照数", str(len(hist_rows)))
-        _n_trunc = sum(1 for r in hist_rows
-                       if not is_full_universe(_by_date.get(r["date"]) or {}))
-        st.caption(f"其中 {_n_trunc} 天的入场快照只存了 composite 前 200 名 (2026-10-12 之前), "
-                   "这些日期的「快照内中位」是截断宇宙且只含 N 天后仍在前 200 的币, 不是全市场。")
+        # 出场快照是 schema 2 全量宇宙时 (如 10-06 ~ 10-11 + 7 天) 没有 "仍在前 200" 的偏差,
+        # 只对出场也截断的日期提幸存者偏差
+        _n_trunc, _n_surv = truncated_baseline_counts(
+            snaps, [r["date"] for r in hist_rows], lookahead_days=lookahead)
+        if _n_trunc:
+            st.caption(
+                f"其中 {_n_trunc} 天的入场快照只存了 composite 前 200 名 (2026-10-12 之前): "
+                "这些日期的「快照内中位」只覆盖入场时的前 200 名, 不是全市场"
+                + (f"; 其中 {_n_surv} 天的出场快照也被截断, "
+                   f"基准还只含 {lookahead} 天后仍在前 200 的币" if _n_surv else "")
+                + "。")
 else:
     st.info("可比快照不足 3 个, 累计曲线暂不显示")
 
@@ -224,5 +237,6 @@ with st.expander("📖 怎么读这页"):
       之后的快照保存完整评分宇宙
     - **累计命中率曲线**: 应该相对稳定在 0.5 以上, 才说明系统持续有效
     - 合成 backfill 快照 (只用 3 个动量因子) 已剔除, 不参与复盘
-    - 同名币 (如两个 VELO) 按 coin_id 区分; 旧快照里无法区分的同名币不计入
+    - 同名币 (如两个 VELO) 按 coin_id 区分; 旧快照里没有 coin_id 的同名币:
+      价格相差 2% 以内视为同一个币列了两次, 只算名次高的那行; 否则都不计入
     """)

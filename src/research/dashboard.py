@@ -459,6 +459,86 @@ def _match_exit_price(row: dict, by_id: dict[str, dict], by_sym: dict[str, dict]
     return _pos_price(ex.get("price"))
 
 
+# 同一 symbol 的几行价格都在名次最高那行的 ±2% 内 → 视为同一个币被列了两次
+SAME_COIN_PRICE_TOL = 0.02
+
+
+def _ambiguous_entry_rows(coins: list[dict], order: list[int]) -> set[int]:
+    """入场快照里不能按 symbol 安全定价的行索引 (旧 schema 1: 同名且无 coin_id)。
+
+    symbol (大写) 出现多次、且组内有行缺 coin_id 时:
+      * 组内每行价格都在名次最高那行的 ±2% 内 → 同一个币被列了两次
+        (HNT 08-30 rank 9/10: 0.8099 / 0.8066), 只留名次最高那行;
+      * 否则是不同的币 (SAFE 07-26 rank 69/177: 0.0953 / 0.1414), 组内无 coin_id 的行全跳过。
+    不用 returns_tracker._ambiguous_rows 的 "留市值最大那行": 那条规则依赖 CoinGecko
+    /coins/markets 按市值排序; 这里出场快照只是 composite 前 200 的子集, 剩下那个唯一的
+    同名行可能是另一个币 (SAFE 07-26 → 08-02 被记成 +61%)。
+    order: 按 composite 排好的行索引 (名次从高到低)。
+    """
+    pos = {k: r for r, k in enumerate(order)}
+    groups: dict[str, list[int]] = {}
+    for i, c in enumerate(coins):
+        sym = (c.get("symbol") or "").upper()
+        if sym:
+            groups.setdefault(sym, []).append(i)
+    out: set[int] = set()
+    for idxs in groups.values():
+        if len(idxs) < 2 or all(coins[i].get("coin_id") for i in idxs):
+            continue
+        idxs = sorted(idxs, key=lambda i: pos.get(i, len(pos)))
+        prices = [_pos_price(coins[i].get("price")) for i in idxs]
+        ref = prices[0]
+        same_coin = ref is not None and all(
+            p is not None and abs(p - ref) <= SAME_COIN_PRICE_TOL * ref for p in prices)
+        if same_coin:
+            out.update(idxs[1:])
+        else:
+            out.update(i for i in idxs if not coins[i].get("coin_id"))
+    return out
+
+
+def exit_snapshot_dates(snapshots: list[dict], lookahead_days: int = 7) -> dict[str, str]:
+    """入场日期 → 出场快照日期 (第一个 >= 入场日 + lookahead 天的快照); 还没到的不在结果里。"""
+    dates = sorted({s["date"] for s in snapshots if s.get("date")})
+    parsed: dict[str, datetime] = {}
+    for d in dates:
+        try:
+            parsed[d] = datetime.strptime(d, "%Y-%m-%d")
+        except ValueError:
+            continue
+    out: dict[str, str] = {}
+    for i, d in enumerate(dates):
+        if d not in parsed:
+            continue
+        target_dt = parsed[d] + timedelta(days=lookahead_days)
+        for cand in dates[i + 1:]:
+            if cand in parsed and parsed[cand] >= target_dt:
+                out[d] = cand
+                break
+    return out
+
+
+def truncated_baseline_counts(snapshots: list[dict], entry_dates: list[str],
+                              lookahead_days: int = 7) -> tuple[int, int]:
+    """(入场快照被截断的天数, 其中出场快照也被截断的天数)。
+
+    入场截断 (2026-10-12 之前只存 composite 前 200) → 「快照内中位」只覆盖入场时的前 200 名;
+    出场也截断时基准还只含 N 天后仍在前 200 的币 (幸存者偏差)。出场是 schema 2 全量宇宙时
+    (如 10-06 ~ 10-11 + 7 天) 没有后一种偏差, 不能一概说 "只含仍在前 200 的币"。
+    """
+    by_date = {s["date"]: s for s in snapshots if s.get("date")}
+    exit_of = exit_snapshot_dates(snapshots, lookahead_days)
+    n_entry = n_both = 0
+    for d in entry_dates:
+        if is_full_universe(by_date.get(d) or {}):
+            continue
+        n_entry += 1
+        ed = exit_of.get(d)
+        if ed is not None and not is_full_universe(by_date.get(ed) or {}):
+            n_both += 1
+    return n_entry, n_both
+
+
 def forward_returns(snapshots: list[dict], lookahead_days: int = 7) -> dict[str, dict]:
     """对每个快照日期, 算其全部币在 lookahead 天后 (第一个 >= 目标日的快照) 的收益。
 
@@ -468,37 +548,24 @@ def forward_returns(snapshots: list[dict], lookahead_days: int = 7) -> dict[str,
     之前按 symbol 建 dict: 同名币 (VELO: velodrome-finance / velo) 后者覆盖前者,
     rank 16 的行被 rank 57 的顶掉, 名次换位时还会拿到另一个币的价格 (-90%)。
     """
-    from .returns_tracker import _ambiguous_rows
     by_date = {s["date"]: s for s in snapshots if s.get("date")}   # 同日多文件 → 排序靠后的
-    dates = sorted(by_date)
+    exit_of = exit_snapshot_dates(snapshots, lookahead_days)
 
     out: dict[str, dict] = {}
-    for i, d in enumerate(dates):
-        snap = by_date[d]
-        try:
-            dt = datetime.strptime(d, "%Y-%m-%d")
-        except ValueError:
-            continue
-        target_dt = dt + timedelta(days=lookahead_days)
-        next_snap = None
-        for j in range(i + 1, len(dates)):
-            try:
-                cand_dt = datetime.strptime(dates[j], "%Y-%m-%d")
-            except ValueError:
-                continue
-            if cand_dt >= target_dt:
-                next_snap = by_date[dates[j]]
-                break
-        if not next_snap:
+    for d in sorted(by_date):
+        if d not in exit_of:
             continue   # 还没到 lookahead 日
+        snap = by_date[d]
+        next_snap = by_date[exit_of[d]]
 
         by_id, by_sym = _exit_price_index(next_snap.get("coins") or [])
         coins = snap.get("coins") or []
-        # 同名且无 coin_id 的行 (旧 schema 1 的两个 VELO): 不能按 symbol 安全定价, 跳过
-        ambiguous = _ambiguous_rows(coins)
         order = sorted(range(len(coins)),
                        key=lambda k: coins[k].get("composite_score") or 0,
                        reverse=True)
+        # 同名且无 coin_id 的行 (旧 schema 1 的两个 VELO / SAFE): 不能按 symbol 安全定价, 跳过;
+        # 同一个币被列两次 (价格 ±2% 内) 只留名次最高那行
+        ambiguous = _ambiguous_entry_rows(coins, order)
         per_coin: dict[str, dict] = {}
         for rank_idx, k in enumerate(order):
             if k in ambiguous:

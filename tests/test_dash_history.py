@@ -107,21 +107,70 @@ def test_schema1_entry_falls_back_to_unique_symbol():
 
 
 def test_ambiguous_schema1_duplicates_skipped():
-    """旧快照里同名且无 coin_id 的行: 只保留市值最大的一行, 小的那行不计入 (rank 不重排)。"""
+    """旧快照里同名、无 coin_id 且价格差很大的两行 = 两个不同的币: 整组都不定价 (rank 不重排)。
+
+    回归: 之前沿用 returns_tracker 的 "留市值最大那行"。出场快照只是 composite 前 200 的子集,
+    剩下那个唯一的同名行可能是另一个币 — SAFE 07-26 rank 69 (0.0953, 市值大) 被 08-02 唯一的
+    SAFE (0.1535, 延续 rank 177 那个 0.14 的币) 定价, 记成 +61%。
+    """
     entry = _snap("2026-09-20", [
-        _row("ONE", 2.0, 0.8, mcap=1e6),      # rank 1, 小市值同名币 → 不能按 symbol 定价
+        _row("ONE", 2.0, 0.8, mcap=1e6),      # rank 1
         _row("BTC", 100.0, 0.7, mcap=1e12),
-        _row("ONE", 0.01, 0.1, mcap=1e8),     # rank 3, 组内市值最大 → 保留
+        _row("ONE", 0.01, 0.1, mcap=1e8),     # rank 3, 组内市值最大也不能按 symbol 定价
     ])
     exit_ = _snap("2026-09-27", [
         _row("BTC", 90.0, 0.7),
-        _row("ONE", 0.011, 0.1),
+        _row("ONE", 2.2, 0.1),                # 出场唯一的 ONE 其实延续的是 rank 1 那个币
     ])
     per = dash.forward_returns([entry, exit_], lookahead_days=7)["2026-09-20"]
-    assert set(per) == {"BTC", "ONE"}
+    assert set(per) == {"BTC"}
     assert per["BTC"]["rank"] == 2
-    assert per["ONE"]["rank"] == 3
-    assert per["ONE"]["ret_pct"] == pytest.approx(0.10)
+
+
+def test_same_coin_listed_twice_kept_once_at_higher_rank():
+    """同一个币在旧快照里列了两次 (HNT 08-30 rank 9/10: 0.8099 / 0.8066): 价格 ±2% 内 → 留一行。"""
+    entry = _snap("2026-08-30", [
+        _row("BTC", 100.0, 0.9),
+        _row("HNT", 0.8099, 0.8, mcap=1.4e8),   # rank 2, 市值略小也照样保留 (按名次, 不按市值)
+        _row("HNT", 0.8066, 0.7, mcap=1.5e8),   # rank 3, 同一个币 → 不重复计
+        _row("ETH", 10.0, 0.6),
+    ])
+    exit_ = _snap("2026-09-06", [
+        _row("BTC", 100.0, 0.9),
+        _row("HNT", 0.5559, 0.5),
+        _row("ETH", 11.0, 0.6),
+    ])
+    per = dash.forward_returns([entry, exit_], lookahead_days=7)["2026-08-30"]
+    assert set(per) == {"BTC", "HNT", "ETH"}
+    assert per["HNT"]["rank"] == 2
+    assert per["HNT"]["entry_price"] == pytest.approx(0.8099)
+    assert per["HNT"]["ret_pct"] == pytest.approx(0.5559 / 0.8099 - 1)
+    assert per["ETH"]["rank"] == 4     # 被丢掉的重复行仍占名次
+
+
+def test_duplicate_group_with_bad_price_not_treated_as_same_coin():
+    """组内有一行价格无效 → 无法确认是同一个币, 无 coin_id 的行整组不定价。"""
+    entry = _snap("2026-08-30", [
+        _row("HNT", 0.81, 0.8),
+        _row("HNT", None, 0.7),
+    ])
+    exit_ = _snap("2026-09-06", [_row("HNT", 0.56, 0.5)])
+    assert dash.forward_returns([entry, exit_], lookahead_days=7)["2026-08-30"] == {}
+
+
+def test_duplicate_symbol_with_distinct_coin_ids_untouched():
+    """schema 2 两个 VELO 都带 coin_id: 不算歧义, 各按 coin_id 定价。"""
+    entry = _snap("2026-10-13", [
+        _row("VELO", 0.05, 0.6, "velodrome-finance"),
+        _row("VELO", 0.009, 0.5, "velo"),
+    ], schema=2)
+    exit_ = _snap("2026-10-20", [
+        _row("VELO", 0.055, 0.6, "velodrome-finance"),
+        _row("VELO", 0.0081, 0.5, "velo"),
+    ], schema=2)
+    per = dash.forward_returns([entry, exit_], lookahead_days=7)["2026-10-13"]
+    assert per["velodrome-finance"]["ret_pct"] == pytest.approx(0.10)
+    assert per["velo"]["ret_pct"] == pytest.approx(-0.10)
 
 
 def test_coin_id_mismatch_not_priced_by_symbol():
@@ -190,3 +239,30 @@ def test_is_full_universe():
     assert dash.is_full_universe({"_meta": {"truncated": False}})
     assert not dash.is_full_universe({"coins": [{}] * 200})          # schema 1: 前 200
     assert not dash.is_full_universe({"_meta": {"schema": 1}})
+
+
+def test_exit_snapshot_dates_first_on_or_after_target():
+    snaps = [_snap(d, [_row("BTC", 1.0, 0.9)]) for d in
+             ["2026-10-01", "2026-10-05", "2026-10-09", "bad-date", "2026-10-12"]]
+    ex = dash.exit_snapshot_dates(snaps, lookahead_days=7)
+    assert ex == {"2026-10-01": "2026-10-09", "2026-10-05": "2026-10-12"}
+
+
+def test_truncated_baseline_counts_separates_full_universe_exits():
+    """入场截断但出场是 schema 2 全量宇宙 (10-11 → 10-18): 没有 "仍在前 200" 的幸存者偏差。
+
+    回归: 页面说明一概写 "只含 N 天后仍在前 200 的币", 默认选中的 10-11 也被这样描述,
+    但它的出场快照 10-18 保存完整评分宇宙。
+    """
+    snaps = [
+        _snap("2026-10-01", [_row("BTC", 1.0, 0.9)]),                         # 截断
+        _snap("2026-10-08", [_row("BTC", 1.0, 0.9)]),                         # 截断
+        _snap("2026-10-11", [_row("BTC", 1.0, 0.9)]),                         # 截断
+        _snap("2026-10-15", [_row("BTC", 1.0, 0.9)], schema=2, truncated=False),
+        _snap("2026-10-18", [_row("BTC", 1.0, 0.9)], schema=2, truncated=False),
+    ]
+    fw = dash.forward_returns(snaps, lookahead_days=7)
+    assert sorted(fw) == ["2026-10-01", "2026-10-08", "2026-10-11"]
+    # 10-01 → 10-08 两边都截断; 10-08 → 10-15 / 10-11 → 10-18 出场是全量
+    assert dash.truncated_baseline_counts(snaps, sorted(fw), lookahead_days=7) == (3, 1)
+    assert dash.truncated_baseline_counts(snaps, ["2026-10-15"], lookahead_days=7) == (0, 0)
