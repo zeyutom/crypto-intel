@@ -14,7 +14,7 @@
     python -m src.cli test-feishu    发一条测试消息到飞书群
     python -m src.cli serve          启动 APScheduler 常驻
     python -m src.cli research TON   Multi-Agent 深度研究 (指定项目名)
-    python -m src.cli screen         Top-500 多因子筛选 v2 (10因子+元学习+Regime)
+    python -m src.cli screen         Top-500 多因子筛选 v2 (10因子+元学习+Regime); --push 推 Top-N 到飞书
     python -m src.cli daily-screen   每日自动筛选+快照+IC更新+飞书推送 (定时调度用)
     python -m src.cli verify-returns 收益追踪: 对比历史快照 vs 当前价格
     python -m src.cli meta-report    因子池健康报告 (权重/IC/状态)
@@ -76,6 +76,8 @@ def main() -> None:
         else:
             console.print(f"[red]✗ {result.get('error')}[/]")
         console.print_json(data={k: v for k, v in result.items() if k != "markdown"})
+        if not result.get("ok"):
+            sys.exit(1)   # 曾经 Claude CLI 连续失败 100+ 次仍 exit 0, 调度脚本照报 "✅ 完成"
     elif cmd == "daily-local":
         # 本地完整一日流: data + Claude CLI 简报 + 报告 + 飞书推送
         ing = run_ingest_all()
@@ -95,9 +97,13 @@ def main() -> None:
             "report_path": str(path),
         })
     elif cmd == "push-feishu":
-        from .notifier import push_to_feishu
+        from .notifier import push_to_feishu, _load_groups
         result = push_to_feishu()
         console.print_json(data=result)
+        # 配了飞书群却有群没推成功 → 非零退出, 让 nightly 记进 failures.json (曾经推失败也 "✓");
+        # 没配任何群 = 本地/测试环境, 不算失败
+        if not result.get("ok") and (result.get("failed", 0) > 0 or _load_groups()):
+            sys.exit(1)
     elif cmd == "test-feishu":
         # 对所有配置的群发测试消息
         import os
@@ -143,22 +149,35 @@ def main() -> None:
         from .evolution.factor_proposer import run_factor_proposal
         r = run_factor_proposal()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "discover-sources":
         from .evolution.source_discoverer import run_source_discovery
         r = run_source_discovery()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "evolve-prompt":
         from .evolution.prompt_evolver import run_prompt_evolution
         r = run_prompt_evolution()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "track-narratives":
         from .evolution.narrative_tracker import run_narrative_tracking
         r = run_narrative_tracking()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "screen":
+        # 参数可任意顺序: screen [--top N] [--push]
         top_n = 30
-        if len(sys.argv) > 2 and sys.argv[2] == "--top":
-            top_n = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+        if "--top" in sys.argv:
+            try:
+                top_n = int(sys.argv[sys.argv.index("--top") + 1])
+            except (IndexError, ValueError):
+                top_n = 30
+        push = "--push" in sys.argv
         from .research.screener import run_screen, generate_screen_report
         console.print("[bold cyan]📊 启动 Top-500 多因子实时筛选 v2...[/]")
         console.print("[dim]10 因子 · 元学习动态调权 · Regime Detection · 异动信号[/]")
@@ -187,6 +206,23 @@ def main() -> None:
             if platform.system() == "Darwin":
                 import subprocess as sp
                 sp.Popen(["open", str(report_path)])
+            if push:
+                # 用内存里的完整结果推 Top-N 卡片 (快照文件没有 anomalies/btc_data, 不从磁盘重建)。
+                # 2026-10-12 本地 daily-screen 停用后, 云端 nightly 只跑 screen 不推, Top-N 静默断推 8 天。
+                from .research.returns_tracker import push_screen_to_feishu, _load_feishu_groups
+                if not _load_feishu_groups():
+                    console.print("[yellow]--push: 未配置飞书群 (FEISHU_GROUP_N_URL / FEISHU_WEBHOOK_URL), "
+                                  "跳过 Top-N 推送[/]")
+                else:
+                    try:
+                        fs = push_screen_to_feishu(result)
+                    except Exception as e:
+                        fs = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    console.print_json(data=fs)
+                    if not fs.get("ok") or fs.get("pushed", 0) < fs.get("total", 0):
+                        console.print("[red]✗ Top-N 飞书推送失败 (筛选结果与快照已保存)[/]")
+                        sys.exit(3)   # 与筛选失败 rc=1 区分: 快照已存, 只是没推出去
+                    console.print(f"[green]✓ Top-N 已推送飞书 ({fs.get('pushed')}/{fs.get('total')} 群)[/]")
         else:
             console.print(f"[red]✗ {result.get('error')}[/]")
             # 非零退出: 让 nightly_run.sh 的 run_step 能看见失败 (曾经 "✗ CoinGecko 无数据" 但 exit 0,
