@@ -6,12 +6,14 @@
 #   2. ingest (拉今天的实时数据到 SQLite)
 #   3. factors (算因子)
 #   4. snapshot (写今天的 snapshot.json 供 PBO/回测用)
+#   4b. screen (配了飞书就 --push 推 Top-N 卡片)
 #   5. backtest-router (跑回测, 30 配置参数扫描带 PBO)
 #   6. rd-agent --rounds 1 (跑 1 轮自演化, 找新因子)
-#   7. discover-alpha (LLM/offline 变异候选因子)
-#   8. weekly-review (仅周日跑)
-#   9. watchdog check (实时告警)
+#   7. discover-alpha (offline 变异候选因子)
+#   8. weekly-review (仅周日跑, 需 Claude CLI 或任一 LLM API key)
+#   9. AI 简报 (LLM API)
 #  10. 把当日简报推飞书
+#  (watchdog 实时告警不在这里跑: watchdog.yml 每 2h 跑一次且有去重状态, 这里再跑只会重复推送)
 #
 # 全部日志写到 data/nightly_logs/<日期>.log
 # 失败的步骤记到 data/nightly_logs/<日期>.failures.json (供控制中心读)
@@ -40,7 +42,13 @@ LOGDIR="data/nightly_logs"
 mkdir -p "$LOGDIR"
 LOG="$LOGDIR/$DATE.log"
 FAILS="$LOGDIR/$DATE.failures.json"
-echo '{"failures":[]}' > "$FAILS"
+# 同一 DATE 的第二次 run (手动重跑 / 跨 UTC 午夜) 不能清空第一次记下的失败: 文件不存在(或损坏)才初始化。
+# FAILS_START = 本次 run 开始前已有的失败数, 结尾只对本次新增的失败告警。
+FAILS_START=$(python3 -c "import json; print(len(json.load(open('$FAILS'))['failures']))" 2>/dev/null) || FAILS_START=""
+if [ -z "$FAILS_START" ]; then
+  echo '{"failures":[]}' > "$FAILS"
+  FAILS_START=0
+fi
 
 log() {
   echo "[$(date '+%H:%M:%S')] $1" | tee -a "$LOG"
@@ -115,8 +123,14 @@ run_step "snapshot" python3 -m src.cli snapshot || true
 
 # 4b. Top-500 多因子筛选 (旗舰功能上云): 创建 meta 快照喂给元学习/IC。
 #     注: screen 的"开浏览器"是 Darwin-only, Linux runner 上自动跳过。
-#     带超时 (默认 2h, 可用 SCREEN_TIMEOUT 覆盖): 曾经一次 screen 跑了 18.5h 把整晚拖死。
-run_step "screen" run_with_timeout "$SCREEN_TIMEOUT" python3 -m src.cli screen || true
+#     带超时 (默认 2h, 可用 SCREEN_TIMEOUT 覆盖; 云端 nightly.yml 设 1800s, 低于 job 超时): 曾经一次 screen 跑了 18.5h 把整晚拖死。
+#     配了飞书就 --push: 用内存里的完整结果推 Top-N 卡片 (2026-10-12 本地 daily-screen 停用后 Top-N 断推 8 天)。
+#     rc=3 = 筛选成功、快照已存, 只是 Top-N 推送失败。
+SCREEN_ARGS=""
+if [ -n "${FEISHU_GROUP_1_URL:-}${FEISHU_WEBHOOK_URL:-}" ]; then
+  SCREEN_ARGS="--push"
+fi
+run_step "screen" run_with_timeout "$SCREEN_TIMEOUT" python3 -m src.cli screen $SCREEN_ARGS || true
 # 4c. 元学习: IC 回测 → 自动更新因子权重 (需 ≥2 次 meta 快照, 不足时优雅跳过)
 run_step "update-weights" python3 -m src.cli update-weights || true
 
@@ -128,21 +142,27 @@ run_step "backtest-sweep"  python3 -m src.cli backtest-router --sweep || true
 #    Token 预算守门, 失败不影响主流程
 run_step "rd-agent" python3 -m src.cli rd-agent --rounds 1 || true
 
-# 7. Alpha discovery (offline 模式, 不烧 token)
-run_step "discover-alpha" python3 -m src.cli discover-alpha || true
+# 7. Alpha discovery (offline 模式, 不烧 token): 显式 --no-llm (runner 没有 Claude CLI, 之前每晚
+#    先试 LLM 再 "Claude CLI not found → 降级到离线模式", 结果一样只是多一条误导性告警)
+run_step "discover-alpha" python3 -m src.cli discover-alpha --no-llm || true
 
 # 8. weekly-review (仅周日; DOW 在脚本开头按启动时刻算好, 不受 screen 跨午夜影响)
+#    runner 上没有 Claude CLI: weekly-review 会自动改走 LLM API (无 web 搜索)。
+#    CLI 和 key 都没有就跳过 (不记失败), 否则每个周日都推一条谁也修不了的 🚨 告警。
 if [ "$DOW" = "7" ]; then
   log "今天是周日 → 跑 weekly-review + 复盘记分卡"
-  run_step "weekly-review" python3 -m src.cli weekly-review || true
+  if command -v claude >/dev/null 2>&1 || [ -n "${GEMINI_API_KEY:-}${GROQ_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]; then
+    run_step "weekly-review" python3 -m src.cli weekly-review || true
+  else
+    log "  (无 Claude CLI 也无 LLM API key → 跳过 weekly-review)"
+  fi
   run_step "scorecard"     python3 -m src.cli scorecard 7 || true
 fi
 
-# 9. Watchdog 检查 (会真推飞书, 如果配了)
-run_step "watchdog" python3 -m src.cli watchdog check || true
-
-# 9b. AI 简报 (云端走 API, 多 provider): 配了 GEMINI/GROQ(免费) 或 ANTHROPIC(付费) 任一 key 即生成。
+# 9. AI 简报 (云端走 API, 多 provider): 配了 GEMINI/GROQ(免费) 或 ANTHROPIC(付费) 任一 key 即生成。
 #     生成的简报会被下一步 push-feishu 的卡片自动带上 (latest_brief), 早会卡片从规则版升级成 AI 版。
+#     save_brief 同时写 data/meta/ai_brief_latest.json, 由 nightly.yml 回推仓库 (仪表盘/本地才看得到;
+#     intel.db 只由 refresh.yml 回推, 简报写进 runner 的 DB 会随 runner 丢掉)。
 if [ -n "${GEMINI_API_KEY:-}${GROQ_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]; then
   run_step "llm-brief" python3 -c "
 import sys; sys.path.insert(0, '.')
@@ -189,7 +209,8 @@ else
 fi
 
 # ─── 总结 ────────────────────────────────────────────
-N_FAILS=$(python3 -c "import json; print(len(json.load(open('$FAILS'))['failures']))")
+# 只算本次 run 新增的失败 (同一 DATE 之前那次 run 的失败已经告警过)
+N_FAILS=$(python3 -c "import json; print(len(json.load(open('$FAILS'))['failures']) - $FAILS_START)" 2>/dev/null || echo 0)
 log ""
 log "═══ Nightly 完成 · 失败 $N_FAILS 步 ═══"
 
@@ -200,7 +221,7 @@ if [ "${N_FAILS:-0}" -gt 0 ]; then
 import json, sys
 sys.path.insert(0, '.')
 from src.notifier import push_alert
-fails = json.load(open('$FAILS')).get('failures', [])
+fails = json.load(open('$FAILS')).get('failures', [])[$FAILS_START:]
 lines = ['**夜间任务有 %d 个步骤失败:**' % len(fails)]
 for f in fails:
     lines.append('- ❌ %s (rc=%s)' % (f.get('step'), f.get('rc')))
