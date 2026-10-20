@@ -284,7 +284,7 @@ def test_score_coins_exclusion_stats_and_fields(meta_dir):
     ]
     stats: dict = {}
     scored = score_coins(coins, {}, {}, {}, prior_prices=prior,
-                         exclusion_stats=stats)
+                         exclusion_stats=stats, now=NOW)
     assert [c["symbol"] for c in scored] == ["SOL"]
     assert stats == {"stable": 2, "wrapped": 1, "non_crypto": 1,
                      "frozen": 1, "stale": 1}

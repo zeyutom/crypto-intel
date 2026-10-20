@@ -335,12 +335,15 @@ def score_coins(coins: list[dict],
                 weights: dict[str, float] = None,
                 real_onchain: dict = None,
                 prior_prices: dict[str, list[tuple[float, float | None]]] = None,
-                exclusion_stats: dict[str, int] = None) -> list[dict]:
+                exclusion_stats: dict[str, int] = None,
+                now: datetime | None = None) -> list[dict]:
     """10 因子量化打分 (元学习动态权重)。
 
     prior_prices: load_recent_snapshot_prices() 的结果, 用于冻结报价判定。
     exclusion_stats: 可选 dict, 原地写入各类排除计数
       {"stable": n, "wrapped": n, "non_crypto": n, "frozen": n, "stale": n}。
+    now: 判定陈旧报价用的"当前时刻", 默认 datetime.now(UTC); 测试传固定时刻,
+      否则用写死日期构造的 last_updated 过一天就全被判 stale。
 
     因子:
       1. momentum_30d     — 中期趋势 sigmoid
@@ -375,7 +378,7 @@ def score_coins(coins: list[dict],
         }
 
     excluded = {"stable": 0, "wrapped": 0, "non_crypto": 0, "frozen": 0, "stale": 0}
-    now = datetime.now(timezone.utc)
+    now = now or datetime.now(timezone.utc)
 
     scored = []
     for c in coins:
