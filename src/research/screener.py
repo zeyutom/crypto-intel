@@ -723,6 +723,10 @@ def detect_anomalies(scored: list[dict],
     5. 深度回调+高开发活跃 — 被市场忽略的优质项目
     """
     signals = []
+    # 规则 5 用相对阈值 (综合分前 10%): 权重归一化方式和启用因子会变, 综合分的
+    # 绝对水平随之整体平移, 固定 0.55 曾让命中数从 0 跳到 41
+    scores = sorted((c.get("composite_score") or 0) for c in scored)
+    top_decile = scores[int(0.9 * (len(scores) - 1))] if scores else float("inf")
 
     for c in scored[:100]:  # 只检测前 100 名
         sym = c["symbol"]
@@ -771,8 +775,8 @@ def detect_anomalies(scored: list[dict],
                 "detail": f"ATH 回撤 {c['ath_drawdown_pct']:.0f}% 但开发活跃度={c['f_dev_activity']:.2f}",
             })
 
-        # 5. 综合得分极高但市值较小 (潜力股)
-        if c.get("composite_score", 0) > 0.55 and c.get("market_cap", 0) < 2e9:
+        # 5. 综合得分极高 (全池前 10%) 但市值较小 (潜力股)
+        if c.get("composite_score", 0) > top_decile and c.get("market_cap", 0) < 2e9:
             signals.append({
                 "symbol": sym,
                 "type": "high_score_small_cap",

@@ -339,9 +339,10 @@ def main() -> None:
             status = finfo["status"]
             if finfo.get("disabled_reason") and status in ("disabled", "locked"):
                 status = f"{status}:{finfo['disabled_reason']}"
-            prior = finfo.get("prior")
+            if finfo.get("negative_ic_flag"):
+                status += " ⚠负IC(建议人工 locked)"
             console.print(f"  {fname:>20s}  权重={finfo['weight']:.1%}  "
-                          f"prior={(prior or 0):.1%}  "
+                          f"prior={finfo.get('prior_effective', 0):.1%}  "
                           f"IC={finfo['avg_ic_10']:+.4f}  信号={finfo.get('signal', 0):+.4f}  "
                           f"记录={finfo['ic_records']:>2d}/{finfo.get('ic_records_total', 0):<2d}  "
                           f"[{sc}]{status}[/]")

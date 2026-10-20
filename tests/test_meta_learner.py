@@ -739,9 +739,9 @@ def test_eligible_ic_filters_schema_age_and_lookback():
 
 def test_ic_signal_needs_records_shrinks_by_overlap_and_floors():
     assert ml._ic_signal([(0, 0.3), (1, 0.3)], 7)["signal"] == 0.0     # 记录不足
-    week = [(i, 0.1) for i in range(7)]           # 一周的重叠日记录 ≈ 1.9 个独立观测
+    week = [(i, 0.1) for i in range(7)]           # 一周的重叠日记录 ≈ 1.5 个独立观测
     s = ml._ic_signal(week, 7)
-    assert s["avg_ic"] == 0.1 and 1.8 < s["n_eff"] < 1.9
+    assert s["avg_ic"] == 0.1 and 1.4 < s["n_eff"] < 1.55
     assert 0.03 < s["signal"] < 0.04              # 收缩约 0.38
     month = [(i, 0.1) for i in range(29)]
     assert ml._ic_signal(month, 7)["signal"] > s["signal"]   # 证据越多收缩越少
@@ -853,35 +853,103 @@ def test_disabling_factors_keeps_relative_weights_of_the_rest():
     assert lw["momentum_30d"] + lw["momentum_7d"] > 0.33
 
 
-def test_negative_ic_auto_disable_after_month_and_revive(meta_dir):
+def test_negative_ic_is_flagged_not_disabled_after_persistent_evidence(meta_dir):
+    """持续负 IC (全部相位、连续 7 次调权) → negative_ic_flag 提醒人工; 因子不被自动关闭,
+    只是目标权重降向 min (复核: 自动关闭在纯噪声下会让因子反复开关)."""
     _seed_config(meta_dir, history_ic=0.0)
     cfg = load_factor_config()
-    noisy = [-0.18, -0.12, -0.15, -0.20, -0.10]
-    nh = []
-    for i, v in enumerate(noisy):          # 5 个相隔 7 天的不重叠窗口, 中间夹着重叠日记录
-        for j in range(7):
-            nh += _hist(v + 0.01 * j, 1, start_age=1 + i * 7 + j)
-    cfg["factors"]["narrative_heat"]["ic_history"] = sorted(nh, key=lambda h: h["date"])
+    hist = []
+    for age in range(1, 56):
+        hist += _hist(-0.15 + 0.03 * math.sin(age), 1, start_age=age)
+    cfg["factors"]["narrative_heat"]["ic_history"] = sorted(hist, key=lambda h: h["date"])
     save_factor_config(cfg)
-    r = update_weights_from_ic(_ic_result(_valid_ic(0.0), latest_file="snap_neg.json"))
-    nhd = load_factor_config()["factors"]["narrative_heat"]
-    assert nhd["enabled"] is False and nhd["disabled_reason"] == "negative_ic", r
-    assert get_current_weights()["narrative_heat"] == 0.0
+    today = datetime.now(timezone.utc).date().isoformat()
+    ic = _valid_ic(0.0)
+    ic["f_narrative_heat"] = -0.15
+    flags = []
+    for i in range(8):
+        r = update_weights_from_ic(_ic_result(ic, latest_file=f"snap_neg_{i}.json",
+                                              latest_date=today))
+        flags.append("narrative_heat" in r["negative_ic_flags"])
+    assert flags == [False] * 6 + [True, True]          # 连续 lookback=7 次才提醒
+    nh = load_factor_config()["factors"]["narrative_heat"]
+    assert nh["enabled"] is True and nh["negative_ic_flag"] is True
+    assert nh["weight"] < nh["prior"]                    # 目标规则把它压向 min
+    rep = generate_factor_report()["factors"]["narrative_heat"]
+    assert rep["negative_ic_flag"] is True
 
-    # 只有一周负 IC: 窗口数不足, 不关闭 (防噪声)
+    # 证据消失 → 提醒撤销
     cfg = load_factor_config()
-    cfg["factors"]["momentum_7d"]["ic_history"] = _hist(-0.3, 7)
+    cfg["factors"]["narrative_heat"]["ic_history"] = _hist(0.02, 30)
     save_factor_config(cfg)
-    update_weights_from_ic(_ic_result(_valid_ic(0.0), latest_file="snap_neg2.json"))
-    assert load_factor_config()["factors"]["momentum_7d"]["enabled"] is True
+    ic["f_narrative_heat"] = 0.02
+    r = update_weights_from_ic(_ic_result(ic, latest_file="snap_pos.json", latest_date=today))
+    assert "narrative_heat" not in r["negative_ic_flags"]
 
-    # IC 转正后 t > -1 → 以 min 复活
+
+def test_zero_mean_autocorrelated_noise_never_flags_or_disables(meta_dir):
+    """60 天零均值、按 7 日重叠相关的 IC 噪声: 不应出现负 IC 提醒或任何自动关闭."""
+    import random
+    load_factor_config()
+    rng = random.Random(20261020)
+    shocks = {k: [rng.gauss(0, 0.1) for _ in range(70)] for k in DEFAULT_FACTORS}
+
+    def series(k):
+        # 7 日前瞻 IC = 最近 7 个日冲击的均值 × √7 → 相邻两天相关 6/7, sd ≈ 0.1
+        return lambda i: sum(shocks[k][i:i + 7]) / math.sqrt(7)
+
+    r = _daily_updates(meta_dir, {k: series(k) for k in DEFAULT_FACTORS}, days=60)
     cfg = load_factor_config()
-    cfg["factors"]["narrative_heat"]["ic_history"] = _hist(0.05, 29)
+    assert r["negative_ic_flags"] == []
+    assert all(v["enabled"] for k, v in cfg["factors"].items())
+    w = get_current_weights(cfg)
+    pri = {k: v["prior"] for k, v in cfg["factors"].items()}
+    for k in w:   # 无信息时权重在 prior 附近 (±50%)
+        assert 0.5 < w[k] / (pri[k] / sum(pri.values())) < 1.5, k
+
+
+def test_unlocking_a_factor_revives_it(meta_dir):
+    """locked 改回 false (lock_reason 里写的操作) → 下一轮以 min 复活."""
+    _seed_config(meta_dir, history_ic=0.0)
+    cfg = load_factor_config()
+    cfg["factors"]["volume_turnover"].update(enabled=False, locked=True, weight=0.0)
     save_factor_config(cfg)
-    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="snap_pos.json"))
-    nhd = load_factor_config()["factors"]["narrative_heat"]
-    assert nhd["enabled"] is True and "disabled_reason" not in nhd
+    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="s1.json"))
+    vt = load_factor_config()["factors"]["volume_turnover"]
+    assert vt["enabled"] is False and vt["disabled_reason"] == "locked"
+    cfg = load_factor_config()
+    cfg["factors"]["volume_turnover"]["locked"] = False
+    save_factor_config(cfg)
+    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="s2.json"))
+    vt = load_factor_config()["factors"]["volume_turnover"]
+    assert vt["enabled"] is True and "disabled_reason" not in vt and vt["weight"] > 0
+
+
+def test_migration_gives_priors_headroom_on_both_sides(meta_dir):
+    meta_dir.mkdir(parents=True)
+    (meta_dir / "factor_config.json").write_text(
+        json.dumps(_v1_config_like_production()), encoding="utf-8")
+    cfg = load_factor_config()
+    for k, v in cfg["factors"].items():
+        if v["enabled"]:
+            assert v["min"] <= 0.5 * v["prior"] + 1e-9 or v["min"] < v["prior"], k
+            assert v["max"] >= 1.5 * v["prior"] - 1e-9, k
+    assert cfg["factors"]["market_cap_size"]["max"] >= 0.225
+
+
+def test_factor_report_shows_effective_weights(meta_dir):
+    _seed_config(meta_dir, history_ic=0.0)
+    cfg = load_factor_config()
+    for k in ("onchain_activity", "narrative_heat"):
+        cfg["factors"][k].update(enabled=False, weight=0.0, disabled_reason="low_coverage")
+    _normalize_and_project(cfg["factors"], total=ml._prior_mass(cfg["factors"]))
+    save_factor_config(cfg)
+    rep = generate_factor_report()["factors"]
+    eff = get_current_weights()
+    assert abs(sum(f["weight"] for f in rep.values()) - 1.0) < 1e-5
+    for k, f in rep.items():
+        assert abs(f["weight"] - eff[k]) < 1e-6
+    assert sum(f["weight_raw"] for f in rep.values()) < 0.95   # 存储值是 prior 尺度
 
 
 def test_ic_backtest_matches_by_coin_id_not_symbol(meta_dir):
@@ -921,6 +989,11 @@ def test_detect_regime_leftover_is_sideways_and_hysteresis():
     # 明确越过阈值才切换
     assert detect_regime({"change_30d": 2.0, "change_7d": 7.0},
                          prev_regime="sideways") == "volatile"
+    # 当前读数离上一个 regime 很远 → 直接切换, 即使它靠近别的阈值 (复核发现的 bug)
+    assert detect_regime({"change_30d": -14.5, "change_7d": -4.0},
+                         prev_regime="bull") != "bull"
+    assert detect_regime({"change_30d": -15.6, "change_7d": -10.0},
+                         prev_regime="sideways") == "bear"
 
 
 def test_factor_report_regime_from_latest_real_snapshot(meta_dir):

@@ -11,8 +11,10 @@
        新权重 = (1-α)·旧权重 + α·目标, α = 1/lookback
      IC 信号不显著 (样本少 / |信号| < 地板) 时目标就是 prior, 权重缓慢回到 prior
   5. 权重只能为正, 不会自动翻转方向。死因子 (截面常数) / 低覆盖因子 (绝大多数币
-     无数据) 自动关闭; 不重叠窗口 IC 的 t 值持续 < -2 的因子自动关闭; 条件恢复后
-     以 min 权重重新启用。人工 locked 的因子永不自动复活。
+     无数据) 自动关闭, 条件恢复后以 min 权重重新启用。持续负 IC 的因子只会被目标
+     规则压向 min, 并打上 negative_ic_flag 提醒人工 locked (不自动关闭: 少量不重叠
+     窗口上的 t 检验在纯噪声下也会让因子反复开关)。人工 locked 的因子永不自动复活,
+     把 locked 改回 false 后下一轮以 min 复活。
 
 数据存储: data/meta/ 目录, JSON 格式
 """
@@ -57,20 +59,26 @@ IC_SIGNIFICANCE_FLOOR = 0.02
 IC_DECAY_PER_DAY = 0.90
 # 超过此天数的 IC 记录不参与学习
 IC_MAX_AGE_DAYS = 30
-# IC 历史保留天数 / 条数上限 (超过的直接从 ic_history 删除)
-IC_HISTORY_KEEP_DAYS = 45
-IC_HISTORY_MAX_ENTRIES = 60
+# IC 历史保留天数 / 条数上限 (超过的直接从 ic_history 删除); 比学习窗口长,
+# 留给负 IC 提醒做更长窗口的检验
+IC_HISTORY_KEEP_DAYS = 60
+IC_HISTORY_MAX_ENTRIES = 90
 # 只有"旧快照"为全宇宙 schema 2 的 IC 记录参与学习 (schema 1 只存前 200 → 截断偏差)
 IC_MIN_BASE_SCHEMA = 2
-# 收缩: 信号 = 加权平均 IC × n_eff/(n_eff+K), n_eff = 记录覆盖的独立 (不重叠) 窗口数。
-# 7 日前瞻收益每天评一次, 相邻记录 6/7 重叠, 7 条日记录只相当于 ~1.9 个独立观测。
+# 收缩: 信号 = 加权平均 IC × n_eff/(n_eff+K), n_eff = 衰减加权平均的"等效独立样本数"
+# (按重叠窗口相关性 1-|Δt|/lookback 计算)。7 日前瞻收益每天评一次, 相邻记录 6/7
+# 重叠, 一周 7 条日记录只相当于 ~1.5 个独立观测。
 IC_SHRINK_K = 3.0
 # 目标权重 = prior × max(0, 1 + K × 信号): 信号 +0.05 → 1.2x, -0.1 → 0.6x, -0.25 → 0
 IC_TO_WEIGHT_K = 4.0
-# 负 IC 自动关闭: 不重叠窗口数 ≥ 4 (约一个月) 且 t < -2 → 关闭; t > -1 → 以 min 复活
+# 负 IC 提醒 (只打标记, 不自动关闭): 在全部 lookback 个相位上, 不重叠窗口 IC 的
+# t 都 < NEG_IC_T_FLAG (每个相位至少 NEG_IC_MIN_WINDOWS 个窗口), 且连续
+# lookback 次调权都如此 → negative_ic_flag=True。复核模拟: 单日单相位 t<-2 检验在
+# 零 IC 噪声下每个因子每月有 26-44% 概率被误关, 是权重抖动的最大来源。
+# 现规则模拟 (90 天, 7 日重叠 IC, sd 0.1): 零 IC 误报约 1%/因子, 真 IC -0.10 检出约 67%。
 NEG_IC_MIN_WINDOWS = 4
-NEG_IC_T_DISABLE = -2.0
-NEG_IC_T_REENABLE = -1.0
+NEG_IC_T_FLAG = -2.5
+NEG_IC_TEST_MAX_AGE_DAYS = IC_HISTORY_KEEP_DAYS
 # 低覆盖因子: 旧快照里有非零数值的币数 < max(30, 20% 宇宙) → 本轮视作退化, 自动关闭
 # (onchain_activity 只有 11/400 个币非零、narrative_heat 37/400, IC 实际在测"是不是头部 L1")
 MIN_COVERAGE_COINS = 30
@@ -162,6 +170,11 @@ def _migrate_to_v2(cfg: dict) -> bool:
         fdata["ic_history"] = [h for h in hist if "base_schema" in h]
         prior = MIGRATION_PRIORS.get(fname) or _default_prior(fname, fdata)
         fdata["prior"] = prior
+        # prior 两侧都要留余量, 否则投影是单边的: market_cap_size 的 prior 0.15 = max,
+        # 正的 IC 永远无法把它推高, 噪声下系统性低于 prior
+        if prior > 0:
+            fdata["min"] = min(float(fdata.get("min", prior)), round(0.5 * prior, 4))
+            fdata["max"] = max(float(fdata.get("max", prior)), round(1.5 * prior, 4))
         fdata.setdefault("enabled", True)
         if fdata.get("locked", False):
             fdata["enabled"] = False
@@ -664,7 +677,8 @@ def _parse_day(s) -> date | None:
         return None
 
 
-def _eligible_ic(history: list, lookback: int, today: date) -> list[tuple[int, float]]:
+def _eligible_ic(history: list, lookback: int, today: date,
+                 max_age: int = IC_MAX_AGE_DAYS) -> list[tuple[int, float]]:
     """参与学习的 IC 记录 → [(age_days, ic)], 按 age 升序 (最新在前)。
 
     条件: 同一 lookback; 带来源标签且旧快照 schema ≥ IC_MIN_BASE_SCHEMA
@@ -684,7 +698,7 @@ def _eligible_ic(history: list, lookback: int, today: date) -> list[tuple[int, f
         if d is None:
             continue
         age = max(0, (today - d).days)
-        if age > IC_MAX_AGE_DAYS:
+        if age > max_age:
             continue
         out.append((age, float(h["ic"])))
     out.sort(key=lambda x: x[0])
@@ -695,7 +709,7 @@ def _ic_signal(eligible: list[tuple[int, float]], lookback: int) -> dict:
     """合格 IC 记录 → 收缩后的信号。
 
     avg_ic: 按日历天数衰减的加权平均 (IC_DECAY_PER_DAY ** age)
-    n_eff:  记录覆盖的独立 (不重叠) 窗口数 = 1 + 跨度天数 / lookback
+    n_eff:  该加权平均的等效独立样本数 (考虑相邻记录的窗口重叠)
     signal: avg_ic × n_eff/(n_eff+IC_SHRINK_K); |signal| < 地板 → 0
     记录不足 MIN_IC_RECORDS 时 signal = 0 (目标权重 = prior)。
     """
@@ -703,9 +717,16 @@ def _ic_signal(eligible: list[tuple[int, float]], lookback: int) -> dict:
     if n < MIN_IC_RECORDS:
         return {"n": n, "avg_ic": None, "n_eff": 0.0, "shrink": 0.0, "signal": 0.0}
     ws = [IC_DECAY_PER_DAY ** age for age, _ in eligible]
-    avg = sum(w * ic for w, (_, ic) in zip(ws, eligible)) / sum(ws)
-    span = eligible[-1][0] - eligible[0][0]
-    n_eff = 1.0 + span / max(1, lookback)
+    tot = sum(ws)
+    avg = sum(w * ic for w, (_, ic) in zip(ws, eligible)) / tot
+    # 等效独立样本数: 1 / ΣΣ w̃i w̃j ρ(|ai-aj|), ρ(k) = max(0, 1 - k/lookback)
+    # (相邻两天的 7 日前瞻收益重叠 6/7)
+    wn = [w / tot for w in ws]
+    lb = max(1, lookback)
+    denom = sum(wi * wj * max(0.0, 1.0 - abs(ai - aj) / lb)
+                for wi, (ai, _) in zip(wn, eligible)
+                for wj, (aj, _) in zip(wn, eligible))
+    n_eff = 1.0 / denom if denom > 0 else 1.0
     shrink = n_eff / (n_eff + IC_SHRINK_K)
     sig = avg * shrink
     if abs(sig) < IC_SIGNIFICANCE_FLOOR:
@@ -715,14 +736,17 @@ def _ic_signal(eligible: list[tuple[int, float]], lookback: int) -> dict:
 
 
 def _nonoverlap_tstat(eligible: list[tuple[int, float]],
-                      lookback: int) -> tuple[float | None, int]:
-    """不重叠窗口 IC 的 t 值: 从最新记录往回, 只取与上一条相隔 ≥ lookback 天的记录。
+                      lookback: int, offset: int = 0) -> tuple[float | None, int]:
+    """不重叠窗口 IC 的 t 值: 从 age ≥ offset 的最新记录往回, 只取与上一条相隔
+    ≥ lookback 天的记录。
 
     返回 (t, 窗口数); 窗口数 < 2 时 t 为 None。
     """
     picked = []
     last = None
     for age, ic in eligible:
+        if age < offset:
+            continue
         if last is None or age - last >= lookback:
             picked.append(ic)
             last = age
@@ -734,6 +758,19 @@ def _nonoverlap_tstat(eligible: list[tuple[int, float]],
     if var <= 0:
         return (None if mean == 0 else math.copysign(math.inf, mean)), n
     return mean / math.sqrt(var / n), n
+
+
+def _negative_on_all_phases(eligible: list[tuple[int, float]], lookback: int) -> bool:
+    """全部 lookback 个相位上, 不重叠窗口 IC 的 t 都 < NEG_IC_T_FLAG。
+
+    每天的最新记录不同, 只看一个相位等于每晚换一组样本重新检验, 零 IC 的因子
+    也会时不时"显著为负"; 要求所有相位同时为负才算。
+    """
+    for off in range(max(1, lookback)):
+        t, n = _nonoverlap_tstat(eligible, lookback, offset=off)
+        if n < NEG_IC_MIN_WINDOWS or t is None or not t < NEG_IC_T_FLAG:
+            return False
+    return True
 
 
 def update_weights_from_ic(ic_result: dict, force: bool = False) -> dict:
@@ -753,10 +790,10 @@ def update_weights_from_ic(ic_result: dict, force: bool = False) -> dict:
     3. Phase B 开关 (disabled_reason 记录原因):
        - locked=True → 永远关闭 (人工), 不会自动复活
        - 旧快照截面常数 → "constant"; 有非零数值的币太少 → "low_coverage";
-         之后 IC 重新有效 → 以 min 权重复活
-       - 不重叠窗口 IC 的 t < NEG_IC_T_DISABLE 且窗口数 ≥ NEG_IC_MIN_WINDOWS
-         → "negative_ic"; t > NEG_IC_T_REENABLE → 以 min 复活。
-       权重只能为正, 系统不会自动翻转因子方向; 持续为负的因子被关闭而不是反用。
+         之后 IC 重新有效 → 以 min 权重复活; locked 改回 false 同样以 min 复活
+       - 持续负 IC (见 _negative_on_all_phases, 连续 lookback 次调权) 只打
+         negative_ic_flag 提醒人工 locked, 不自动关闭。
+       权重只能为正, 系统不会自动翻转因子方向; 负 IC 只会让目标权重降向 min。
     4. Phase C 目标权重 (只用合格记录, 见 _eligible_ic / _ic_signal):
          target = prior × max(0, 1 + IC_TO_WEIGHT_K × signal), 投影到 [min,max]
          new    = (1-α)·old + α·target (α = 1/lookback), 再投影
@@ -870,16 +907,21 @@ def update_weights_from_ic(ic_result: dict, force: bool = False) -> dict:
             continue
         if fname not in ic_map:
             continue
-        t, n_win = _nonoverlap_tstat(eligible[fname], lookback)
-        if fdata.get("enabled", True):
-            if n_win >= NEG_IC_MIN_WINDOWS and t is not None and t < NEG_IC_T_DISABLE:
-                log.warning(f"  {fname}: 不重叠窗口 IC t={t:.2f} (n={n_win}) 持续为负, 自动关闭")
-                fdata.update(enabled=False, weight=0.0, disabled_reason="negative_ic")
+        # 负 IC 提醒: 全部相位都显著为负, 且连续 lookback 次调权都如此
+        hist_long = _eligible_ic(fdata["ic_history"], lookback, today,
+                                 max_age=NEG_IC_TEST_MAX_AGE_DAYS)
+        if _negative_on_all_phases(hist_long, lookback):
+            fdata["neg_ic_streak"] = int(fdata.get("neg_ic_streak", 0)) + 1
         else:
-            revive = reason in (None, "constant", "low_coverage") or (
-                reason == "negative_ic" and n_win >= NEG_IC_MIN_WINDOWS
-                and t is not None and t > NEG_IC_T_REENABLE)
-            if revive:
+            fdata["neg_ic_streak"] = 0
+        flag = fdata["neg_ic_streak"] >= lookback
+        if flag and not fdata.get("negative_ic_flag"):
+            log.warning(f"  {fname}: IC 在全部相位上持续显著为负 ({fdata['neg_ic_streak']} 次调权), "
+                        f"建议人工评估后设 locked=true (系统不会自动关闭)")
+        fdata["negative_ic_flag"] = flag
+        if not fdata.get("enabled", True):
+            # 旧版本的 negative_ic 关闭、locked 已被人工改回 false 的, 都可复活
+            if reason in (None, "constant", "low_coverage", "negative_ic", "locked"):
                 fdata.update(enabled=True, weight=fdata["min"])
                 fdata.pop("disabled_reason", None)
                 log.info(f"  {fname}: 恢复, 以 min 权重 {fdata['min']:.3f} 重新启用")
@@ -934,6 +976,8 @@ def update_weights_from_ic(ic_result: dict, force: bool = False) -> dict:
                              if not v.get("enabled", True)},
         "signals": signals,
         "targets": {k: round(v, 6) for k, v in targets.items()},
+        "negative_ic_flags": [k for k, v in cfg["factors"].items()
+                              if v.get("negative_ic_flag")],
         "new_weights": get_current_weights(cfg),
     }
 
@@ -980,7 +1024,9 @@ def detect_regime(btc_data: dict = None, prev_regime: str | None = None) -> str:
         m = REGIME_HYSTERESIS_PP
         corners = {_classify_regime(chg_30d + a, chg_7d + b)
                    for a in (-m, m) for b in (-m, m)}
-        if corners != {regime}:
+        # 只有当前读数仍在上一个 regime 的 ±m 范围内才沿用; 离得远就直接切换
+        # (否则 prev=bull 时 30d -14.5% / 7d -4% 也会因为靠近别的阈值而继续叫 bull)
+        if prev_regime in corners:
             return prev_regime
     return regime
 
@@ -1071,6 +1117,9 @@ def generate_factor_report(regime: str | None = None, lookback: int = 7) -> dict
     if regime is None:
         regime = latest_snapshot_meta().get("regime") or "unknown"
     today = datetime.now(timezone.utc).date()
+    # 存储的 weight 投影到"启用因子 prior 之和", 不等于 1; 报告给出实际生效的归一化权重
+    eff = get_current_weights(cfg)
+    mass = _prior_mass(cfg["factors"]) or 1.0
     report = {
         "regime": regime,
         "total_factors": len(cfg["factors"]),
@@ -1100,9 +1149,14 @@ def generate_factor_report(regime: str | None = None, lookback: int = 7) -> dict
         elif not fdata.get("enabled", True):
             status = "disabled"   # 自动关闭, 原因见 disabled_reason
 
+        prior = fdata.get("prior")
         report["factors"][fname] = {
-            "weight": fdata["weight"],
-            "prior": fdata.get("prior"),
+            "weight": round(eff.get(fname, 0.0), 6),          # 实际生效 (sum=1)
+            "weight_raw": fdata["weight"],                     # 存储值 (prior 尺度)
+            "prior": prior,
+            "prior_effective": (round(prior / mass, 6)
+                                if prior is not None and fdata.get("enabled", True) else 0.0),
+            "negative_ic_flag": bool(fdata.get("negative_ic_flag")),
             "enabled": fdata.get("enabled", True),
             "locked": fdata.get("locked", False),
             "disabled_reason": fdata.get("disabled_reason"),
