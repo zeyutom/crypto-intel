@@ -40,31 +40,48 @@ TOP_N = 30
 #  收益追踪
 # ====================================================================
 
-def _fetch_current_prices(symbols: list[str]) -> dict[str, float]:
-    """从 CoinGecko 拉取当前价格 (批量)。
+def _get_json(url: str, params: dict | None = None):
+    """走统一 HttpClient: CoinGecko 限速令牌桶 + 429 退避重试 (尊重 Retry-After)。
+
+    ttl=0 不读写缓存 (记分卡要的是当前价)。单独包一层便于测试 monkeypatch。
+    """
+    from ..http_client import http
+    return http.get_json(url, params=params, timeout=30, ttl=0, retries=3)
+
+
+def _fetch_current_prices(symbols: list[str],
+                          pages_missing: list[int] | None = None) -> dict[str, float]:
+    """从 CoinGecko 拉取当前价格 (批量, Top 500 = 5 页)。
 
     返回同时按 coin_id (CoinGecko "id") 和按 symbol (大写) 两种 key 索引的价格表。
     同一 key 以第一次出现 (市值最大) 为准 — 之前后面页里同名 symbol 会覆盖大市值币。
+
+    之前用裸 httpx 且非 200 静默跳过: 周日记分卡紧跟 screen 跑, CoinGecko 配额刚被
+    用完, 第 5 页 (rank 401-500) 429 后整页丢失, Top-N 的小市值端全变 unmatched 却
+    无任何日志。现在经 HttpClient 退避重试; 仍失败的页号写进 pages_missing (可选出参)
+    并告警, 由 verify_returns 标 low_coverage。
     """
-    import httpx
-    # 先用 /coins/markets 拉 top 500 (含 id / symbol → price)
     prices: dict[str, float] = {}
     for page in range(1, 6):
         try:
-            r = httpx.get(
+            data = _get_json(
                 "https://api.coingecko.com/api/v3/coins/markets",
                 params={"vs_currency": "usd", "order": "market_cap_desc",
                         "per_page": 100, "page": page, "sparkline": "false"},
-                headers={"User-Agent": "CryptoIntel/2.0", "Accept": "application/json"},
-                timeout=30, follow_redirects=True,
             )
-            if r.status_code == 200:
-                _merge_market_page(prices, r.json())
-            if page < 5:
-                time.sleep(7)
         except Exception as e:
-            log.warning(f"CoinGecko page {page} 失败: {e}")
-            time.sleep(5)
+            log.warning(f"CoinGecko page {page} 异常: {e}")
+            data = None
+        if isinstance(data, list):
+            _merge_market_page(prices, data)
+        else:
+            log.warning(f"CoinGecko page {page}/5 重试后仍失败, 该页 (市值排名 "
+                        f"{(page - 1) * 100 + 1}-{page * 100}) 的币无法定价")
+            if pages_missing is not None:
+                pages_missing.append(page)
+        # CoinGecko free API: ~10 req/min, 保守等 7s
+        if page < 5:
+            time.sleep(7)
     return prices
 
 
@@ -83,10 +100,15 @@ def _merge_market_page(prices: dict[str, float], rows: list[dict]) -> None:
 
 
 def _lookup_price(row: dict, prices: dict[str, float]) -> float | None:
-    """快照行 → 当前价格: 优先 coin_id (新快照带), 回退 symbol。"""
+    """快照行 → 当前价格: 有 coin_id 只认 coin_id (查不到算 unmatched), 无 coin_id 才按 symbol。
+
+    有 coin_id 时不能回退 symbol: velodrome-finance 掉出 Top 500 (或第 5 页没拉到)
+    时会拿到同名 velo 的价格, 记成 -88% 的假收益。无 coin_id 的旧快照行仍按 symbol,
+    同名重复行由 _ambiguous_rows 把关。
+    """
     cid = row.get("coin_id")
-    if cid and prices.get(cid):
-        return prices[cid]
+    if cid:
+        return prices.get(cid) or None
     sym = (row.get("symbol") or "").upper()
     if sym and prices.get(sym):
         return prices[sym]
@@ -213,7 +235,7 @@ def verify_returns(lookback_days: int = 7) -> dict:
     只会选真实快照 (合成回填快照被排除), 快照时间与 now-lookback 容差 24h。
 
     返回: {ok, snapshot_date, snapshot_file, entry_ts, graded, matched_coins,
-           coverage, low_coverage, unmatched, stats, coins,
+           coverage, low_coverage, pages_missing, unmatched, stats, coins,
            vs_btc, btc_entry_missing, btc_entry_source,
            vs_universe_ew, vs_universe_median, universe_n}
     """
@@ -237,7 +259,8 @@ def verify_returns(lookback_days: int = 7) -> dict:
     log.info(f"拉取当前价格 (对比 {best_snap.get('date', 'N/A')} 的快照 {snap_path.name})...")
     old_coins = best_snap.get("coins", [])
     symbols = [c["symbol"] for c in old_coins[:50]]
-    current_prices = _fetch_current_prices(symbols)
+    pages_missing: list[int] = []
+    current_prices = _fetch_current_prices(symbols, pages_missing=pages_missing)
 
     if not current_prices:
         return {"ok": False, "error": "无法获取当前价格"}
@@ -318,7 +341,9 @@ def verify_returns(lookback_days: int = 7) -> dict:
         "graded": len(graded),
         "matched_coins": len(coin_returns),
         "coverage": round(coverage, 4),
-        "low_coverage": coverage < LOW_COVERAGE_THRESHOLD,
+        # 有页没拉到时小市值端系统性缺失 (Top-N 偏小盘), 覆盖率再高也要标出来
+        "low_coverage": coverage < LOW_COVERAGE_THRESHOLD or bool(pages_missing),
+        "pages_missing": pages_missing,
         "unmatched": unmatched,
         "stats": {
             "avg_return": round(avg_ret, 4),
@@ -402,6 +427,10 @@ def _build_scorecard(r: dict) -> tuple:
         f"**复盘窗口**: {r.get('snapshot_date')} → 至今 (~{r.get('lookback_days', 7)}天) · "
         f"匹配 {matched}/{graded} 币{cov_txt}",
     ]
+    if r.get("pages_missing"):
+        pages = ", ".join(str(p) for p in r["pages_missing"])
+        lines.append(f"⚠️ CoinGecko 第 {pages} 页 (每页 100 币, 按市值) 拉取失败: "
+                     f"小市值端未定价, 结果偏向大市值")
     if r.get("low_coverage"):
         lines.append(f"⚠️ 覆盖率不足, 未定价: {', '.join(r.get('unmatched') or [])[:120]}")
     lines += [
