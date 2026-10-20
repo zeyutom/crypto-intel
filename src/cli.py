@@ -953,14 +953,29 @@ def main() -> None:
         console.print(f"[bold cyan]🚨 Watchdog · {sub}[/]")
         if sub == "check":
             alerts = wd.run_check(push=not no_push)
+            run = wd.LAST_RUN
+            statuses = run.get("statuses", {})
+            skipped = run.get("skipped", [])
             if not alerts:
                 console.print("[green]✓ 当前无告警触发[/]")
-                console.print("[dim]  阈值: peg>50bps · funding>0.1% · F&G ≥80/≤20 · DEX TVL ±10%[/]")
             else:
                 for a in alerts:
                     color = {"critical": "red", "warning": "yellow", "info": "blue"}.get(a["severity"], "white")
                     console.print(f"  [{color}]{a['title']}[/]")
                     console.print(f"    {a['detail']}")
+            # 覆盖率: "无告警" 不能掩盖拿不到数据的检测器
+            coverage = f"{run.get('n_with_data', 0)}/{run.get('n_checks', 0)} 个检测器有数据"
+            if skipped:
+                console.print(f"[yellow]  {coverage}; 跳过(无数据): {', '.join(skipped)}[/]")
+            else:
+                console.print(f"[dim]  {coverage}[/]")
+            active = [n for n, st in statuses.items() if st.get("status") != "no_data"]
+            if active:
+                console.print("[dim]  阈值: " + " · ".join(wd.threshold_label(n) for n in active) + "[/]")
+            if run.get("push_failed"):
+                # 推送失败的告警没记去重, 下一轮会重试; 非零退出让 Actions 标红
+                console.print(f"[red]✗ 推送失败: {', '.join(run['push_failed'])} (下一轮重试)[/]")
+                sys.exit(1)
         elif sub == "loop":
             interval = 300
             if "--interval" in sys.argv:
