@@ -87,3 +87,16 @@ jobs:
 
           echo "❌ 5 次 push 都失败, 放弃"
           exit 1
+
+      # 以前 refresh 失败只有 GitHub 邮件。scripts/sentinel.py 只用标准库, 依赖装不上也能推飞书。
+      - name: Alert on job failure or cancel
+        if: failure() || cancelled()
+        env:
+          FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
+          FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 scripts/sentinel.py alert "🚨 Crypto Intel refresh workflow 失败/超时/被取消" \
+            "今天的 intel.db / 报告可能没提交到仓库" \
+            "哨兵 (sentinel.yml) 会在 09:45Z 后发现缺产物并自动补跑一次" \
+            "$RUN_URL" || echo "飞书告警发送失败"

@@ -1,0 +1,41 @@
+name: Sentinel
+
+# 漏跑/空跑哨兵: GitHub 定时任务会延迟甚至丢弃, run 内部的告警管不到 "根本没跑" 的情况。
+# 每天 3 个时段检查 main 上有没有 nightly / refresh 的产物 commit, 缺了就自动补跑一次并推飞书;
+# watchdog 超过 4h 没跑就静默补一次。逻辑见 scripts/sentinel.py (只用标准库, 不装依赖)。
+on:
+  schedule:
+    - cron: '25 23 * * *'   # nightly (16:17Z) + 7h 宽限之后
+    - cron: '45 9 * * *'    # refresh (00:30Z, 实际常在 05~07Z 跑) + 9h 宽限之后
+    - cron: '35 14 * * *'   # 兜底: 前两个时段自己被 GitHub 丢掉时
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只打印判断, 不补跑不推送'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  actions: write   # workflow_dispatch 补跑
+
+concurrency:
+  group: sentinel
+  cancel-in-progress: false
+
+jobs:
+  sentinel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: scripts   # 不拉 intel.db / 快照, 只要脚本
+
+      - name: Check for missed or empty runs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FEISHU_GROUP_1_URL: ${{ secrets.FEISHU_GROUP_1_URL }}
+          FEISHU_GROUP_1_SECRET: ${{ secrets.FEISHU_GROUP_1_SECRET }}
+          DRY_RUN: ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python3 scripts/sentinel.py check $DRY_RUN
