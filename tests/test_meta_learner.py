@@ -1053,3 +1053,20 @@ def test_cap_influence_noop_small_universe_or_balanced():
     assert max(ml.influence_shares(coins, balanced).values()) < 0.55
     w, log_ = ml.cap_influence(coins, balanced, cap=0.55)
     assert w == balanced and log_ == {}
+
+
+def test_cap_influence_gives_up_when_no_progress(warn_log):
+    """只有一个因子有截面差异时压权重没用: 不空转 60 轮, 原样返回且不记成"已触发"."""
+    coins = _binary_vs_continuous(400)
+    for c in coins:
+        c["f_dev_activity"] = 0.0          # 常数因子, 方差为 0
+    for w0 in ({"tvl_mcap": 1.0, "momentum_30d": 0.0},
+               {"tvl_mcap": 0.5, "dev_activity": 0.5}):
+        w, log_ = ml.cap_influence(coins, w0, cap=0.55)
+        assert w == w0 and log_ == {}
+    assert any("无法生效" in r.getMessage() for r in warn_log.records)
+
+
+def test_cap_influence_logs_skip_on_small_universe(warn_log):
+    ml.cap_influence(_binary_vs_continuous(250), {"tvl_mcap": 0.5, "momentum_30d": 0.5})
+    assert any("影响力上限跳过" in r.getMessage() for r in warn_log.records)

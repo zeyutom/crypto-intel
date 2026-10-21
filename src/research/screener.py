@@ -704,7 +704,8 @@ def run_screen(top_n: int = 30) -> dict:
     scored = _score(weights)
 
     # ── Step 4b: 单因子影响力上限 (只改本次打分权重, 不写 factor_config) ──
-    # 曾经 tvl_mcap 名义权重 0.24, 却贡献了综合分 87% 的截面方差, Top-20 等于按 TVL 选
+    # 曾经 tvl_mcap 名义权重 0.24, 却贡献了综合分 87% 的截面方差。上限只压全市场的集中度,
+    # Top-20 头部仍多为 TVL 封顶的币 (那要靠学习器下调 tvl 权重)
     weights_pre_cap = weights
     weights, cap_log = cap_influence(scored, weights)
     if cap_log:
