@@ -1,485 +1,70 @@
 {
-  "version": 1,
+  "version": 2,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-20T22:16:14.397251+00:00",
-  "regime": "unknown",
+  "updated": "2026-10-21T20:19:32.155782+00:00",
   "factors": {
     "momentum_30d": {
-      "weight": 0.05,
-      "min": 0.05,
+      "weight": 0.086438,
+      "min": 0.0432,
       "max": 0.3,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": 0.2085,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.0939,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.1134,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.1162,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.1597,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.1565,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.2529,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.2408,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.2134,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2702,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2914,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2538,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.1683,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.3621,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.2554,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.1899,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.2817,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.2922,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.262,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.4056,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.4331,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": -0.3492,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": 0.0595,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": 0.0079,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": -0.0794,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": 0.0046,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.0653,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": -0.1624,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": -0.0359,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.1013,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.0644,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.086438,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "momentum_7d": {
-      "weight": 0.03,
-      "min": 0.03,
+      "weight": 0.051827,
+      "min": 0.0259,
       "max": 0.2,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": 0.1086,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.0732,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0362,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.2808,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.2692,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.2266,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.384,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.36,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.3272,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2212,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2863,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.2302,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0399,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.187,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.1227,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.0302,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.1809,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.2424,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.2179,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.5348,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.6535,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": -0.4762,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": 0.1077,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": 0.0646,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": -0.0693,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": 0.0078,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.0343,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": -0.0416,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": 0.0219,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": 0.0485,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.1866,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.051827,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "ath_drawdown": {
-      "weight": 0.132848,
+      "weight": 0.186187,
       "min": 0.03,
-      "max": 0.2,
+      "max": 0.2793,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": 0.037,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.067,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.1235,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0444,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.0074,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0103,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.1029,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.1107,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.103,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.106,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.042,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0535,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.0475,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.0439,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.0751,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.0432,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.1263,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.0653,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.0527,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.0564,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.103,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": -0.055,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": -0.1947,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": -0.1949,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": -0.2107,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": -0.0205,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.0444,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": 0.054,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": -0.0783,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.0739,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.0165,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.186187,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "volume_turnover": {
       "weight": 0.0,
@@ -487,637 +72,73 @@
       "max": 0.2,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": -0.2994,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.1947,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.1788,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.054,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0681,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0561,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.1605,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.1967,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.2031,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.3037,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.2423,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.2159,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0999,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1804,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1597,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1759,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0832,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1469,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1512,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1731,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1974,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.0974,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": -0.1299,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": -0.1316,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": 0.0591,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": -0.0755,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.1104,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": -0.3107,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": -0.168,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.1895,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.0921,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": false,
       "locked": true,
       "lock_reason": "2026-10 实盘回测: 7 日 IC 稳健为负 (去偏后约 -0.04~-0.06, 前 100 名 -0.117), 而权重只能为正 → 人工关闭; 需要时把 locked 改回 false",
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.1,
+      "disabled_reason": "locked"
     },
     "tvl_mcap": {
-      "weight": 0.244749,
+      "weight": 0.170568,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": -0.2975,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.2144,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.2505,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0072,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0964,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.091,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.2,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.1744,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.1546,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.1902,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.201,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.1681,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.0525,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0997,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0719,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0337,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1134,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.102,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.0793,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.2005,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.2743,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.1638,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": 0.1569,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": 0.0407,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": 0.0043,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": 0.0087,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": 0.0274,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": 0.0427,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": -0.0138,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.0414,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": 0.0155,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.170568,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "market_cap_size": {
-      "weight": 0.133465,
+      "weight": 0.15,
       "min": 0.02,
-      "max": 0.15,
+      "max": 0.225,
       "ic_history": [
         {
-          "date": "2026-06-11",
-          "ic": 0.17,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": 0.198,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.1802,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0566,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0332,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.009,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0085,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0412,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0292,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0576,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0574,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": 0.0682,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.2126,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0208,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0471,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.0202,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.0867,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": -0.1178,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.1052,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.1409,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": -0.1547,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": -0.1464,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": 0.0669,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": 0.1217,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": -0.0822,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": -0.0501,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.027,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": 0.0427,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": -0.0893,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.1141,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.1719,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.15,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "onchain_activity": {
-      "weight": 0.226307,
+      "weight": 0.0,
       "min": 0.03,
       "max": 0.25,
-      "ic_history": [
-        {
-          "date": "2026-06-11",
-          "ic": -0.1528,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.1489,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.1121,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": 0.0109,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.0015,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.0096,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.006,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0083,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": 0.0281,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0154,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0348,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0304,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.1757,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1276,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.1005,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0746,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1594,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1613,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1448,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1453,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1591,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.1438,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": 0.0081,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": -0.0093,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": 0.1158,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": 0.0995,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": 0.0949,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": 0.0598,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": 0.0927,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": 0.0624,
-          "lookback": 7
-        }
-      ],
-      "enabled": true,
-      "degenerate_runs": 0
+      "ic_history": [],
+      "enabled": false,
+      "degenerate_runs": 1,
+      "prior": 0.163113,
+      "disabled_reason": "low_coverage"
     },
     "dev_activity": {
       "weight": 0.0,
@@ -1125,186 +146,1280 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 9
+      "degenerate_runs": 10,
+      "prior": 0.07,
+      "disabled_reason": "constant"
     },
     "funding_rate": {
-      "weight": 0.02,
-      "min": 0.02,
+      "weight": 0.035498,
+      "min": 0.0177,
       "max": 0.15,
       "ic_history": [
         {
-          "date": "2026-10-19",
-          "ic": -0.0852,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": -0.0577,
-          "lookback": 7
+          "date": "2026-10-21",
+          "ic": -0.0105,
+          "lookback": 7,
+          "asof": "snapshot_20261021_2019.json",
+          "base": "snapshot_20261014_2215.json",
+          "base_schema": 2,
+          "n": 383
         }
       ],
       "enabled": true,
-      "degenerate_runs": 0
+      "degenerate_runs": 0,
+      "prior": 0.035498,
+      "neg_ic_streak": 0,
+      "negative_ic_flag": false
     },
     "narrative_heat": {
-      "weight": 0.162632,
+      "weight": 0.0,
       "min": 0.02,
-      "max": 0.2,
-      "ic_history": [
-        {
-          "date": "2026-06-11",
-          "ic": -0.124,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-11",
-          "ic": -0.1824,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.1341,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.0612,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-12",
-          "ic": -0.0278,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.0388,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.0214,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.0196,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-13",
-          "ic": -0.0028,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0406,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0529,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-14",
-          "ic": -0.0656,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": -0.2095,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0624,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-15",
-          "ic": 0.0717,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.0589,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1253,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-16",
-          "ic": 0.1576,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1496,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1186,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-17",
-          "ic": 0.1173,
-          "lookback": 7
-        },
-        {
-          "date": "2026-06-18",
-          "ic": 0.0987,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-13",
-          "ic": -0.1468,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-14",
-          "ic": -0.1718,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-15",
-          "ic": -0.0308,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-16",
-          "ic": -0.0401,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-17",
-          "ic": -0.0208,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-18",
-          "ic": -0.033,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-19",
-          "ic": 0.0587,
-          "lookback": 7
-        },
-        {
-          "date": "2026-10-20",
-          "ic": 0.0526,
-          "lookback": 7
-        }
-      ],
-      "enabled": true,
-      "degenerate_runs": 0
+      "max": 0.2346,
+      "ic_history": [],
+      "enabled": false,
+      "degenerate_runs": 1,
+      "prior": 0.156369,
+      "disabled_reason": "low_coverage"
     }
   },
-  "last_weight_update_date": "2026-10-20"
+  "last_weight_update_date": "2026-10-21",
+  "ic_history_archive": {
+    "momentum_30d": [
+      {
+        "date": "2026-06-11",
+        "ic": 0.2085,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": 0.0939,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.1134,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.1162,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.1597,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.1565,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.2529,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.2408,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.2134,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2702,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2914,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2538,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.1683,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.3621,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.2554,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.1899,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.2817,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.2922,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.262,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.4056,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.4331,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": -0.3492,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": 0.0595,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": 0.0079,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": -0.0794,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": 0.0046,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.0653,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": -0.1624,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": -0.0359,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.1013,
+        "lookback": 7
+      }
+    ],
+    "momentum_7d": [
+      {
+        "date": "2026-06-11",
+        "ic": 0.1086,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": 0.0732,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0362,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.2808,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.2692,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.2266,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.384,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.36,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.3272,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2212,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2863,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.2302,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0399,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.187,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.1227,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.0302,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.1809,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.2424,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.2179,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.5348,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.6535,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": -0.4762,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": 0.1077,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": 0.0646,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": -0.0693,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": 0.0078,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.0343,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": -0.0416,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": 0.0219,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": 0.0485,
+        "lookback": 7
+      }
+    ],
+    "ath_drawdown": [
+      {
+        "date": "2026-06-11",
+        "ic": 0.037,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": 0.067,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.1235,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0444,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.0074,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0103,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.1029,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.1107,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.103,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.106,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.042,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0535,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.0475,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.0439,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.0751,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.0432,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.1263,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.0653,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.0527,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.0564,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.103,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": -0.055,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": -0.1947,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": -0.1949,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": -0.2107,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": -0.0205,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.0444,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": 0.054,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": -0.0783,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.0739,
+        "lookback": 7
+      }
+    ],
+    "volume_turnover": [
+      {
+        "date": "2026-06-11",
+        "ic": -0.2994,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": -0.1947,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.1788,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.054,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0681,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0561,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.1605,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.1967,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.2031,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.3037,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.2423,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.2159,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0999,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.1804,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.1597,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1759,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.0832,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1469,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1512,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1731,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1974,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": 0.0974,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": -0.1299,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": -0.1316,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": 0.0591,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": -0.0755,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.1104,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": -0.3107,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": -0.168,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.1895,
+        "lookback": 7
+      }
+    ],
+    "tvl_mcap": [
+      {
+        "date": "2026-06-11",
+        "ic": -0.2975,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": -0.2144,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.2505,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0072,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0964,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.091,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.2,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.1744,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.1546,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.1902,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.201,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.1681,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.0525,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0997,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0719,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.0337,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1134,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.102,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.0793,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.2005,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.2743,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": 0.1638,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": 0.1569,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": 0.0407,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": 0.0043,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": 0.0087,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": 0.0274,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": 0.0427,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": -0.0138,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.0414,
+        "lookback": 7
+      }
+    ],
+    "market_cap_size": [
+      {
+        "date": "2026-06-11",
+        "ic": 0.17,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": 0.198,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.1802,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0566,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0332,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.009,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0085,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0412,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0292,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.0576,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.0574,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": 0.0682,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.2126,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0208,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0471,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.0202,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.0867,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": -0.1178,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.1052,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.1409,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": -0.1547,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": -0.1464,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": 0.0669,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": 0.1217,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": -0.0822,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": -0.0501,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.027,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": 0.0427,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": -0.0893,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.1141,
+        "lookback": 7
+      }
+    ],
+    "onchain_activity": [
+      {
+        "date": "2026-06-11",
+        "ic": -0.1528,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": -0.1489,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.1121,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": 0.0109,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.0015,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.0096,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.006,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0083,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": 0.0281,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0154,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0348,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0304,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.1757,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.1276,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.1005,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.0746,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1594,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1613,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1448,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1453,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1591,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": 0.1438,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": 0.0081,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": -0.0093,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": 0.1158,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": 0.0995,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": 0.0949,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": 0.0598,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": 0.0927,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": 0.0624,
+        "lookback": 7
+      }
+    ],
+    "funding_rate": [
+      {
+        "date": "2026-10-19",
+        "ic": -0.0852,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": -0.0577,
+        "lookback": 7
+      }
+    ],
+    "narrative_heat": [
+      {
+        "date": "2026-06-11",
+        "ic": -0.124,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-11",
+        "ic": -0.1824,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.1341,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.0612,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-12",
+        "ic": -0.0278,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.0388,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.0214,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.0196,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-13",
+        "ic": -0.0028,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0406,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0529,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-14",
+        "ic": -0.0656,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": -0.2095,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0624,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-15",
+        "ic": 0.0717,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.0589,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1253,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-16",
+        "ic": 0.1576,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1496,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1186,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-17",
+        "ic": 0.1173,
+        "lookback": 7
+      },
+      {
+        "date": "2026-06-18",
+        "ic": 0.0987,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-13",
+        "ic": -0.1468,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-14",
+        "ic": -0.1718,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-15",
+        "ic": -0.0308,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-16",
+        "ic": -0.0401,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-17",
+        "ic": -0.0208,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-18",
+        "ic": -0.033,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-19",
+        "ic": 0.0587,
+        "lookback": 7
+      },
+      {
+        "date": "2026-10-20",
+        "ic": 0.0526,
+        "lookback": 7
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "to": 2,
+      "date": "2026-10-21",
+      "archived_ic_records": 242,
+      "note": "IC 记录加来源标签, 旧记录归档; 权重重置到 2026-10-12 的 prior; 学习规则改为目标权重平滑"
+    }
+  ],
+  "last_weight_update_asof": "snapshot_20261021_2019.json"
 }
