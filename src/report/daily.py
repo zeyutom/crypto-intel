@@ -2,10 +2,12 @@
 import json
 from pathlib import Path
 from datetime import datetime, timezone
+import pandas as pd
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from .. import __version__
 from ..config import CFG, ROOT
-from ..db import query_df, latest_factors, latest_reviews
+from ..db import (query_df, latest_factors, latest_reviews, latest_quotes,
+                  source_status, EXPECTED_SOURCES)
 from ..factors._metadata import factor_meta, asset_cn, regime_cn, signal_label
 from .insights import build_briefing
 from .glossary import GLOSSARY
@@ -56,38 +58,18 @@ def generate(output_path: str | Path | None = None) -> Path:
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR), autoescape=select_autoescape())
     tmpl = env.get_template("template.html")
 
-    # --- 1. 行情快照 (优先 binance > okx > coingecko) ---
-    snap_df = query_df(
-        """SELECT asset_id, value AS price FROM (
-              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    chg_df = query_df(
-        """SELECT asset_id, value AS change_24h FROM (
-              SELECT r.asset_id AS asset_id, r.value AS value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    merged = snap_df.merge(chg_df, on="asset_id", how="left")
+    # --- 1. 行情快照: 先新鲜度、再源优先级 (binance > okx > coingecko) ---
+    # 之前源优先级在前, 06-05 的 binance 旧价 ($62,810) 连续 136 份日报原样展示
+    quotes = latest_quotes()
     snap_rows = []
-    for _, r in merged.iterrows():
+    for _, r in quotes.iterrows():
         sym = next((a["symbol"] for a in CFG["universe"] if a["id"] == r["asset_id"]), r["asset_id"])
+        chg = r["change_24h"]
         snap_rows.append({
             "symbol": sym,
             "cn_name": asset_cn(r["asset_id"]),
             "price": float(r["price"]),
-            "change_24h": float(r["change_24h"]) if r["change_24h"] is not None else None,
+            "change_24h": float(chg) if pd.notna(chg) else None,
         })
 
     # --- 2. 信号 ---
@@ -170,7 +152,6 @@ def generate(output_path: str | Path | None = None) -> Path:
     )
     etf_rows = []
     if not etf_df.empty:
-        import pandas as pd
         etf_df["ts"] = pd.to_datetime(etf_df["ts"])
         etf_df = etf_df.sort_values("ts")
         vmax = max(abs(etf_df["value"]).max(), 1)
@@ -198,21 +179,11 @@ def generate(output_path: str | Path | None = None) -> Path:
             "explanation": _humanize_review(r["check_name"], d),
         })
 
-    # --- 6. 数据源覆盖度 ---
-    sources_df = query_df(
-        """SELECT source, COUNT(*) AS n, MAX(ts) AS last_ts FROM raw_metrics
-           WHERE source != '_meta' GROUP BY source"""
-    )
-    expected_sources = {"coingecko", "binance", "coinbase", "defillama", "feargreed", "farside_etf"}
-    actual_sources = set(sources_df["source"].tolist())
-    missing = sorted(expected_sources - actual_sources)
-    src_status = []
-    for s in sorted(expected_sources):
-        if s in actual_sources:
-            row = sources_df[sources_df["source"] == s].iloc[0]
-            src_status.append({"source": s, "ok": True, "n": int(row["n"]), "last_ts": row["last_ts"][:16].replace("T", " ")})
-        else:
-            src_status.append({"source": s, "ok": False, "n": 0, "last_ts": "—"})
+    # --- 6. 数据源覆盖度: 本次新鲜才算采到, 过期源显示 "⚠ 过期 (last_ts)" ---
+    # 之前只要表里出现过就 ✔ (binance 2026-06-05 的旧行显示了 4 个多月)
+    src_status = source_status(sorted(EXPECTED_SOURCES))
+    # 过期 + 从未采到 → 一起进 briefing 的覆盖度警告
+    missing = [s["source"] for s in src_status if not s["ok"]]
 
     # --- 7. PM 简报 ---
     regime = sig_rows[0]["regime"] if sig_rows else "UNKNOWN"
@@ -222,7 +193,7 @@ def generate(output_path: str | Path | None = None) -> Path:
     demo_check = query_df("SELECT COUNT(*) AS c FROM raw_metrics WHERE source='_meta' AND metric='is_demo'")
     is_demo = bool(int(demo_check.iloc[0]["c"]) > 0)
 
-    src_count = len(actual_sources)
+    src_count = sum(1 for s in src_status if s["ok"])   # 模板: {{ source_count }}/6
     factor_count = int(query_df("SELECT COUNT(DISTINCT factor) AS c FROM factors").iloc[0]["c"])
 
     ctx = {

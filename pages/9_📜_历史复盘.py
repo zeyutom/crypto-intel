@@ -9,8 +9,6 @@
   3. 单币种 forward return 表格 (with 颜色)
   4. 累计命中率曲线 (跨所有快照)
 """
-import json
-import statistics
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -37,96 +35,22 @@ st.caption('选一个日期, 看那天系统"看好"的币 N 天后实际跑赢�
 
 META_DIR = ROOT / "data" / "meta"
 
+# 纯函数放在 src.research.dashboard (可单测): 剔除合成快照 / coin_id 优先定价 / 同名币不互相覆盖
+from src.research.dashboard import (
+    exit_snapshot_dates, forward_returns, is_full_universe, load_real_snapshots,
+    topn_hit_rate, truncated_baseline_counts,
+)
+
 
 @st.cache_data(ttl=300)
 def load_snapshots() -> list[dict]:
-    snaps = []
-    for f in sorted(META_DIR.glob("snapshot_*.json")):
-        try:
-            d = json.loads(f.read_text())
-            if d.get("date") and d.get("coins"):
-                d["_file"] = f.name
-                snaps.append(d)
-        except Exception:
-            continue
-    return snaps
+    # 只要真实筛选快照: backfill 合成 (*_0000, 3 因子, 18-29 币) 不进复盘
+    return load_real_snapshots(META_DIR)
 
 
 @st.cache_data(ttl=300)
 def build_forward_returns(snapshots: list[dict], lookahead_days: int = 7) -> dict:
-    """对每个快照, 计算其 Top-N 在 lookahead 天后的 forward return.
-
-    Returns: {snapshot_date: {symbol: {entry_price, exit_price, ret_pct, ranked}}}
-    """
-    by_date = {s["date"]: s for s in snapshots}
-    dates = sorted(by_date.keys())
-
-    out: dict[str, dict] = {}
-    for i, d in enumerate(dates):
-        snap = by_date[d]
-        # 找 lookahead 天后最近的快照
-        try:
-            dt = datetime.strptime(d, "%Y-%m-%d")
-        except ValueError:
-            continue
-        target_dt = dt + timedelta(days=lookahead_days)
-        next_snap = None
-        for j in range(i + 1, len(dates)):
-            try:
-                cand_dt = datetime.strptime(dates[j], "%Y-%m-%d")
-            except ValueError:
-                continue
-            if cand_dt >= target_dt:
-                next_snap = by_date[dates[j]]
-                break
-
-        if not next_snap:
-            continue   # 还没到 lookahead 日
-
-        # 拼 forward return
-        exit_prices = {c["symbol"]: c.get("price")
-                       for c in next_snap.get("coins", [])
-                       if c.get("price")}
-
-        per_coin = {}
-        ranked = sorted(snap.get("coins", []),
-                        key=lambda c: c.get("composite_score", 0),
-                        reverse=True)
-        for rank_idx, c in enumerate(ranked):
-            sym = c["symbol"]
-            entry = c.get("price")
-            exit_ = exit_prices.get(sym)
-            if not entry or not exit_ or entry <= 0:
-                continue
-            per_coin[sym] = {
-                "rank": rank_idx + 1,
-                "entry_price": entry,
-                "exit_price": exit_,
-                "ret_pct": (exit_ - entry) / entry,
-                "composite_score": c.get("composite_score", 0),
-            }
-        out[d] = per_coin
-    return out
-
-
-def topn_hit_rate(per_coin: dict, n: int = 10) -> dict:
-    """Top-N 推荐里, ret > 整体中位数的比例."""
-    if not per_coin:
-        return {"hit_rate": None, "topn_avg_ret": None, "all_median": None}
-    rows = sorted(per_coin.values(), key=lambda r: r["rank"])
-    all_rets = [r["ret_pct"] for r in rows]
-    median = statistics.median(all_rets)
-    topn = rows[:n]
-    if not topn:
-        return {"hit_rate": None, "topn_avg_ret": None, "all_median": median}
-    hits = sum(1 for r in topn if r["ret_pct"] > median)
-    return {
-        "hit_rate": hits / len(topn),
-        "topn_avg_ret": sum(r["ret_pct"] for r in topn) / len(topn),
-        "all_median": median,
-        "all_mean": sum(all_rets) / len(all_rets),
-        "n_compared": len(rows),
-    }
+    return forward_returns(snapshots, lookahead_days=lookahead_days)
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -135,10 +59,11 @@ def topn_hit_rate(per_coin: dict, n: int = 10) -> dict:
 
 snaps = load_snapshots()
 if not snaps:
-    st.error("还没有快照数据。先在 [🚀 控制中心 · ⚡ 第一次跑] 跑一次 backfill。")
+    st.error("还没有真实快照数据 (backfill 合成快照不参与复盘)。"
+             "先在 [🚀 控制中心] 跑一次筛选 / nightly, 积累真实快照后再来。")
     st.stop()
 
-st.info(f"📊 已加载 **{len(snaps)}** 个快照, "
+st.info(f"📊 已加载 **{len(snaps)}** 个真实快照 (backfill 合成快照已剔除), "
         f"覆盖 **{snaps[0]['date']} ~ {snaps[-1]['date']}**")
 
 # 参数
@@ -196,12 +121,24 @@ c2.metric(
     f"{stats['topn_avg_ret']*100:+.2f}%" if stats['topn_avg_ret'] is not None else "—",
 )
 c3.metric(
-    "全市场中位",
+    "快照内中位",
     f"{stats['all_median']*100:+.2f}%" if stats['all_median'] is not None else "—",
 )
 c4.metric(
-    "全市场平均",
+    "快照内平均",
     f"{stats['all_mean']*100:+.2f}%" if stats.get('all_mean') is not None else "—",
+)
+_sel_snap = _by_date.get(sel_date) or {}
+_n_coins = len(_sel_snap.get("coins") or [])
+_exit_date = exit_snapshot_dates(snaps, lookahead).get(sel_date)
+_exit_snap = _by_date.get(_exit_date) or {}
+st.caption(
+    f"基准 = 该快照里 {lookahead} 天后仍能匹配到价格的 {stats['n_compared']} 个币 · 入场快照宇宙: "
+    + (f"全量评分宇宙 ({_n_coins} 币)" if is_full_universe(_sel_snap)
+       else f"⚠️ 只有 composite 前 {_n_coins} 名 (2026-10-12 之前的快照被截断, 不是全市场)")
+    + f" · 出场快照 {_exit_date}: "
+    + ("全量评分宇宙" if is_full_universe(_exit_snap)
+       else f"⚠️ 也被截断, 只能匹配到 {lookahead} 天后仍在前 200 的币")
 )
 
 # 单币种表
@@ -225,9 +162,8 @@ def color_ret(val):
 df_view = df[["rank", "entry", "exit", "ret %", "score"]].copy()
 df_view.index = [r["rank"] for r in rows[:top_n]]  # rank 当 index
 df_view.index.name = "rank"
-# 补 symbol 列
-syms = [s for s, _ in sorted(per_coin.items(), key=lambda kv: kv[1]["rank"])][:top_n]
-df_view.insert(0, "symbol", syms)
+# 补 symbol 列 (per_coin 按 coin_id 建键, 显示用行里的 symbol)
+df_view.insert(0, "symbol", [r["symbol"] for r in rows[:top_n]])
 
 styled = df_view.style.applymap(color_ret, subset=["ret %"])
 st.dataframe(styled, use_container_width=True)
@@ -247,8 +183,9 @@ if len(forward) >= 3:
         s = topn_hit_rate(forward[d], n=top_n)
         if s["hit_rate"] is None:
             continue
-        cumulative_hits += s["hit_rate"] * top_n
-        cumulative_total += top_n
+        # 快照币数不足 top_n 时实际只评了 n_topn 个, 按实际个数加权
+        cumulative_hits += s["hit_rate"] * s["n_topn"]
+        cumulative_total += s["n_topn"]
         hist_rows.append({
             "date": d,
             "daily_hit_rate": s["hit_rate"],
@@ -273,6 +210,17 @@ if len(forward) >= 3:
                      f"{beat_btc}/{len(hist_rows)}",
                      f"{beat_btc/len(hist_rows)*100:.0f}%")
         col_c.metric("可比快照数", str(len(hist_rows)))
+        # 出场快照是 schema 2 全量宇宙时 (如 10-06 ~ 10-11 + 7 天) 没有 "仍在前 200" 的偏差,
+        # 只对出场也截断的日期提幸存者偏差
+        _n_trunc, _n_surv = truncated_baseline_counts(
+            snaps, [r["date"] for r in hist_rows], lookahead_days=lookahead)
+        if _n_trunc:
+            st.caption(
+                f"其中 {_n_trunc} 天的入场快照只存了 composite 前 200 名 (2026-10-12 之前): "
+                "这些日期的「快照内中位」只覆盖入场时的前 200 名, 不是全市场"
+                + (f"; 其中 {_n_surv} 天的出场快照也被截断, "
+                   f"基准还只含 {lookahead} 天后仍在前 200 的币" if _n_surv else "")
+                + "。")
 else:
     st.info("可比快照不足 3 个, 累计曲线暂不显示")
 
@@ -282,9 +230,13 @@ else:
 # ──────────────────────────────────────────────────
 with st.expander("📖 怎么读这页"):
     st.markdown("""
-    - **命中率** = Top-N 里实际 ret > 全市场中位的比例.
+    - **命中率** = Top-N 里实际 ret > 快照内中位的比例.
       0.5 = 随机水平, >0.5 = 系统有信息含量, <0.5 = 系统反向了
-    - **Top-N 平均收益 vs 全市场中位**: 这俩做差是真实"超额"
+    - **Top-N 平均收益 vs 快照内中位**: 这俩做差是相对快照宇宙的"超额"
+    - **快照宇宙**: 2026-10-12 之前的快照只存了 composite 前 200 名, 基准偏向高分币;
+      之后的快照保存完整评分宇宙
     - **累计命中率曲线**: 应该相对稳定在 0.5 以上, 才说明系统持续有效
-    - 注意: 合成 backfill 快照只用了 3 个因子 (momentum/ATH drawdown), 信号不全
+    - 合成 backfill 快照 (只用 3 个动量因子) 已剔除, 不参与复盘
+    - 同名币 (如两个 VELO) 按 coin_id 区分; 旧快照里没有 coin_id 的同名币:
+      价格相差 2% 以内视为同一个币列了两次, 只算名次高的那行; 否则都不计入
     """)

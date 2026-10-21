@@ -93,15 +93,24 @@ def _write_snapshot(meta_dir, ts: datetime, coins: list[dict],
     return p
 
 
+def _hist(ic: float, n: int, start_age: int = 1, step: int = 1,
+          schema: int = 2, lookback: int = 7) -> list[dict]:
+    """n 条带来源标签的 IC 记录, 日期为今天往前 start_age, start_age+step, ... 天."""
+    today = datetime.now(timezone.utc).date()
+    out = []
+    for i in range(n):
+        d = (today - timedelta(days=start_age + i * step)).isoformat()
+        out.append({"date": d, "ic": ic, "lookback": lookback, "asof": f"seed_{d}",
+                    "base": "seed_base", "base_schema": schema, "n": 300})
+    return list(reversed(out))   # 旧 → 新, 与真实追加顺序一致
+
+
 def _seed_config(meta_dir, history_ic: float = 0.0, n_hist: int = MIN_IC_RECORDS,
                  weights: dict | None = None, enabled_override: dict | None = None):
-    """写一份带 IC 历史的 factor_config (历史日期都在过去, 不与今天冲突)."""
+    """写一份带 IC 历史的 factor_config (合格记录: schema 2, 最近几天, 不与今天冲突)."""
     cfg = load_factor_config()
     for fname, fdata in cfg["factors"].items():
-        fdata["ic_history"] = [
-            {"date": f"2026-01-{d + 1:02d}", "ic": history_ic, "lookback": 7}
-            for d in range(n_hist)
-        ]
+        fdata["ic_history"] = _hist(history_ic, n_hist)
         if weights and fname in weights:
             fdata["weight"] = weights[fname]
         if enabled_override and fname in enabled_override:
@@ -111,10 +120,19 @@ def _seed_config(meta_dir, history_ic: float = 0.0, n_hist: int = MIN_IC_RECORDS
 
 
 def _ic_result(factor_ic: dict, constant: list | None = None, lookback: int = 7,
-               degenerate: list | None = None):
-    return {"ok": True, "lookback_days": lookback, "factor_ic": factor_ic,
-            "degenerate_factors": degenerate or [],
-            "constant_factors": constant or []}
+               degenerate: list | None = None, low_coverage: list | None = None,
+               latest_file: str | None = None, latest_date: str | None = None,
+               base_schema: int = 2):
+    r = {"ok": True, "lookback_days": lookback, "factor_ic": factor_ic,
+         "degenerate_factors": degenerate or [],
+         "constant_factors": constant or [],
+         "low_coverage_factors": low_coverage or [],
+         "base_schema": base_schema, "snapshot_file": "base.json", "matched_coins": 300}
+    if latest_file:
+        r["latest_file"] = latest_file
+    if latest_date:
+        r["latest_date"] = latest_date
+    return r
 
 
 # ────────────────────────────────────────────────────────────────────
@@ -376,8 +394,10 @@ def test_degenerate_constant_factor_auto_disabled_then_reenabled(meta_dir, warn_
     w = get_current_weights(cfg)
     assert w["funding_rate"] == 0.0
     assert abs(sum(w.values()) - 1.0) < 1e-6
+    # 启用因子投影到 prior 之和 (关掉的因子带走自己的 prior, 不把权重挤给别人)
     enabled_sum = sum(v["weight"] for k, v in cfg["factors"].items() if v["enabled"])
-    assert abs(enabled_sum - 1.0) < 1e-5
+    assert abs(enabled_sum - ml._prior_mass(cfg["factors"])) < 1e-5
+    assert cfg["factors"]["funding_rate"]["disabled_reason"] == "constant"
     assert generate_factor_report()["factors"]["funding_rate"]["status"] == "disabled"
 
     # 因子重新有变化 → 以 min 权重复活 (force 绕过当日守卫)
@@ -387,7 +407,9 @@ def test_degenerate_constant_factor_auto_disabled_then_reenabled(meta_dir, warn_
     fr = cfg["factors"]["funding_rate"]
     assert fr["enabled"] is True
     assert fr["degenerate_runs"] == 0
-    assert abs(fr["weight"] - fr["min"]) < 1e-6
+    assert "disabled_reason" not in fr
+    # 以 min 复活, 同一轮再向 prior 平滑靠拢一步 (α = 1/lookback): min ≤ w < prior
+    assert fr["min"] - 1e-6 <= fr["weight"] < fr["prior"]
     assert get_current_weights(cfg)["funding_rate"] > 0
 
 
@@ -419,11 +441,14 @@ def test_ic_backtest_to_update_weights_end_to_end_disables_dead_factors(meta_dir
     funding_rate/dev_activity 被禁用, 其余因子权重仍在 [min,max] 且 sum=1."""
     now = _now()
     _write_snapshot(meta_dir, now - timedelta(days=7),
-                    _make_coins(150, dead={"f_funding_rate": 0.5, "f_dev_activity": 0.0}))
-    _write_snapshot(meta_dir, now, _make_coins(150, seed=5))
+                    _make_coins(150, dead={"f_funding_rate": 0.5, "f_dev_activity": 0.0}),
+                    meta={"schema": 2})
+    _write_snapshot(meta_dir, now, _make_coins(150, seed=5), meta={"schema": 2})
     _seed_config(meta_dir, history_ic=0.0)
 
-    r = update_weights_from_ic(run_ic_backtest(lookback_days=7))
+    ic = run_ic_backtest(lookback_days=7)
+    assert ic["base_schema"] == 2 and ic["latest_file"].startswith("snapshot_")
+    r = update_weights_from_ic(ic)
     assert r["ok"], r
     assert set(r["disabled"]) == {"funding_rate", "dev_activity"}
     cfg = load_factor_config()
@@ -435,6 +460,9 @@ def test_ic_backtest_to_update_weights_end_to_end_disables_dead_factors(meta_dir
             assert fdata["weight"] == 0.0
             assert len(fdata["ic_history"]) == MIN_IC_RECORDS   # degenerate 轮不写历史
     assert abs(sum(r["new_weights"].values()) - 1.0) < 1e-6
+    # 新记录带来源标签
+    h = cfg["factors"]["momentum_30d"]["ic_history"][-1]
+    assert h["asof"] == ic["latest_file"] and h["base_schema"] == 2 and h["n"] == 150
 
 
 def test_degenerate_runs_counts_weight_rounds_not_calls(meta_dir):
@@ -500,8 +528,8 @@ def test_normalize_and_project_infeasible_warns_not_crash(warn_log):
     assert any(rec.levelno == logging.WARNING for rec in warn_log.records)
 
 
-def test_update_weights_once_per_day_idempotent(meta_dir):
-    """同日第二次调用: 只刷新 IC 记录 (同日同 lookback 覆盖), 权重不动."""
+def test_update_weights_once_per_snapshot_idempotent(meta_dir):
+    """同一价格快照第二次调用: 只刷新 IC 记录 (同快照同 lookback 覆盖), 权重不动."""
     _seed_config(meta_dir, history_ic=0.3)
     # 让 momentum_30d 的历史 IC 与众不同, 否则均匀乘数归一化后权重不变
     cfg = load_factor_config()
@@ -518,7 +546,7 @@ def test_update_weights_once_per_day_idempotent(meta_dir):
 
     # 第二次: 同日同 lookback → 覆盖而非追加; 权重纹丝不动 (不复利)
     r2 = update_weights_from_ic(_ic_result(_valid_ic(0.25)))
-    assert r2["ok"] and r2["skipped"] == "already_updated_today"
+    assert r2["ok"] and r2["skipped"] == "already_updated_for_snapshot"
     assert r2["factors_updated"] == 0 and r2["disabled"] == []
     cfg2 = load_factor_config()
     assert {k: v["weight"] for k, v in cfg2["factors"].items()} == w1
@@ -529,7 +557,7 @@ def test_update_weights_once_per_day_idempotent(meta_dir):
 
     # 不同 lookback 的 IC 记录仍追加 (但权重依旧不动)
     r3 = update_weights_from_ic(_ic_result(_valid_ic(0.2), lookback=14))
-    assert r3["skipped"] == "already_updated_today"
+    assert r3["skipped"] == "already_updated_for_snapshot"
     cfg3 = load_factor_config()
     hist = cfg3["factors"]["momentum_30d"]["ic_history"]
     assert len(hist) == MIN_IC_RECORDS + 2
@@ -562,8 +590,10 @@ def test_load_old_config_without_enabled_backfills(meta_dir):
 
     cfg = load_factor_config()
     assert all(f.get("enabled") is True for f in cfg["factors"].values())
-    # 旧字段保留, 新因子合并进来并带 enabled
-    assert cfg["factors"]["funding_rate"]["ic_history"][0]["ic"] == -0.3
+    # 新因子合并进来并带 enabled; 不带来源标签的旧 IC 记录在 v2 迁移时归档, 不再参与学习
+    assert cfg["factors"]["funding_rate"]["ic_history"] == []
+    assert cfg["ic_history_archive"]["funding_rate"][0]["ic"] == -0.3
+    assert cfg["version"] == ml.CONFIG_VERSION and "regime" not in cfg
     assert cfg["factors"]["tvl_mcap"]["enabled"] is True
     assert "last_weight_update_date" not in cfg   # 首次调权前不存在 → 不触发守卫
     w = get_current_weights(cfg)
@@ -627,3 +657,352 @@ def test_locked_factor_stays_off_even_with_valid_ic(meta_dir):
     r2 = update_weights_from_ic(_ic_result(_valid_ic(0.2)), force=True)
     assert load_factor_config()["factors"]["volume_turnover"]["weight"] == 0.0
     assert "volume_turnover" in r2["disabled"]
+
+
+
+# ────────────────────────────────────────────────────────────────────
+#  2026-10-20 审计: 学习规则重写的回归测试
+# ────────────────────────────────────────────────────────────────────
+
+def _v1_config_like_production() -> dict:
+    """2026-10-18 线上 factor_config 的缩影: 6 月的截断记录 + 10 月记录, 都没有来源标签,
+    动量被压到下限, 外加一个从未写过的 regime 字段."""
+    june = [{"date": f"2026-06-{d:02d}", "ic": -0.35, "lookback": 7} for d in range(11, 19)]
+    octo = [{"date": f"2026-10-{d:02d}", "ic": -0.04, "lookback": 7} for d in range(13, 19)]
+    factors = {}
+    for fname, fdef in DEFAULT_FACTORS.items():
+        factors[fname] = {**fdef, "ic_history": june + octo, "degenerate_runs": 0}
+    factors["momentum_30d"]["weight"] = 0.05
+    factors["momentum_7d"]["weight"] = 0.03
+    factors["volume_turnover"].update(enabled=False, locked=True, weight=0.0)
+    factors["dev_activity"].update(enabled=False, weight=0.0, ic_history=[])
+    return {"version": 1, "regime": "unknown", "factors": factors,
+            "last_weight_update_date": "2026-10-18"}
+
+
+def test_v2_migration_archives_untagged_ic_and_resets_to_priors(meta_dir):
+    meta_dir.mkdir(parents=True)
+    (meta_dir / "factor_config.json").write_text(
+        json.dumps(_v1_config_like_production()), encoding="utf-8")
+
+    cfg = load_factor_config()   # 测试进程是写入方 → 迁移落盘
+    assert cfg["version"] == ml.CONFIG_VERSION and "regime" not in cfg
+    on_disk = json.loads((meta_dir / "factor_config.json").read_text(encoding="utf-8"))
+    assert on_disk["version"] == ml.CONFIG_VERSION
+    for fname, fdata in cfg["factors"].items():
+        assert fdata["ic_history"] == [], fname          # 旧记录不再参与学习
+        assert "prior" in fdata
+    assert len(cfg["ic_history_archive"]["momentum_30d"]) == 14
+    vt, dev = cfg["factors"]["volume_turnover"], cfg["factors"]["dev_activity"]
+    assert vt["disabled_reason"] == "locked" and vt["weight"] == 0.0
+    assert dev["disabled_reason"] == "constant" and dev["weight"] == 0.0
+    # 启用因子重置到 2026-10-12 的 prior (被污染的漂移撤销): 相对比例与 prior 一致
+    w = get_current_weights(cfg)
+    pri = {k: ml.MIGRATION_PRIORS[k] for k in w if w[k] > 0}
+    tot = sum(pri.values())
+    for k, p in pri.items():
+        assert abs(w[k] - p / tot) < 2e-3, k
+    assert w["momentum_30d"] > 0.08                      # 不再钉在下限 0.05
+
+    # 第二次加载不会再迁移 / 再追加归档
+    cfg2 = load_factor_config()
+    assert len(cfg2["ic_history_archive"]["momentum_30d"]) == 14
+    assert len(cfg2.get("migrations", [])) == 1
+
+
+def test_v2_migration_in_memory_only_for_non_writer(meta_dir, monkeypatch):
+    meta_dir.mkdir(parents=True)
+    path = meta_dir / "factor_config.json"
+    path.write_text(json.dumps(_v1_config_like_production()), encoding="utf-8")
+    before = path.read_text(encoding="utf-8")
+    monkeypatch.delenv(ml.WEIGHT_WRITER_ENV, raising=False)
+    cfg = load_factor_config()
+    assert cfg["version"] == ml.CONFIG_VERSION          # 读方看到同样的视图
+    assert path.read_text(encoding="utf-8") == before   # 但不落盘 (单一写入方)
+
+
+def test_eligible_ic_filters_schema_age_and_lookback():
+    today = datetime.now(timezone.utc).date()
+    d = lambda n: (today - timedelta(days=n)).isoformat()
+    hist = [
+        {"date": d(1), "ic": 0.1, "lookback": 7, "base_schema": 2},
+        {"date": d(2), "ic": 0.2, "lookback": 7, "base_schema": 1},    # 截断快照
+        {"date": d(3), "ic": 0.3, "lookback": 7},                      # 无标签 (旧)
+        {"date": d(4), "ic": 0.4, "lookback": 14, "base_schema": 2},   # 别的周期
+        {"date": d(40), "ic": 0.5, "lookback": 7, "base_schema": 2},   # 太老
+        {"date": d(5), "ic": None, "lookback": 7, "base_schema": 2},
+        {"date": "garbage", "ic": 0.6, "lookback": 7, "base_schema": 2},
+        {"date": d(0), "ic": -0.1, "lookback": 7, "base_schema": 2},
+    ]
+    assert ml._eligible_ic(hist, 7, today) == [(0, -0.1), (1, 0.1)]
+
+
+def test_ic_signal_needs_records_shrinks_by_overlap_and_floors():
+    assert ml._ic_signal([(0, 0.3), (1, 0.3)], 7)["signal"] == 0.0     # 记录不足
+    week = [(i, 0.1) for i in range(7)]           # 一周的重叠日记录 ≈ 1.5 个独立观测
+    s = ml._ic_signal(week, 7)
+    assert s["avg_ic"] == 0.1 and 1.4 < s["n_eff"] < 1.55
+    assert 0.03 < s["signal"] < 0.04              # 收缩约 0.38
+    month = [(i, 0.1) for i in range(29)]
+    assert ml._ic_signal(month, 7)["signal"] > s["signal"]   # 证据越多收缩越少
+    tiny = [(i, 0.03) for i in range(7)]
+    assert ml._ic_signal(tiny, 7)["signal"] == 0.0           # 收缩后低于地板 → 噪声
+
+
+def _daily_updates(meta_dir, ic_by_factor: dict, days: int):
+    """模拟 nightly: 每天一个新价格快照, 用当天 IC 调一次权重."""
+    today = datetime.now(timezone.utc).date()
+    r = None
+    for i in range(days):
+        day = (today - timedelta(days=days - 1 - i)).isoformat()
+        ic = {f"f_{k}": (v(i) if callable(v) else v)
+              for k in DEFAULT_FACTORS for v in [ic_by_factor.get(k, 0.0)]}
+        r = update_weights_from_ic(_ic_result(ic, latest_file=f"snapshot_{day}.json",
+                                              latest_date=day))
+        assert r["ok"] and "skipped" not in r, r
+    return r
+
+
+def test_persistent_mild_negative_ic_does_not_pin_weight_to_min(meta_dir):
+    """旧规则每天复利 (1+0.5×IC): IC 均值 -0.05 时 30 天把权重压到 min。
+    新规则收敛到 prior×(1+K×收缩信号), 并在那里停住。
+    (IC 带噪声 ±0.15: 不重叠窗口 t≈-1, 达不到自动关闭的 -2)"""
+    load_factor_config()
+    noisy = lambda i: -0.05 + (0.15 if i % 2 == 0 else -0.15)
+    r = _daily_updates(meta_dir, {"momentum_30d": noisy}, days=30)
+    cfg = load_factor_config()
+    m30 = cfg["factors"]["momentum_30d"]
+    assert m30["weight"] > m30["min"] + 0.03
+    assert m30["weight"] < m30["prior"]          # 方向对: 低于 prior
+    w_before = m30["weight"]
+    _daily_updates(meta_dir, {"momentum_30d": noisy}, days=5)
+    # 稳态附近只做小幅调整, 不会继续单向漂移
+    assert abs(load_factor_config()["factors"]["momentum_30d"]["weight"] - w_before) < 0.02
+    assert r["signals"]["momentum_30d"]["signal"] < 0
+    assert m30["enabled"] is True
+
+
+def test_persistent_positive_ic_raises_weight_above_prior(meta_dir):
+    load_factor_config()
+    _daily_updates(meta_dir, {"tvl_mcap": 0.12}, days=30)
+    cfg = load_factor_config()
+    tvl = cfg["factors"]["tvl_mcap"]
+    w = get_current_weights(cfg)
+    pri = {k: v["prior"] for k, v in cfg["factors"].items() if v["enabled"]}
+    assert w["tvl_mcap"] > pri["tvl_mcap"] / sum(pri.values()) + 0.02
+    assert tvl["min"] - 1e-6 <= tvl["weight"] <= tvl["max"] + 1e-6
+
+
+def test_guard_is_keyed_on_snapshot_not_utc_date(meta_dir):
+    """夜间任务被延迟到 UTC 次日: 同一 UTC 日期的两个不同快照各调一次权重."""
+    _seed_config(meta_dir, history_ic=0.0)
+    today = datetime.now(timezone.utc).date().isoformat()
+    r1 = update_weights_from_ic(_ic_result(_valid_ic(0.1), latest_file="snapshot_a.json",
+                                           latest_date=today))
+    r2 = update_weights_from_ic(_ic_result(_valid_ic(0.1), latest_file="snapshot_b.json",
+                                           latest_date=today))
+    r3 = update_weights_from_ic(_ic_result(_valid_ic(0.1), latest_file="snapshot_b.json",
+                                           latest_date=today))
+    assert "skipped" not in r1 and "skipped" not in r2
+    assert r3["skipped"] == "already_updated_for_snapshot"
+    hist = load_factor_config()["factors"]["momentum_30d"]["ic_history"]
+    assert [h["asof"] for h in hist[-2:]] == ["snapshot_a.json", "snapshot_b.json"]
+
+
+def test_low_coverage_factor_flagged_disabled_and_revived(meta_dir):
+    """onchain_activity 只有极少数币非零 → 低覆盖: 不进 factor_ic, 被关闭; 覆盖恢复后复活."""
+    now = _now()
+    old = _make_coins(150)
+    for i, c in enumerate(old):
+        c["f_onchain_activity"] = round(0.1 * (i + 1), 3) if i < 8 else 0.0
+    _write_snapshot(meta_dir, now - timedelta(days=7), old, meta={"schema": 2})
+    _write_snapshot(meta_dir, now, _make_coins(150, seed=5), meta={"schema": 2})
+    ic = run_ic_backtest(lookback_days=7)
+    assert ic["low_coverage_factors"] == ["f_onchain_activity"]
+    assert "f_onchain_activity" not in ic["factor_ic"]
+    assert ic["coverage"]["f_onchain_activity"] == 8
+
+    _seed_config(meta_dir, history_ic=0.0)
+    r = update_weights_from_ic(ic)
+    oc = load_factor_config()["factors"]["onchain_activity"]
+    assert oc["enabled"] is False and oc["disabled_reason"] == "low_coverage"
+    assert r["disabled_reasons"]["onchain_activity"] == "low_coverage"
+
+    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="snapshot_next.json"))
+    oc = load_factor_config()["factors"]["onchain_activity"]
+    assert oc["enabled"] is True and "disabled_reason" not in oc
+
+
+def test_disabling_factors_keeps_relative_weights_of_the_rest():
+    """关掉两个低覆盖因子后, 剩余因子保持 prior 的相对比例, 不把多出的权重挤进动量."""
+    factors = {k: {**v, "prior": ml.MIGRATION_PRIORS.get(k, v["weight"])}
+               for k, v in DEFAULT_FACTORS.items()}
+    for k in ("volume_turnover", "dev_activity", "funding_rate",
+              "onchain_activity", "narrative_heat"):
+        factors[k]["enabled"] = False
+    for k, v in factors.items():
+        v["weight"] = v["prior"] if v["enabled"] else 0.0
+    assert _normalize_and_project(factors, total=ml._prior_mass(factors))
+    w = get_current_weights({"factors": factors})
+    assert w["momentum_30d"] < 0.15 and w["momentum_7d"] < 0.09
+    assert abs(w["ath_drawdown"] / w["tvl_mcap"] - 0.186187 / 0.170568) < 1e-3
+    # 对照: 旧做法归一化到 1 会把 ath/size/tvl 顶到上限, 动量合计 > 35%
+    legacy = {k: dict(v) for k, v in factors.items()}
+    _normalize_and_project(legacy, total=1.0)
+    lw = get_current_weights({"factors": legacy})
+    assert lw["momentum_30d"] + lw["momentum_7d"] > 0.33
+
+
+def test_negative_ic_is_flagged_not_disabled_after_persistent_evidence(meta_dir):
+    """持续负 IC (全部相位、连续 7 次调权) → negative_ic_flag 提醒人工; 因子不被自动关闭,
+    只是目标权重降向 min (复核: 自动关闭在纯噪声下会让因子反复开关)."""
+    _seed_config(meta_dir, history_ic=0.0)
+    cfg = load_factor_config()
+    hist = []
+    for age in range(1, 56):
+        hist += _hist(-0.15 + 0.03 * math.sin(age), 1, start_age=age)
+    cfg["factors"]["narrative_heat"]["ic_history"] = sorted(hist, key=lambda h: h["date"])
+    save_factor_config(cfg)
+    today = datetime.now(timezone.utc).date().isoformat()
+    ic = _valid_ic(0.0)
+    ic["f_narrative_heat"] = -0.15
+    flags = []
+    for i in range(8):
+        r = update_weights_from_ic(_ic_result(ic, latest_file=f"snap_neg_{i}.json",
+                                              latest_date=today))
+        flags.append("narrative_heat" in r["negative_ic_flags"])
+    assert flags == [False] * 6 + [True, True]          # 连续 lookback=7 次才提醒
+    nh = load_factor_config()["factors"]["narrative_heat"]
+    assert nh["enabled"] is True and nh["negative_ic_flag"] is True
+    assert nh["weight"] < nh["prior"]                    # 目标规则把它压向 min
+    rep = generate_factor_report()["factors"]["narrative_heat"]
+    assert rep["negative_ic_flag"] is True
+
+    # 证据消失 → 提醒撤销
+    cfg = load_factor_config()
+    cfg["factors"]["narrative_heat"]["ic_history"] = _hist(0.02, 30)
+    save_factor_config(cfg)
+    ic["f_narrative_heat"] = 0.02
+    r = update_weights_from_ic(_ic_result(ic, latest_file="snap_pos.json", latest_date=today))
+    assert "narrative_heat" not in r["negative_ic_flags"]
+
+
+def test_zero_mean_autocorrelated_noise_never_flags_or_disables(meta_dir):
+    """60 天零均值、按 7 日重叠相关的 IC 噪声: 不应出现负 IC 提醒或任何自动关闭."""
+    import random
+    load_factor_config()
+    rng = random.Random(20261020)
+    shocks = {k: [rng.gauss(0, 0.1) for _ in range(70)] for k in DEFAULT_FACTORS}
+
+    def series(k):
+        # 7 日前瞻 IC = 最近 7 个日冲击的均值 × √7 → 相邻两天相关 6/7, sd ≈ 0.1
+        return lambda i: sum(shocks[k][i:i + 7]) / math.sqrt(7)
+
+    r = _daily_updates(meta_dir, {k: series(k) for k in DEFAULT_FACTORS}, days=60)
+    cfg = load_factor_config()
+    assert r["negative_ic_flags"] == []
+    assert all(v["enabled"] for k, v in cfg["factors"].items())
+    w = get_current_weights(cfg)
+    pri = {k: v["prior"] for k, v in cfg["factors"].items()}
+    for k in w:   # 无信息时权重在 prior 附近 (±50%)
+        assert 0.5 < w[k] / (pri[k] / sum(pri.values())) < 1.5, k
+
+
+def test_unlocking_a_factor_revives_it(meta_dir):
+    """locked 改回 false (lock_reason 里写的操作) → 下一轮以 min 复活."""
+    _seed_config(meta_dir, history_ic=0.0)
+    cfg = load_factor_config()
+    cfg["factors"]["volume_turnover"].update(enabled=False, locked=True, weight=0.0)
+    save_factor_config(cfg)
+    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="s1.json"))
+    vt = load_factor_config()["factors"]["volume_turnover"]
+    assert vt["enabled"] is False and vt["disabled_reason"] == "locked"
+    cfg = load_factor_config()
+    cfg["factors"]["volume_turnover"]["locked"] = False
+    save_factor_config(cfg)
+    update_weights_from_ic(_ic_result(_valid_ic(0.05), latest_file="s2.json"))
+    vt = load_factor_config()["factors"]["volume_turnover"]
+    assert vt["enabled"] is True and "disabled_reason" not in vt and vt["weight"] > 0
+
+
+def test_migration_gives_priors_headroom_on_both_sides(meta_dir):
+    meta_dir.mkdir(parents=True)
+    (meta_dir / "factor_config.json").write_text(
+        json.dumps(_v1_config_like_production()), encoding="utf-8")
+    cfg = load_factor_config()
+    for k, v in cfg["factors"].items():
+        if v["enabled"]:
+            assert v["min"] <= 0.5 * v["prior"] + 1e-9 or v["min"] < v["prior"], k
+            assert v["max"] >= 1.5 * v["prior"] - 1e-9, k
+    assert cfg["factors"]["market_cap_size"]["max"] >= 0.225
+
+
+def test_factor_report_shows_effective_weights(meta_dir):
+    _seed_config(meta_dir, history_ic=0.0)
+    cfg = load_factor_config()
+    for k in ("onchain_activity", "narrative_heat"):
+        cfg["factors"][k].update(enabled=False, weight=0.0, disabled_reason="low_coverage")
+    _normalize_and_project(cfg["factors"], total=ml._prior_mass(cfg["factors"]))
+    save_factor_config(cfg)
+    rep = generate_factor_report()["factors"]
+    eff = get_current_weights()
+    assert abs(sum(f["weight"] for f in rep.values()) - 1.0) < 1e-5
+    for k, f in rep.items():
+        assert abs(f["weight"] - eff[k]) < 1e-6
+    assert sum(f["weight_raw"] for f in rep.values()) < 0.95   # 存储值是 prior 尺度
+
+
+def test_ic_backtest_matches_by_coin_id_not_symbol(meta_dir):
+    """VELO 同时是 velodrome-finance 和 velo: 不能拿另一个币的价格算收益."""
+    now = _now()
+    old = _make_coins(150)
+    old[0].update(symbol="VELO", coin_id="velodrome-finance", price=0.035)
+    old[1].update(symbol="VELO", coin_id="velo", price=0.004)
+    new = _make_coins(150)
+    new[0].update(symbol="VELO", coin_id="velo", price=0.0041)    # velodrome 掉出了新快照
+    new = [new[0]] + new[2:]
+    _write_snapshot(meta_dir, now - timedelta(days=7), old, meta={"schema": 2})
+    _write_snapshot(meta_dir, now, new, meta={"schema": 2})
+    r = run_ic_backtest(lookback_days=7)
+    assert r["ok"]
+    # velodrome 无价可配 → 脱落 (1/150), 而不是被记成 -88%
+    assert r["matched_coins"] == 149
+
+    lookup = ml._price_lookup([{"symbol": "ABC", "price": 1.0},
+                               {"symbol": "ABC", "price": 2.0},
+                               {"symbol": "XYZ", "price": 3.0}])
+    assert lookup({"symbol": "ABC"}) is None          # 无 coin_id 且 symbol 不唯一 → 跳过
+    assert lookup({"symbol": "XYZ"}) == 3.0
+
+
+def test_detect_regime_leftover_is_sideways_and_hysteresis():
+    from src.research.meta_learner import detect_regime
+    assert detect_regime({"change_30d": 9.0, "change_7d": 1.0}) == "sideways"   # 曾被叫成高波动
+    assert detect_regime({"change_30d": 10.0, "change_7d": -5.0}) == "volatile"
+    assert detect_regime({"change_30d": 20.0, "change_7d": 5.0}) == "bull"
+    assert detect_regime({}) == "unknown"
+    # 贴着阈值的小抖动不切换
+    assert detect_regime({"change_30d": 2.0, "change_7d": 5.2},
+                         prev_regime="sideways") == "sideways"
+    assert detect_regime({"change_30d": 2.0, "change_7d": 4.8},
+                         prev_regime="volatile") == "volatile"
+    # 明确越过阈值才切换
+    assert detect_regime({"change_30d": 2.0, "change_7d": 7.0},
+                         prev_regime="sideways") == "volatile"
+    # 当前读数离上一个 regime 很远 → 直接切换, 即使它靠近别的阈值 (复核发现的 bug)
+    assert detect_regime({"change_30d": -14.5, "change_7d": -4.0},
+                         prev_regime="bull") != "bull"
+    assert detect_regime({"change_30d": -15.6, "change_7d": -10.0},
+                         prev_regime="sideways") == "bear"
+
+
+def test_factor_report_regime_from_latest_real_snapshot(meta_dir):
+    now = _now()
+    _write_snapshot(meta_dir, now - timedelta(hours=2), _make_coins(150),
+                    meta={"schema": 2, "regime": "bear"})
+    _write_snapshot(meta_dir, now, _make_coins(150), meta={"synthetic": True, "regime": "bull"},
+                    name="snapshot_29990101_0000.json")
+    rep = generate_factor_report()
+    assert rep["regime"] == "bear"
+    assert generate_factor_report(regime="bull")["regime"] == "bull"
+    assert rep["factors"]["momentum_30d"]["status"] == "insufficient_data"

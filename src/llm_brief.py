@@ -12,11 +12,12 @@ from __future__ import annotations
 import os
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
 from typing import Any
 import httpx
 import pandas as pd
-from .db import query_df, latest_factors
+from .db import query_df, latest_factors, latest_quotes
 from .factors._metadata import factor_meta, asset_cn, regime_cn
 from .utils import setup_logger
 
@@ -68,31 +69,16 @@ def _gather_factor_summary() -> str:
 
 
 def _gather_market_snapshot() -> str:
-    snap = query_df(
-        """SELECT asset_id, value AS price FROM (
-              SELECT r.asset_id, r.value, r.source AS src,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
+    # 先新鲜度、再源优先级; 价格和 24h 涨跌来自同一条报价 (之前价格是 06-05 的
+    # binance 旧值、涨跌却是最新一条, 喂给 Gemini 的是错配的组合)
+    snap = latest_quotes()
     if snap.empty:
         return "(无行情数据)"
-    chg = query_df(
-        """SELECT asset_id, value AS pct FROM (
-              SELECT r.asset_id, r.value, ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                ORDER BY r.ts DESC) AS rn FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    merged = snap.merge(chg, on="asset_id", how="left")
     lines = []
-    for _, r in merged.iterrows():
+    for _, r in snap.iterrows():
+        pct = r["change_24h"] if pd.notna(r["change_24h"]) else 0.0
         lines.append(f"- {asset_cn(r['asset_id'])}: ${r['price']:,.2f} "
-                     f"(24h {(r['pct'] or 0):+.2f}%)")
+                     f"(24h {pct:+.2f}%)")
     return "\n".join(lines)
 
 
@@ -189,8 +175,10 @@ def _call_gemini(system: str, user: str, max_tokens: int) -> tuple[str, dict]:
     """Google Gemini (免费档, REST, 无需额外依赖)。"""
     key = os.getenv("GEMINI_API_KEY", "")
     model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    # key 走 header 不走 URL: httpx 的 HTTPStatusError 文案会带完整 URL, 曾经 ?key= 会随
+    # "AI 简报跳过: ..." 进入 data/nightly_logs/*.log 并提交到公开仓库
     url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
-           f"{model}:generateContent?key={key}")
+           f"{model}:generateContent")
     body = {
         "system_instruction": {"parts": [{"text": system}]},
         "contents": [{"role": "user", "parts": [{"text": user}]}],
@@ -201,7 +189,7 @@ def _call_gemini(system: str, user: str, max_tokens: int) -> tuple[str, dict]:
             "thinkingConfig": {"thinkingBudget": 0},
         },
     }
-    r = httpx.post(url, json=body, timeout=120)
+    r = httpx.post(url, json=body, headers={"x-goog-api-key": key}, timeout=120)
     r.raise_for_status()
     data = r.json()
     cands = data.get("candidates") or []
@@ -236,6 +224,60 @@ def _call_groq(system: str, user: str, max_tokens: int) -> tuple[str, dict]:
                   "model": model, "provider": "groq"}
 
 
+def _call_anthropic(system: str, user: str, max_tokens: int,
+                    model: str | None = None) -> tuple[str, dict]:
+    """Anthropic Messages API, 不带工具 (无 web 搜索的兜底路径用, 如 run_claude 的 api_fallback)。"""
+    from anthropic import Anthropic
+    model = model or os.getenv("ANTHROPIC_MODEL", DEFAULT_MODEL)
+    client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+    resp = client.messages.create(
+        model=model, max_tokens=max_tokens, system=system,
+        messages=[{"role": "user", "content": user}],
+    )
+    text = "\n\n".join(blk.text for blk in resp.content if getattr(blk, "type", "") == "text")
+    return text, {"input_tokens": resp.usage.input_tokens,
+                  "output_tokens": resp.usage.output_tokens,
+                  "model": resp.model, "provider": "anthropic"}
+
+
+# 错误文案脱敏 (二道保险): URL 里的 key=xxx 查询参数 + 环境里真实的 API key 值。
+# 简报错误会被 nightly_run.sh 打进 data/nightly_logs/*.log 并提交到公开仓库。
+_SECRET_ENV_KEYS = ("GEMINI_API_KEY", "GROQ_API_KEY", "ANTHROPIC_API_KEY")
+
+
+def _redact_secrets(text: str) -> str:
+    if not text:
+        return text
+    out = re.sub(r"key=[^&\s'\"]+", "key=REDACTED", str(text))
+    for k in _SECRET_ENV_KEYS:
+        v = os.getenv(k, "")
+        if len(v) >= 8:
+            out = out.replace(v, "REDACTED")
+    return out
+
+
+def _record_llm_usage(prompt_chars: int, usage: dict | None, response_chars: int,
+                      success: bool) -> None:
+    """一次 provider 调用记进 LLM 预算账本 (优先用 provider 返回的真实 token 数)。
+
+    曾经 generate_brief 完全不记账: 云端每晚 Gemini 调用成功, llm-budget 却报 0 tokens / 0 calls。
+    失败且无 usage 时只记次数 (请求没成功一般不消耗 token)。记账失败不影响简报。
+    """
+    if os.environ.get("CRYPTO_INTEL_DISABLE_BUDGET") == "1":
+        return
+    try:
+        from .llm_budget import budget
+        usage = usage or {}
+        tin, tout = usage.get("input_tokens"), usage.get("output_tokens")
+        if tin is None:
+            tin = budget.chars_to_tokens(prompt_chars) if success else 0
+        if tout is None:
+            tout = budget.chars_to_tokens(response_chars) if success else 0
+        budget.record_tokens(tin, tout, success)
+    except Exception as e:
+        log.warning(f"LLM 预算记账失败 (不影响简报): {e}")
+
+
 def generate_brief(model: str = DEFAULT_MODEL,
                    max_tokens: int = 4096,
                    max_searches: int = 5) -> dict:
@@ -243,10 +285,18 @@ def generate_brief(model: str = DEFAULT_MODEL,
 
     provider 选择: 环境变量 LLM_PROVIDER 显式优先, 否则按 key 自动选
     (GEMINI_API_KEY > GROQ_API_KEY > ANTHROPIC_API_KEY)。gemini/groq 免费档, anthropic 付费。
+    每次 provider 调用 (成功/失败) 都记进 llm_budget; 返回的 error 文案已脱敏 (不含 API key)。
 
     Returns:
         {"ok": bool, "markdown": str, "model": str, "usage": dict, "error": str|None}
     """
+    r = _generate_brief(model, max_tokens, max_searches)
+    if r.get("error"):
+        r["error"] = _redact_secrets(r["error"])
+    return r
+
+
+def _generate_brief(model: str, max_tokens: int, max_searches: int) -> dict:
     provider = _pick_provider()
     if not provider:
         return {"ok": False, "markdown": "", "model": model, "usage": {},
@@ -257,19 +307,24 @@ def generate_brief(model: str = DEFAULT_MODEL,
     if provider == "anthropic":
         return _generate_anthropic(model, max_tokens, max_searches, user_prompt)
 
+    system = SYSTEM_PROMPT + _NO_SEARCH_NOTE
+    prompt_chars = len(system) + len(user_prompt)
     try:
         if provider == "gemini":
-            text, usage = _call_gemini(SYSTEM_PROMPT + _NO_SEARCH_NOTE, user_prompt, max_tokens)
+            text, usage = _call_gemini(system, user_prompt, max_tokens)
         elif provider == "groq":
-            text, usage = _call_groq(SYSTEM_PROMPT + _NO_SEARCH_NOTE, user_prompt, max_tokens)
+            text, usage = _call_groq(system, user_prompt, max_tokens)
         else:
             return {"ok": False, "markdown": "", "model": model, "usage": {},
                     "error": f"未知 LLM_PROVIDER: {provider}"}
     except Exception as e:
-        return {"ok": False, "markdown": "", "model": model, "usage": {},
+        _record_llm_usage(prompt_chars, None, 0, success=False)
+        return {"ok": False, "markdown": "", "model": model, "usage": {"provider": provider},
                 "error": f"{provider} 调用失败: {e}"}
 
-    if not (text or "").strip():
+    ok = bool((text or "").strip())
+    _record_llm_usage(prompt_chars, usage, len(text or ""), success=ok)
+    if not ok:
         return {"ok": False, "markdown": "", "model": usage.get("model"), "usage": usage,
                 "error": f"{provider} 返回空内容"}
     log.info(f"LLM brief OK ({provider}): in={usage.get('input_tokens')} out={usage.get('output_tokens')}")
@@ -301,7 +356,8 @@ def _generate_anthropic(model: str, max_tokens: int, max_searches: int,
             messages=[{"role": "user", "content": user_prompt}],
         )
     except Exception as e:
-        return {"ok": False, "markdown": "", "model": model, "usage": {},
+        _record_llm_usage(len(SYSTEM_PROMPT) + len(user_prompt), None, 0, success=False)
+        return {"ok": False, "markdown": "", "model": model, "usage": {"provider": "anthropic"},
                 "error": f"Claude API 调用失败: {e}"}
 
     md_parts = [blk.text for blk in resp.content if blk.type == "text"]
@@ -312,32 +368,109 @@ def _generate_anthropic(model: str, max_tokens: int, max_searches: int,
         "model": resp.model, "provider": "anthropic",
         "stop_reason": resp.stop_reason,
     }
+    _record_llm_usage(len(SYSTEM_PROMPT) + len(user_prompt), usage, len(markdown),
+                      success=bool(markdown))
     log.info(f"LLM brief OK (anthropic): in={usage['input_tokens']} out={usage['output_tokens']}")
     return {"ok": True, "markdown": markdown, "model": model, "usage": usage, "error": None}
 
 
+# ─── 简报持久化 ─────────────────────────────────────────
+# intel.db 只由 refresh.yml (all-no-llm) 回推仓库; nightly 在 runner 上生成的简报只进了 runner 的 DB,
+# 随 runner 一起丢掉 (曾经 4 个月里卡片/仪表盘一直在用 2026-06-18 的旧简报)。
+# 所以 save_brief 同时写这个小 JSON, nightly.yml 的 add_outputs 把它提交回仓库。
+BRIEF_FILE = Path(__file__).resolve().parents[1] / "data" / "meta" / "ai_brief_latest.json"
+BRIEF_MAX_AGE_HOURS = 36   # 早会卡片只用 36h 内的简报 (nightly 21-23 UTC 生成, 次日早上推仍新鲜)
+
+
+def _parse_brief_ts(ts) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(str(ts).strip().replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _write_brief_file(rec: dict) -> None:
+    """原子写 BRIEF_FILE (先写 .tmp 再 os.replace, 中途被杀也不会留半个 JSON)。"""
+    try:
+        BRIEF_FILE.parent.mkdir(parents=True, exist_ok=True)
+        tmp = BRIEF_FILE.with_name(BRIEF_FILE.name + ".tmp")
+        tmp.write_text(json.dumps(rec, ensure_ascii=False, indent=2), encoding="utf-8")
+        os.replace(tmp, BRIEF_FILE)
+    except Exception as e:
+        log.warning(f"写 {BRIEF_FILE.name} 失败: {e}")
+
+
+def _read_brief_file() -> dict | None:
+    try:
+        rec = json.loads(BRIEF_FILE.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return None
+    except Exception as e:
+        log.warning(f"读 {BRIEF_FILE.name} 失败: {e}")
+        return None
+    if not isinstance(rec, dict) or not rec.get("markdown") or not rec.get("ts"):
+        return None
+    return {"ts": str(rec["ts"]), "markdown": rec["markdown"],
+            "provider": rec.get("provider"), "model": rec.get("model")}
+
+
 def save_brief(brief: dict) -> None:
-    """把简报存到 raw_metrics (source=_meta), 仪表盘可读取。"""
+    """把简报存到 raw_metrics (source=_meta) + data/meta/ai_brief_latest.json, 仪表盘/飞书卡片可读取。
+
+    provider 记在 asset_id ("llm_brief:<provider>") 和 JSON 里, 卡片据此标注来源 (不再一律叫 Claude)。
+    """
     from .db import upsert_raw
     if not brief.get("ok"):
         return
+    usage = brief.get("usage") or {}
+    provider = usage.get("provider") or brief.get("provider") or "unknown"
+    ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    _write_brief_file({"ts": ts, "provider": provider,
+                       "model": usage.get("model") or brief.get("model"),
+                       "markdown": brief["markdown"]})
     upsert_raw([{
-        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "ts": ts,
         "source": "_meta",
-        "asset_id": "llm_brief",
+        "asset_id": f"llm_brief:{provider}",
         "metric": "claude_opus_brief",
-        "value": float(brief["usage"].get("output_tokens", 0)),
+        "value": float(usage.get("output_tokens") or 0),
         "value_text": brief["markdown"],
     }])
 
 
-def latest_brief() -> dict | None:
-    """读取最近一份 LLM 简报。"""
-    df = query_df(
-        """SELECT ts, value_text FROM raw_metrics
-           WHERE source='_meta' AND metric='claude_opus_brief'
-           ORDER BY ts DESC LIMIT 1"""
-    )
-    if df.empty:
+def latest_brief(max_age_hours: float | None = BRIEF_MAX_AGE_HOURS) -> dict | None:
+    """读取最近一份 LLM 简报: DB 行 与 data/meta/ai_brief_latest.json 取较新者。
+
+    max_age_hours: 最新一份比这更旧就返回 None (默认 36h — 早会卡片曾把 4 个月前的简报当今天的发);
+                   传 None 关闭时效门槛 (仪表盘自己标日期)。
+    Returns: {"ts", "markdown", "provider", "model"} | None; 老数据的 provider/model 为 None。
+    """
+    cands = []
+    f = _read_brief_file()
+    if f:
+        cands.append(f)     # 放前面: 与 DB 行同 ts 时优先文件 (带 model)
+    try:
+        df = query_df(
+            """SELECT ts, asset_id, value_text FROM raw_metrics
+               WHERE source='_meta' AND metric='claude_opus_brief'
+               ORDER BY ts DESC LIMIT 1"""
+        )
+        if not df.empty and df.iloc[0]["value_text"]:
+            aid = str(df.iloc[0]["asset_id"] or "")
+            cands.append({"ts": str(df.iloc[0]["ts"]), "markdown": df.iloc[0]["value_text"],
+                          "provider": aid.split(":", 1)[1] if aid.startswith("llm_brief:") else None,
+                          "model": None})
+    except Exception as e:
+        log.warning(f"读 DB 简报失败: {e}")
+    if not cands:
         return None
-    return {"ts": df.iloc[0]["ts"], "markdown": df.iloc[0]["value_text"]}
+    floor = datetime.min.replace(tzinfo=timezone.utc)
+    best = max(cands, key=lambda c: _parse_brief_ts(c["ts"]) or floor)
+    if max_age_hours is not None:
+        dt = _parse_brief_ts(best["ts"])
+        if dt is None or datetime.now(timezone.utc) - dt > timedelta(hours=max_age_hours):
+            return None
+    return best

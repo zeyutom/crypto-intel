@@ -9,25 +9,19 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone, timedelta
 import pandas as pd
-from .db import query_df, upsert_factor_snapshot, latest_factors
+from .db import upsert_factor_snapshot, latest_factors, latest_quotes
 from .utils import setup_logger
 
 log = setup_logger("snapshot", "INFO")
 
 
 def _get_current_prices() -> dict[str, float]:
-    """取每个 asset 当前最新价 (优先 binance > okx > coingecko)。"""
-    df = query_df(
-        """SELECT asset_id, price FROM (
-              SELECT r.asset_id, r.value AS price,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
+    """取每个 asset 当前最新价: 先新鲜度、再源优先级 (binance > okx > coingecko)。
+
+    之前源优先级排在 ts 前面, factor_snapshots.current_price 在 06-05..10-18 一直是
+    那条 binance 旧价 (BTC 62810.01), 10-19 后又冻在 82557.87。
+    """
+    df = latest_quotes()
     return dict(zip(df["asset_id"], df["price"])) if not df.empty else {}
 
 

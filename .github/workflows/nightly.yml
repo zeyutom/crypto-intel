@@ -1,9 +1,11 @@
 name: Nightly Auto-Run
 
-# 每天 UTC 19:00 = 北京 03:00 = 美东 14:00 (亚洲收盘后, 美股开市前)
+# 每天 UTC 16:17 = 北京 00:17 (避开整点排队高峰)。
+# GitHub 定时任务实际启动常晚 2-6h (观测值): 原来的 19:00 UTC 在 40 次里有 2 次拖过 UTC 午夜,
+# 按 UTC 日期命名的产物 (日志/failures.json/快照缺口/当天调权守卫) 随之错位。提前到 16:17 留足余量。
 on:
   schedule:
-    - cron: '0 19 * * *'
+    - cron: '17 16 * * *'
   workflow_dispatch:  # 也允许手动触发
 
 permissions:
@@ -12,10 +14,14 @@ permissions:
 jobs:
   nightly:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # job 超时 50min; screen 单步超时 30min (SCREEN_TIMEOUT), 留 ≥15min 给调权/推送/告警/提交。
+    # 曾经 job 30min 而 SCREEN_TIMEOUT 默认 2h: 慢一点的 screen 会让整个 job 被取消, 什么都不提交也不告警。
+    timeout-minutes: 50
 
     env:
       CRYPTO_INTEL_USE_BERT: "0"    # 加速, 不下载 120MB 模型
+      SCREEN_TIMEOUT: "1800"        # 必须 < timeout-minutes, 内层超时 (rc=124) 才能先于 job 取消触发
+      # 注: data/llm_ledger.json 不入库, 云端账本每次 run 从零开始 = 只统计本次 run 的用量
       MAX_TOKENS_PER_DAY: "200000"
       # 单一权重写入方: 只有云端 nightly 改写 factor_config.json 的权重, 本地 launchd 只读
       # (曾经两边各自调权, 同日 Top-20 只重合 9/20)
@@ -74,7 +80,8 @@ jobs:
           fi
 
       - name: Commit data updates (with rebase retry on race)
-        if: github.ref == 'refs/heads/main'
+        # always(): pipeline 步骤失败/超时也把已产出的快照/权重/日志推回去
+        if: always() && github.ref == 'refs/heads/main'
         run: |
           git config --local user.email "nightly-bot@cryptointel"
           git config --local user.name "Crypto Intel Nightly"
@@ -90,6 +97,7 @@ jobs:
               data/meta/training_log.json
               data/meta/returns_*_7d.json
               data/meta/factor_report*.json
+              data/meta/ai_brief_latest.json
               data/nightly_logs/20*.log
               data/nightly_logs/*.failures.json
             )
@@ -98,7 +106,6 @@ jobs:
             for f in "${files[@]}"; do
               [ -e "$f" ] && git add -- "$f" || true
             done
-            git add data/rd_agent/ 2>/dev/null || true
           }
 
           add_outputs
@@ -107,6 +114,13 @@ jobs:
             exit 0
           fi
           git commit -m "🌙 nightly $(date +%Y-%m-%d) — auto-run results"
+          # 记住本次产物 commit: 冲突回退时从这里恢复 data/meta + data/nightly_logs
+          NIGHTLY_SHA=$(git rev-parse HEAD)
+          # 丢掉 nightly 不发布的 runner 本地改动 (ingest 改了 intel.db, 报告目录; 这两样归 refresh.yml)。
+          # 否则 pull --rebase 因 "unstaged changes" 直接失败, 任何一次推送被拒都会掉进下面的回退分支。
+          # (分开 checkout: 一条命令里任一 pathspec 不匹配会整条失败, 什么都没恢复)
+          git checkout -- data/intel.db 2>/dev/null || true
+          git checkout -- data/reports 2>/dev/null || true
 
           # 最多重试 3 次: push 前先 pull --rebase, 防止与 refresh.yml / 本地 push 撞车
           for i in 1 2 3; do
@@ -123,6 +137,9 @@ jobs:
               echo "  rebase 冲突, 回退到远程重新应用产物"
               git rebase --abort || true
               git reset --hard origin/main
+              # reset --hard 会删掉本次新增的快照/日志并回退 factor_config.json: 先从产物 commit 恢复,
+              # 否则 add_outputs 永远是 "无差异", 当天产物被静默丢弃
+              git checkout "$NIGHTLY_SHA" -- data/meta data/nightly_logs
               add_outputs
               if git diff --cached --quiet; then
                 echo "  远程已有相同产物, 无需再推"
@@ -135,7 +152,7 @@ jobs:
 
           echo "❌ 3 次 push 都失败, 放弃"
           exit 1
-        continue-on-error: true
+        # 不再 continue-on-error: push 失败要让 job 变红, 触发下面的飞书告警 + GitHub 失败邮件
 
       - name: Upload nightly logs as artifact
         if: always()
@@ -144,3 +161,54 @@ jobs:
           name: nightly-logs-${{ github.run_number }}
           path: data/nightly_logs/
           retention-days: 14
+
+      # job 失败/超时/被取消: nightly_run.sh 自己的失败告警跑不到 (脚本被杀) → 在这里补一条
+      # 主路径 src.notifier.push_alert; 依赖安装失败时它根本 import 不进来 (httpx/pandas…),
+      # 退回纯标准库 urllib 直推 FEISHU_GROUP_1_URL (签名同 notifier._sign), 否则恰恰这种失败没告警。
+      - name: Alert on job failure or cancel
+        if: failure() || cancelled()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_NO: ${{ github.run_number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY' || echo "飞书告警发送失败"
+          import os, sys
+          sys.path.insert(0, '.')
+          title = '🚨 Crypto Intel nightly workflow 失败/超时/被取消'
+          lines = [
+              f"**run {os.environ.get('RUN_ID', '?')}** (#{os.environ.get('RUN_NO', '?')}) 没有正常完成",
+              '可能: job 超时 / 被取消 / 产物 git push 失败 / 依赖安装失败',
+              '今天的快照、权重、日志可能没提交到仓库',
+              os.environ.get('RUN_URL', ''),
+          ]
+          try:
+              from src.notifier import push_alert
+          except Exception as e:
+              print('src.notifier 导入失败 (%s), 改用标准库直推' % type(e).__name__)
+              import base64, hashlib, hmac, json, time, urllib.request
+              url = os.environ.get('FEISHU_GROUP_1_URL', '').strip()
+              if not url:
+                  sys.exit('未配置 FEISHU_GROUP_1_URL')
+              msg = {'msg_type': 'text', 'content': {'text': title + '\n' + '\n'.join(lines)}}
+              secret = os.environ.get('FEISHU_GROUP_1_SECRET', '').strip()
+              if secret:
+                  ts = str(int(time.time()))
+                  digest = hmac.new(f'{ts}\n{secret}'.encode('utf-8'), digestmod=hashlib.sha256).digest()
+                  msg['timestamp'] = ts
+                  msg['sign'] = base64.b64encode(digest).decode('utf-8')
+              req = urllib.request.Request(url, data=json.dumps(msg).encode('utf-8'),
+                                           headers={'Content-Type': 'application/json'})
+              try:
+                  with urllib.request.urlopen(req, timeout=20) as resp:
+                      data = json.loads(resp.read().decode('utf-8', 'replace') or '{}')
+              except Exception as e2:
+                  # 只打异常类型: 异常文本可能带 webhook URL, 而仓库/Actions 日志是公开的
+                  sys.exit('stdlib 告警失败: %s' % type(e2).__name__)
+              print('alert (stdlib):', data)
+              if data.get('code') not in (0, None):   # 飞书出错也回 HTTP 200, 看 code
+                  sys.exit(1)
+          else:
+              r = push_alert(title, lines)
+              print('alert:', r.get('ok'), r.get('error') or ('pushed %s' % r.get('pushed')))
+          PY

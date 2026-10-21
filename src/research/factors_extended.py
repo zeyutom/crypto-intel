@@ -3,6 +3,7 @@
 所有 API 均为公开免费, 无需 key。
 """
 from __future__ import annotations
+import os
 import time
 from ..utils import setup_logger
 
@@ -35,9 +36,21 @@ def fetch_onchain_activity(coin_ids: list[str],
 
     返回 {SYMBOL: {dev_score, community_score, ...}}
 
-    注意: 免费 API 限速, 只拉 top N 个 (默认 top 50)
+    注意: 免费 API 限速, 只拉 top N 个 (默认 top 50)。
+    总耗时预算 env ONCHAIN_FETCH_BUDGET_S (默认 300s, ≤0 关闭): 超了就不再拉剩下的币 (返回结构不变,
+    只是少几个币)。曾经每晚 8-9 次 429 × 60s Retry-After 让这一步占掉 screen ~14/15 分钟,
+    再慢一点就撞 nightly job 超时, 当天快照/权重/推送全丢。
     """
     log.info(f"  CoinGecko 链上+社区数据 ({len(coin_ids)} coins)...")
+    try:
+        budget_s = float(os.environ.get("ONCHAIN_FETCH_BUDGET_S", "300"))
+    except ValueError:
+        budget_s = 300.0
+    t0 = time.monotonic()
+
+    def _over_budget() -> bool:
+        return budget_s > 0 and time.monotonic() - t0 >= budget_s
+
     result = {}
     # 2026-08-28 起 CoinGecko 免费 API 不再返回 developer_data/community_data,
     # 因子曾静默退化为全 0。这里分别统计 dev / community 真正有数据的币数,
@@ -45,7 +58,12 @@ def fetch_onchain_activity(coin_ids: list[str],
     coins_with_dev_data = 0
     coins_with_community_data = 0
     coins_with_any_data = 0
-    for i, cid in enumerate(coin_ids[:50]):  # 限制 50 个避免限速
+    targets = coin_ids[:50]  # 限制 50 个避免限速
+    for i, cid in enumerate(targets):
+        if i > 0 and _over_budget():
+            log.warning(f"    ⏱ 链上数据拉取超出总预算 {budget_s:.0f}s "
+                        f"(ONCHAIN_FETCH_BUDGET_S), 跳过剩余 {len(targets) - i}/{len(targets)} 个币")
+            break
         data = _get(
             f"https://api.coingecko.com/api/v3/coins/{cid}",
             params={
@@ -91,7 +109,7 @@ def fetch_onchain_activity(coin_ids: list[str],
                 "sentiment_up_pct": sentiment,
             }
 
-        if i < len(coin_ids[:50]) - 1:
+        if i < len(targets) - 1 and not _over_budget():
             time.sleep(batch_delay)  # CoinGecko 限速
 
     log.info(f"    ✓ {len(result)} coins fetched, "

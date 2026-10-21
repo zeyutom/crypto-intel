@@ -19,7 +19,7 @@ import time
 from datetime import datetime, timezone, timedelta
 import httpx
 import pandas as pd
-from .db import query_df
+from .db import query_df, latest_quotes
 from .factors._metadata import asset_cn, regime_cn
 from .report.insights import build_briefing
 from .llm_brief import latest_brief
@@ -61,36 +61,17 @@ def _gather_summary() -> dict:
     )
     regime = sig_df.iloc[0]["regime"] if not sig_df.empty else "UNKNOWN"
 
-    # 行情快照 (BTC / ETH)
-    snap = query_df(
-        """SELECT asset_id, price FROM (
-              SELECT r.asset_id, r.value AS price,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='price_usd' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
-    chg = query_df(
-        """SELECT asset_id, pct FROM (
-              SELECT r.asset_id, r.value AS pct,
-                     ROW_NUMBER() OVER (PARTITION BY r.asset_id
-                       ORDER BY CASE r.source WHEN 'binance' THEN 1 WHEN 'okx' THEN 2
-                                              WHEN 'coingecko' THEN 3 ELSE 9 END,
-                                r.ts DESC) AS rn
-              FROM raw_metrics r
-              WHERE r.metric='change_24h_pct' AND r.source IN ('binance','okx','coingecko')
-            ) WHERE rn = 1"""
-    )
+    # 行情快照 (BTC / ETH / SOL): 先新鲜度、再源优先级, 价格与 24h 涨跌取自同一条报价
+    # (之前源优先级在前, 卡片上的 BTC 价冻在 06-05 的 binance 旧值 $62,810 达 4.5 个月)
+    quotes = latest_quotes()
     prices = {}
-    if not snap.empty:
-        m1 = dict(zip(snap["asset_id"], snap["price"]))
-        m2 = dict(zip(chg["asset_id"], chg["pct"])) if not chg.empty else {}
+    if not quotes.empty:
+        by_asset = {r.asset_id: r for r in quotes.itertuples(index=False)}
         for a in ["bitcoin", "ethereum", "solana"]:
-            if a in m1:
-                prices[a] = {"price": float(m1[a]), "chg": float(m2.get(a, 0))}
+            if a in by_asset:
+                q = by_asset[a]
+                prices[a] = {"price": float(q.price),
+                             "chg": float(q.change_24h) if pd.notna(q.change_24h) else 0.0}
 
     # F&G
     fg_df = query_df(
@@ -113,13 +94,15 @@ def _gather_summary() -> dict:
     # 规则版 briefing
     from .db import latest_factors
     fact_df = latest_factors()
-    src_df = query_df("SELECT DISTINCT source FROM raw_metrics WHERE source != '_meta'")
-    expected = {"coingecko", "binance", "okx", "coinbase", "defillama", "feargreed",
-                "farside_etf", "cg_global", "cg_trending", "coinglass", "yfinance_macro"}
-    missing = sorted(expected - set(src_df["source"].tolist()))
+    # 缺失 = 从未采到 或 已过期 (db.source_status 按新鲜度判定)。以前只要库里出现过就算有,
+    # 云端 binance 常年 451, 卡片的覆盖度警告从不触发
+    from .db import source_status
+    expected = ["coingecko", "binance", "okx", "coinbase", "defillama", "feargreed",
+                "farside_etf", "cg_global", "cg_trending", "coinglass", "yfinance_macro"]
+    missing = sorted(s["source"] for s in source_status(expected) if not s["ok"])
     briefing = build_briefing(sig_df, fact_df, regime, missing)
 
-    # AI 简报
+    # AI 简报: latest_brief 默认只返回 36h 内的 (曾经把 2026-06-18 的旧简报当今天的分析推了 4 个月)
     ai = latest_brief()
 
     return {
@@ -135,7 +118,33 @@ def _gather_summary() -> dict:
         "headline": briefing.headline,
         "ai_markdown": ai["markdown"] if ai else None,
         "ai_ts": ai["ts"] if ai else None,
+        "ai_provider": ai.get("provider") if ai else None,
+        "ai_model": ai.get("model") if ai else None,
     }
+
+
+# provider → 卡片上的来源名。只有 Claude CLI / Anthropic API 路径带 web 搜索。
+_PROVIDER_LABELS = {
+    "claude-cli": "Claude CLI", "anthropic": "Claude API",
+    "gemini": "Gemini", "groq": "Groq",
+}
+_PROVIDERS_WITH_SEARCH = {"claude-cli", "anthropic"}
+
+
+def _ai_section_title(provider: str | None, ts: str | None) -> str:
+    """AI 简报小节标题: 标明来源 + 生成时间 (北京时间), 让过期/非 Claude 的简报一眼可辨。"""
+    label = _PROVIDER_LABELS.get(provider or "", provider or "AI")
+    parts = [f"🤖 AI 简报 · {label}"]
+    if provider and provider not in _PROVIDERS_WITH_SEARCH:
+        parts.append("无 web 搜索")
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        parts.append("生成于 " + (dt + timedelta(hours=8)).strftime("%m-%d %H:%M") + " 北京时间")
+    except (TypeError, ValueError):
+        pass
+    return " · ".join(parts) + " (节选)"
 
 
 def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app/") -> dict:
@@ -211,14 +220,20 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
                                  "content": f"**🎯 PM 行动建议**\n{action_md}"}},
     ])
 
-    # AI 简报节选
+    # AI 简报节选 (标题带来源 + 生成时间); 没有 36h 内的简报就明说, 不拿旧的充数
     if d["ai_markdown"]:
         # 取前 500 字符, 避开代码块等
         excerpt = d["ai_markdown"][:500].rsplit("\n", 1)[0]
+        title = _ai_section_title(d.get("ai_provider"), d.get("ai_ts"))
         elements.extend([
             {"tag": "hr"},
             {"tag": "div", "text": {"tag": "lark_md",
-                                     "content": f"**🤖 Claude 深度简报 (节选)**\n\n{excerpt}...\n\n*[完整版见仪表盘]*"}},
+                                     "content": f"**{title}**\n\n{excerpt}...\n\n*[完整版见仪表盘]*"}},
+        ])
+    else:
+        elements.extend([
+            {"tag": "hr"},
+            {"tag": "div", "text": {"tag": "lark_md", "content": "🤖 *今日 AI 简报未生成*"}},
         ])
 
     # 操作按钮
@@ -234,11 +249,12 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
              "type": "default",
              "url": f"{dashboard_url}因子详解"},
         ]},
-        # 页脚
+        # 页脚: 只有简报真来自 Claude CLI (Max 订阅) 才这么写; 云端是 Gemini
         {"tag": "note", "elements": [
             {"tag": "plain_text",
              "content": f"生成时间: {_beijing_now()} 北京时间 · "
-                        f"12 数据源 · 15 因子 · Claude Max 订阅驱动"},
+                        f"12 数据源 · 15 因子"
+                        + (" · Claude Max 订阅驱动" if d.get("ai_provider") == "claude-cli" else "")},
         ]},
     ])
 
@@ -247,7 +263,8 @@ def _build_card(dashboard_url: str = "https://crypto-intel-zeyutom.streamlit.app
         "card": {
             "header": {
                 "title": {"tag": "plain_text",
-                           "content": f"📋 Crypto Intel 早会简报 · {datetime.now().strftime('%m-%d')}"},
+                           # 北京日期 (与页脚一致): runner 是 UTC, 曾经北京早上收到的卡片标着昨天的日期
+                           "content": f"📋 Crypto Intel 早会简报 · {_beijing_now()[5:10]}"},
                 "template": _regime_color(d["regime"]),
             },
             "elements": elements,
@@ -295,6 +312,21 @@ def _load_groups() -> list[dict]:
     return groups
 
 
+def _redact_webhook(text: str, url: str) -> str:
+    """把 webhook URL (含 token) 从错误文本里抹掉。
+
+    httpx 的 HTTPStatusError 文本自带完整 URL ("... for url 'https://open.feishu.cn/.../hook/<token>'"),
+    push-feishu 的结果会打进 nightly 日志, 而日志提交到公开仓库 = token 泄露。
+    """
+    if not url:
+        return text
+    text = text.replace(url, "<feishu-webhook>")
+    token = url.rstrip("/").rsplit("/", 1)[-1]
+    if len(token) >= 8:          # URL 被规范化/编码后整串对不上时, 至少把 token 段抹掉
+        text = text.replace(token, "<token>")
+    return text
+
+
 def _push_one(payload: dict, group: dict) -> dict:
     """推单个群, 返回 {ok, error, group_name}。"""
     url, secret, name = group["url"], group["secret"], group["name"]
@@ -308,7 +340,8 @@ def _push_one(payload: dict, group: dict) -> dict:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return {"ok": False, "error": f"HTTP 错误: {e}", "group_name": name}
+        return {"ok": False, "error": "HTTP 错误: " + _redact_webhook(str(e), url),
+                "group_name": name}
     if data.get("code") not in (0, None):
         return {"ok": False, "error": f"飞书返回: {data}", "group_name": name}
     return {"ok": True, "group_name": name, "response": data}
@@ -395,5 +428,5 @@ def push_test_message(webhook_url: str, secret: str = "") -> dict:
         r.raise_for_status()
         data = r.json()
     except Exception as e:
-        return {"ok": False, "error": str(e)}
+        return {"ok": False, "error": _redact_webhook(str(e), webhook_url)}
     return {"ok": data.get("code") in (0, None), "response": data}

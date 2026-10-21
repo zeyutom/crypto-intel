@@ -45,9 +45,56 @@ def _load_env():
         log.info(f"已从 .env 加载: {', '.join(loaded)}")
 
 
+# api_fallback 时附在 system 后: 兜底 provider 没有 web 搜索/工具, 别让它编新闻
+_API_NO_SEARCH_NOTE = (
+    "\n\n[重要] 本次通过 API 直连调用, 没有 web 搜索/任何工具。只基于上面给出的数据分析; "
+    "需要实时新闻/外部事实的地方请标注'需人工核实', 严禁编造任何具体新闻、来源或数字。"
+)
+_API_FALLBACK_MAX_TOKENS = 8192
+
+
+def _run_api_fallback(prompt: str, system: str, reason: str) -> dict:
+    """Claude CLI 不可用 (未安装/认证失败) 时改走 llm_brief 的多 provider API 路径, 无 web 搜索。
+
+    只有显式传 api_fallback=True 的调用方 (weekly_review) 会走到这里: 依赖 WebSearch 的
+    narrative_tracker / source_discoverer 不能拿没搜索的模型充数, 云端每晚跑的 rd-agent /
+    discover-alpha 也不该因为 runner 上没有 CLI 就悄悄开始消耗 Gemini 额度。
+    """
+    from ..llm_brief import (_pick_provider, _call_gemini, _call_groq, _call_anthropic,
+                             _record_llm_usage, _redact_secrets)
+    callers = {"gemini": _call_gemini, "groq": _call_groq, "anthropic": _call_anthropic}
+    provider = _pick_provider()
+    if provider not in callers:
+        return {"ok": False, "error": (f"{reason}; 且没有可用的 LLM API 兜底 "
+                                       f"(GEMINI_API_KEY / GROQ_API_KEY / ANTHROPIC_API_KEY 都未配置"
+                                       + (f", LLM_PROVIDER={provider} 不支持" if provider else "") + ")")}
+    sys_full = (system or "") + _API_NO_SEARCH_NOTE
+    prompt_chars = len(sys_full) + len(prompt)
+    log.info(f"{reason} → api_fallback 改走 {provider} API (无 web 搜索)")
+    try:
+        text, usage = callers[provider](sys_full, prompt, _API_FALLBACK_MAX_TOKENS)
+    except Exception as e:
+        _record_llm_usage(prompt_chars, None, 0, success=False)
+        return {"ok": False, "error": _redact_secrets(f"{reason}; API 兜底 ({provider}) 也失败: {e}")}
+    text = (text or "").strip()
+    _record_llm_usage(prompt_chars, usage, len(text), success=bool(text))
+    if not text:
+        return {"ok": False, "error": f"{reason}; API 兜底 ({provider}) 返回空内容"}
+    note = (f"\n\n---\n> ⚠️ 本文由 {provider} API 生成 ({reason}, 未走 Claude CLI), "
+            f"没有 web 搜索, 涉及实时事件的内容未经核实。")
+    return {"ok": True, "markdown": text + note, "provider": provider,
+            "model": usage.get("model"), "fallback": True}
+
+
 def run_claude(prompt: str, system: str = "", timeout: int = 900,
-               allowed_tools: str = "WebSearch,WebFetch") -> dict:
+               allowed_tools: str = "WebSearch,WebFetch",
+               api_fallback: bool = False, fallback_prompt: str | None = None) -> dict:
     """发 prompt 给 Claude CLI 返回文本.
+
+    api_fallback (默认关, opt-in): CLI 找不到或认证失败时, 改走 llm_brief 的 API provider
+      (Gemini/Groq/Anthropic, 无 web 搜索), 用量记进预算账本。云端 runner 没有 Claude CLI,
+      只有 weekly_review 这种不依赖搜索的调用方才应该打开。
+    fallback_prompt: 走 API 兜底时改用这个 prompt (例如去掉 "用 web_search 验证" 之类的指令)。
 
     v0.9 W3-M2: 加上 token 预算 + 熔断器
       - 调用前检查 daily/monthly cap (env MAX_TOKENS_PER_DAY / _MONTH)
@@ -75,6 +122,8 @@ def run_claude(prompt: str, system: str = "", timeout: int = 900,
 
     cli = find_claude_cli()
     if not cli:
+        if api_fallback:
+            return _run_api_fallback(fallback_prompt or prompt, system, "Claude CLI 未安装")
         return {"ok": False, "error": "Claude CLI not found — 请先运行: curl -fsSL https://claude.ai/install.sh | bash"}
 
     has_api_key = bool(os.environ.get("ANTHROPIC_API_KEY"))
@@ -153,6 +202,9 @@ def run_claude(prompt: str, system: str = "", timeout: int = 900,
                     "failed to authenticate", "403", "unauthorized"
                 ]):
                     msg = stderr or stdout
+                    if api_fallback:
+                        log.warning(f"    Claude CLI 认证失败: {msg[:200]}")
+                        return _run_api_fallback(fallback_prompt or prompt, system, "Claude CLI 认证失败")
                     return {"ok": False, "error": f"Claude CLI 认证失败, 请在终端运行 'claude' 重新登录。\n原始报错: {msg[:300]}"}
                 # 如果是 "unknown flag" 类错误, 换下一种格式
                 if "unknown" in all_output or "invalid" in all_output or "flag" in all_output:
@@ -161,6 +213,8 @@ def run_claude(prompt: str, system: str = "", timeout: int = 900,
                 last_error = f"rc={r.returncode}: {(stderr or stdout)[:300]}"
 
         except subprocess.TimeoutExpired:
+            # 超时可能已经消耗了 token: 记一次失败 (认证失败不记 — 401 不耗 token)
+            _record_budget(prompt, system, "", success=False)
             return {"ok": False, "error": f"Timeout ({timeout}s)"}
         except Exception as e:
             log.warning(f"  尝试 #{i+1} 异常: {e}")

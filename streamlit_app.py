@@ -37,15 +37,30 @@ sidebar_branding()
 page_header("📋 PM 早会简报",
             "今日多空论据 · Regime · 行动建议")
 
-# === Claude Opus 智能简报 (v0.4) ===
-from src.llm_brief import latest_brief
-ai_brief = latest_brief()
+# === AI 智能简报 (v0.4) ===
+# 不设时效门槛 (max_age_hours=None), 但标明生成日期 + 来源, 旧简报一眼可见是旧的。
+# 云端 nightly 的简报经 data/meta/ai_brief_latest.json 回到仓库, 所以这里能看到 Gemini 版。
+from datetime import datetime, timezone
+from src.llm_brief import latest_brief, BRIEF_MAX_AGE_HOURS, _parse_brief_ts
+ai_brief = latest_brief(max_age_hours=None)
 if ai_brief and ai_brief.get("markdown"):
+    _prov = ai_brief.get("provider")
+    _prov_label = {"claude-cli": "Claude CLI", "anthropic": "Claude API",
+                   "gemini": "Gemini", "groq": "Groq"}.get(_prov or "", _prov or "来源未记录")
+    _search = ("含 web search 最新事件" if _prov in ("claude-cli", "anthropic")
+               else "无 web 搜索" if _prov else "")
+    _bdt = _parse_brief_ts(ai_brief["ts"])
+    _age_h = (datetime.now(timezone.utc) - _bdt).total_seconds() / 3600 if _bdt else None
     with st.container(border=True):
         cols = st.columns([5, 1])
         with cols[0]:
-            st.markdown(f"### 🤖 Claude Opus 智能简报")
-            st.caption(f"生成于 {ai_brief['ts'][:16].replace('T',' ')} UTC · 含 web search 最新事件")
+            st.markdown(f"### 🤖 AI 智能简报 · {_prov_label}")
+            st.caption(f"生成于 {ai_brief['ts'][:16].replace('T',' ')} UTC"
+                       + (f" · {_search}" if _search else ""))
+            if _age_h is None or _age_h > BRIEF_MAX_AGE_HOURS:
+                st.warning(f"⚠️ 这份简报不是今天的: 生成于 {ai_brief['ts'][:10]}"
+                           + (f" ({_age_h / 24:.0f} 天前)" if _age_h is not None else "")
+                           + ", 只能作历史参考。")
         with cols[1]:
             st.markdown(f"<div style='text-align:right; padding-top:6px;'>"
                         f"<span style='background:rgba(168,132,255,0.18); color:#a884ff; "
@@ -76,7 +91,7 @@ if ai_brief and ai_brief.get("markdown"):
                           label_visibility="collapsed")
     st.divider()
 else:
-    st.info("⏳ Claude 简报尚未生成 (请双击 2_本地AI日报+推送.command 跑一次)。"
+    st.info("⏳ AI 简报尚未生成 (云端 nightly 每晚生成, 或本地双击 2_本地AI日报+推送.command)。"
             "下方展示规则版简报。")
 
 # === 规则版简报 (v0.3, 兜底) ===

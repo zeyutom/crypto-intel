@@ -4,7 +4,10 @@
   - is_excluded: 稳定币名单 / 锚定启发式 / wrapped+LST / 代币化股票+黄金 /
     陈旧 last_updated / 冻结报价 (最近 3 个真实快照价格+市值相同且 24h 涨跌 0;
     LPT 式 2 位小数价格撞车但市值在动的真币不被误杀)
-  - load_recent_snapshot_prices: 跳过合成快照, 容忍目录缺失
+  - load_recent_snapshot_prices: 跳过合成快照, 容忍目录缺失, 合并 _meta.excluded_rows,
+    coin_id 维度历史 (同名 VELO 互不干扰)
+  - run_screen 多次运行: 冻结币攒满历史后每次都排除 (修复前 4 次只排除 1 次)
+  - fetch_defillama_protocols: category=CEX (交易所托管储备) 不计入 TVL
   - score_coins: exclusion_stats 计数, 输出含 coin_id + last_updated
   - fetch_funding_rates: Binance → OKX → Bybit 兜底顺序 + FUNDING_SOURCE
   - fetch_onchain_activity: developer_data/community_data 为空的告警 + __meta__
@@ -284,7 +287,7 @@ def test_score_coins_exclusion_stats_and_fields(meta_dir):
     ]
     stats: dict = {}
     scored = score_coins(coins, {}, {}, {}, prior_prices=prior,
-                         exclusion_stats=stats)
+                         exclusion_stats=stats, now=NOW)
     assert [c["symbol"] for c in scored] == ["SOL"]
     assert stats == {"stable": 2, "wrapped": 1, "non_crypto": 1,
                      "frozen": 1, "stale": 1}
@@ -429,3 +432,187 @@ def test_onchain_dev_only_degradation_still_warns(monkeypatch, caplog):
                                          "coins_with_community_data": 2,
                                          "coins_with_any_data": 2}
     assert any("developer_data 字段为空" in r.getMessage() for r in caplog.records)
+
+
+# ────────────────────────────────────────────────────────────────────
+#  C07: DeFiLlama CEX 储备不算协议 TVL
+# ────────────────────────────────────────────────────────────────────
+
+def test_defillama_protocols_skip_cex_category(monkeypatch):
+    """category=CEX (交易所托管储备) 不进 tvl_map; Chain 等其他类别照常累加."""
+    rows = [
+        {"name": "Binance CEX", "symbol": "BNB", "category": "CEX", "tvl": 171.9e9},
+        {"name": "OKX", "symbol": "OKB", "category": "CEX", "tvl": 30.9e9},
+        {"name": "Backpack", "symbol": "BP", "category": "CEX", "tvl": 5.8e8},
+        {"name": "Aave V3", "symbol": "AAVE", "category": "Lending", "tvl": 20e9},
+        {"name": "Aave V2", "symbol": "aave", "category": "Lending", "tvl": 1e9},
+        {"name": "Polygon Bridge", "symbol": "POL", "category": "Chain", "tvl": 2.68e9},
+        {"name": "Venus", "symbol": "XVS", "category": "Lending", "tvl": 0},
+    ]
+    monkeypatch.setattr(screener, "_get", lambda url, **kw: rows)
+    tvl = screener.fetch_defillama_protocols()
+    assert tvl == {"AAVE": 21e9, "POL": 2.68e9}
+
+
+def test_cex_reserves_no_longer_max_tvl_factor(monkeypatch):
+    """BP 的 5.8 亿 CEX 储备不再把 f_tvl_mcap 顶到 1.0; BNB 回退到 BSC 链 TVL."""
+    monkeypatch.setattr(screener, "_get", lambda url, **kw: [
+        {"symbol": "BP", "category": "CEX", "tvl": 5.8e8},
+        {"symbol": "BNB", "category": "CEX", "tvl": 171.9e9},
+    ])
+    tvl_proto = screener.fetch_defillama_protocols()
+    coins = [_coin("BP", price=0.5, mcap=1e8), _coin("BNB", price=600.0, mcap=9e10)]
+    scored = {c["symbol"]: c for c in score_coins(
+        coins, tvl_proto, {"BSC": 5.4e9}, {}, now=NOW)}
+    assert scored["BP"]["f_tvl_mcap"] == 0.0
+    assert scored["BNB"]["tvl"] == 5.4e9
+    assert scored["BNB"]["f_tvl_mcap"] == pytest.approx(5.4e9 / 9e10 / 0.5, abs=1e-3)
+
+
+# ────────────────────────────────────────────────────────────────────
+#  C53: 被排除的冻结币仍延续历史 → 每次都排除 (不再 4 天 1 次)
+# ────────────────────────────────────────────────────────────────────
+
+def _write_snapshot_with_meta(meta_dir: pathlib.Path, name: str, rows: list[dict],
+                              excluded_rows: list[dict] | None = None,
+                              n_pad: int = 120):
+    coins = list(rows) + [_row(f"PAD{i}", float(i + 1), 1e8) for i in range(n_pad)]
+    snap = {"timestamp": f"{name}T22:00:00+00:00", "date": name,
+            "factor_weights": {}, "coins": coins,
+            "_meta": {"excluded_rows": excluded_rows or []}}
+    (meta_dir / f"snapshot_{name.replace('-', '')}_2200.json").write_text(
+        json.dumps(snap), encoding="utf-8")
+
+
+def test_load_recent_snapshot_prices_merges_excluded_rows(meta_dir):
+    """_meta.excluded_rows 里的报价和 coins 一样计入历史, 但同一快照只计一次."""
+    frz = {"symbol": "ALFW", "coin_id": "alpha-bulgaria-warrants", "price": 3.2,
+           "market_cap": 114330001, "reason": "frozen"}
+    _write_snapshot_with_meta(meta_dir, "2026-10-13", [dict(frz)])
+    _write_snapshot_with_meta(meta_dir, "2026-10-14", [], excluded_rows=[frz])
+    _write_snapshot_with_meta(meta_dir, "2026-10-15", [dict(frz)], excluded_rows=[frz])
+    prior = load_recent_snapshot_prices()
+    assert prior["ALFW"] == [(3.2, 114330001)] * 3
+    assert prior[screener._id_key("alpha-bulgaria-warrants")] == [(3.2, 114330001)] * 3
+    c = _coin("ALFW", price=3.2, mcap=114330001, chg_24h=0.0,
+              cid="alpha-bulgaria-warrants")
+    assert is_excluded(c, prior, now=NOW) == "frozen"
+
+
+def test_frozen_history_keyed_by_coin_id_not_symbol(meta_dir):
+    """两个同名 VELO: 按 symbol 只能记第一条, 按 coin_id 各有各的历史."""
+    velo = {"symbol": "VELO", "coin_id": "velo", "price": 0.00407,
+            "market_cap": 71474964, "change_24h": 0.0}
+    velodrome = {"symbol": "VELO", "coin_id": "velodrome-finance", "price": 0.03473,
+                 "market_cap": 46874331, "change_24h": 0.0}
+    for day in ("2026-10-13", "2026-10-14", "2026-10-15"):
+        _write_snapshot_with_meta(meta_dir, day, [dict(velo), dict(velodrome)])
+    prior = load_recent_snapshot_prices()
+    assert prior["VELO"] == [(0.00407, 71474964)] * 3          # symbol: 每快照第一条
+    assert prior[screener._id_key("velodrome-finance")] == [(0.03473, 46874331)] * 3
+    frozen_velodrome = _coin("VELO", price=0.03473, mcap=46874331, chg_24h=0.0,
+                             cid="velodrome-finance")
+    # 修复前按 symbol 只能看到 velo 的历史, velodrome 的冻结报价永远漏判
+    assert is_excluded(frozen_velodrome, prior, now=NOW) == "frozen"
+    # 旧快照无 coin_id 时仍按 symbol 回退
+    assert screener._prior_history(prior, "", "VELO") == [(0.00407, 71474964)] * 3
+
+
+def test_score_coins_reports_excluded_rows_for_frozen_and_stale(meta_dir):
+    for day in ("2026-10-08", "2026-10-09", "2026-10-10"):
+        _write_snapshot(meta_dir, day, [_row("FRZ", 0.5, 7e6, 0.0)])
+    prior = load_recent_snapshot_prices()
+    stale = (NOW - timedelta(days=3)).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+    coins = [
+        _coin("SOL", price=150.0, cid="solana"),
+        _coin("USDG", price=1.0),                                   # stable: 不记
+        _coin("FRZ", price=0.5, mcap=7e6, chg_24h=0.0, cid="frz-coin"),
+        _coin("OLD", price=3.0, mcap=2e7, last_updated=stale, cid="old-coin"),
+    ]
+    rows: list[dict] = []
+    scored = score_coins(coins, {}, {}, {}, prior_prices=prior,
+                         excluded_rows=rows, now=NOW)
+    assert [c["symbol"] for c in scored] == ["SOL"]
+    assert rows == [
+        {"symbol": "FRZ", "coin_id": "frz-coin", "price": 0.5,
+         "market_cap": 7e6, "reason": "frozen"},
+        {"symbol": "OLD", "coin_id": "old-coin", "price": 3.0,
+         "market_cap": 2e7, "reason": "stale"},
+    ]
+
+
+def _fake_universe(run: int, frozen: dict) -> list[dict]:
+    """一次 CoinGecko 拉取: 120 个每天都在动的币 + 一个报价冻结的币."""
+    lu = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    coins = [_coin(f"MOV{i}", price=2.0 + i + run * 0.37, mcap=5e8 + i * 1e6 + run * 7e5,
+                   cid=f"mover-{i}", last_updated=lu) for i in range(120)]
+    coins.append(_coin(frozen["symbol"], price=frozen["price"], mcap=frozen["mcap"],
+                       chg_24h=0.0, chg_7d=0.0, chg_30d=0.0, cid=frozen["id"],
+                       last_updated=lu))
+    return coins
+
+
+def _patch_run_screen_deps(monkeypatch, tmp_path, meta_dir):
+    """run_screen 的网络/元学习依赖全部打桩; 快照写到 meta_dir (每次运行一个文件)."""
+    from src.research import meta_learner as ml, factor_bridge as fb, onchain_real as oc
+    monkeypatch.setattr(screener, "DATA_DIR", tmp_path / "research")
+    monkeypatch.setattr(ml, "META_DIR", meta_dir)
+    monkeypatch.setattr(screener, "fetch_defillama_protocols", lambda: {})
+    monkeypatch.setattr(screener, "fetch_defillama_chains", lambda: {})
+    monkeypatch.setattr(screener, "fetch_binance_volumes", lambda: {})
+    monkeypatch.setattr(fx, "fetch_onchain_activity", lambda ids: {})
+    monkeypatch.setattr(fx, "fetch_funding_rates", lambda: {})
+    monkeypatch.setattr(oc, "fetch_real_onchain_data", lambda: {})
+    monkeypatch.setattr(ml, "load_factor_config", lambda: {})
+    monkeypatch.setattr(ml, "get_current_weights", lambda cfg=None: {"momentum_30d": 1.0})
+    # **kw: 兼容 detect_regime(btc, prev_regime=...) / generate_factor_report(regime=...)
+    monkeypatch.setattr(ml, "detect_regime", lambda btc=None, **kw: "sideways")
+    monkeypatch.setattr(ml, "apply_regime_adjustment", lambda w, r: dict(w))
+    monkeypatch.setattr(ml, "generate_factor_report", lambda **kw: {})
+    monkeypatch.setattr(fb, "load_pipeline_signals", lambda: {})
+    monkeypatch.setattr(fb, "calc_market_overlay", lambda s: 1.0)
+    monkeypatch.setattr(fb, "get_pipeline_summary", lambda s: [])
+
+    counter = {"n": 0}
+
+    def _save_snapshot(scored, weights, meta=None):
+        counter["n"] += 1
+        snap = {"timestamp": f"2026-10-{10 + counter['n']:02d}T22:00:00+00:00",
+                "factor_weights": weights, "_meta": dict(meta or {}),
+                "coins": [{"symbol": c["symbol"], "coin_id": c["coin_id"],
+                           "price": c["price"], "market_cap": c["market_cap"]}
+                          for c in scored]}
+        path = meta_dir / f"snapshot_202610{10 + counter['n']:02d}_2200.json"
+        path.write_text(json.dumps(snap), encoding="utf-8")
+        return path
+    monkeypatch.setattr(ml, "save_snapshot", _save_snapshot)
+
+
+def test_frozen_coin_excluded_on_every_run_after_detection(monkeypatch, tmp_path, meta_dir):
+    """ALFW 式冻结报价: 攒满 3 个快照后, 之后每一次运行都排除 (修复前 4 次只排除 1 次).
+
+    排除的币写进快照 _meta.excluded_rows, 但不进 coins (IC / 记分卡输入不变)。
+    """
+    _patch_run_screen_deps(monkeypatch, tmp_path, meta_dir)
+    frozen = {"symbol": "ALFW", "id": "alpha-bulgaria-warrants",
+              "price": 3.2, "mcap": 114330001}
+    in_coins, excluded_frozen = [], []
+    for run in range(7):
+        monkeypatch.setattr(screener, "fetch_coingecko_top500",
+                            lambda run=run: _fake_universe(run, frozen))
+        res = screener.run_screen(top_n=10)
+        assert res["ok"]
+        snap = json.loads(pathlib.Path(res["snapshot_path"]).read_text())
+        in_coins.append(any(c["symbol"] == "ALFW" for c in snap["coins"]))
+        excluded_frozen.append(res["data_sources"]["excluded"]["frozen"])
+        if excluded_frozen[-1]:
+            assert snap["_meta"]["excluded_rows"] == [{
+                "symbol": "ALFW", "coin_id": "alpha-bulgaria-warrants",
+                "price": 3.2, "market_cap": 114330001, "reason": "frozen"}]
+        else:
+            assert snap["_meta"]["excluded_rows"] == []
+        # 动来动去的 120 个币从不被误判
+        assert sum(c["symbol"].startswith("MOV") for c in snap["coins"]) == 120
+    # 前 3 次历史不足 → 打分; 第 4 次起每次都排除 (修复前第 5-7 次会漏回来)
+    assert in_coins == [True, True, True, False, False, False, False]
+    assert excluded_frozen == [0, 0, 0, 1, 1, 1, 1]

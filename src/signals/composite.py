@@ -121,6 +121,22 @@ _MOMENTUM_REGIME_MAP = {
 }
 
 
+def _last_momentum_regime() -> str | None:
+    """上一次写入 signals 的 regime (映射回 meta_learner 的小写名), 用于迟滞。
+
+    推送卡片上的 regime 来自这里; 没有迟滞时 BTC 7d 在 ±5% 附近抖动就会让卡片
+    在"高波动/震荡"间来回切换。读不到就返回 None (不加迟滞)。
+    """
+    try:
+        df = query_df("SELECT regime FROM signals ORDER BY ts DESC LIMIT 1")
+        if df is None or df.empty or "regime" not in df.columns:
+            return None
+        back = {v: k for k, v in _MOMENTUM_REGIME_MAP.items()}
+        return back.get(str(df["regime"].iloc[0]))
+    except Exception:
+        return None
+
+
 def _detect_regime() -> tuple[str, str]:
     """轻量 regime 识别, 返回 (regime, regime_source)。
 
@@ -160,7 +176,7 @@ def _detect_regime() -> tuple[str, str]:
         btc = None
     if btc:
         from ..research.meta_learner import detect_regime
-        mapped = _MOMENTUM_REGIME_MAP.get(detect_regime(btc))
+        mapped = _MOMENTUM_REGIME_MAP.get(detect_regime(btc, prev_regime=_last_momentum_regime()))
         if mapped:
             return mapped, "btc_momentum"
     return "UNKNOWN", "none"

@@ -277,3 +277,21 @@ def test_compose_rows_insertable_with_extra_key(tmp_path):
     )
     assert conn.execute("SELECT COUNT(*) FROM signals").fetchone()[0] == 1
     conn.close()
+
+
+def test_momentum_regime_uses_last_signal_regime_for_hysteresis(monkeypatch):
+    """推送卡片上的 regime 也要迟滞: 上一次是 VOLATILE, BTC 7d 回落到 4.8% → 仍是 VOLATILE."""
+    import pandas as pd
+
+    def fake_query(sql, *a, **k):
+        if "FROM signals" in sql:
+            return pd.DataFrame({"regime": ["VOLATILE"]})
+        return _factors_df(fg=50, etf=None)
+
+    monkeypatch.setattr(comp, "query_df", fake_query)
+    monkeypatch.setattr(comp, "_btc_price_changes",
+                        lambda: {"change_30d": 2.0, "change_7d": 4.8})
+    assert comp._detect_regime() == ("VOLATILE", "btc_momentum")
+    # 读不到上一次 → 不加迟滞
+    monkeypatch.setattr(comp, "_last_momentum_regime", lambda: None)
+    assert comp._detect_regime() == ("CHOP", "btc_momentum")

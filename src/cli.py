@@ -14,7 +14,7 @@
     python -m src.cli test-feishu    发一条测试消息到飞书群
     python -m src.cli serve          启动 APScheduler 常驻
     python -m src.cli research TON   Multi-Agent 深度研究 (指定项目名)
-    python -m src.cli screen         Top-500 多因子筛选 v2 (10因子+元学习+Regime)
+    python -m src.cli screen         Top-500 多因子筛选 v2 (10因子+元学习+Regime); --push 推 Top-N 到飞书
     python -m src.cli daily-screen   每日自动筛选+快照+IC更新+飞书推送 (定时调度用)
     python -m src.cli verify-returns 收益追踪: 对比历史快照 vs 当前价格
     python -m src.cli meta-report    因子池健康报告 (权重/IC/状态)
@@ -76,6 +76,8 @@ def main() -> None:
         else:
             console.print(f"[red]✗ {result.get('error')}[/]")
         console.print_json(data={k: v for k, v in result.items() if k != "markdown"})
+        if not result.get("ok"):
+            sys.exit(1)   # 曾经 Claude CLI 连续失败 100+ 次仍 exit 0, 调度脚本照报 "✅ 完成"
     elif cmd == "daily-local":
         # 本地完整一日流: data + Claude CLI 简报 + 报告 + 飞书推送
         ing = run_ingest_all()
@@ -95,9 +97,13 @@ def main() -> None:
             "report_path": str(path),
         })
     elif cmd == "push-feishu":
-        from .notifier import push_to_feishu
+        from .notifier import push_to_feishu, _load_groups
         result = push_to_feishu()
         console.print_json(data=result)
+        # 配了飞书群却有群没推成功 → 非零退出, 让 nightly 记进 failures.json (曾经推失败也 "✓");
+        # 没配任何群 = 本地/测试环境, 不算失败
+        if not result.get("ok") and (result.get("failed", 0) > 0 or _load_groups()):
+            sys.exit(1)
     elif cmd == "test-feishu":
         # 对所有配置的群发测试消息
         import os
@@ -143,22 +149,35 @@ def main() -> None:
         from .evolution.factor_proposer import run_factor_proposal
         r = run_factor_proposal()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "discover-sources":
         from .evolution.source_discoverer import run_source_discovery
         r = run_source_discovery()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "evolve-prompt":
         from .evolution.prompt_evolver import run_prompt_evolution
         r = run_prompt_evolution()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "track-narratives":
         from .evolution.narrative_tracker import run_narrative_tracking
         r = run_narrative_tracking()
         console.print_json(data=r)
+        if not r.get("ok"):
+            sys.exit(1)   # 失败要让调度脚本/launchd 看得见 (曾经 OAuth 过期几个月都 exit 0)
     elif cmd == "screen":
+        # 参数可任意顺序: screen [--top N] [--push]
         top_n = 30
-        if len(sys.argv) > 2 and sys.argv[2] == "--top":
-            top_n = int(sys.argv[3]) if len(sys.argv) > 3 else 30
+        if "--top" in sys.argv:
+            try:
+                top_n = int(sys.argv[sys.argv.index("--top") + 1])
+            except (IndexError, ValueError):
+                top_n = 30
+        push = "--push" in sys.argv
         from .research.screener import run_screen, generate_screen_report
         console.print("[bold cyan]📊 启动 Top-500 多因子实时筛选 v2...[/]")
         console.print("[dim]10 因子 · 元学习动态调权 · Regime Detection · 异动信号[/]")
@@ -187,6 +206,23 @@ def main() -> None:
             if platform.system() == "Darwin":
                 import subprocess as sp
                 sp.Popen(["open", str(report_path)])
+            if push:
+                # 用内存里的完整结果推 Top-N 卡片 (快照文件没有 anomalies/btc_data, 不从磁盘重建)。
+                # 2026-10-12 本地 daily-screen 停用后, 云端 nightly 只跑 screen 不推, Top-N 静默断推 8 天。
+                from .research.returns_tracker import push_screen_to_feishu, _load_feishu_groups
+                if not _load_feishu_groups():
+                    console.print("[yellow]--push: 未配置飞书群 (FEISHU_GROUP_N_URL / FEISHU_WEBHOOK_URL), "
+                                  "跳过 Top-N 推送[/]")
+                else:
+                    try:
+                        fs = push_screen_to_feishu(result)
+                    except Exception as e:
+                        fs = {"ok": False, "error": f"{type(e).__name__}: {e}"}
+                    console.print_json(data=fs)
+                    if not fs.get("ok") or fs.get("pushed", 0) < fs.get("total", 0):
+                        console.print("[red]✗ Top-N 飞书推送失败 (筛选结果与快照已保存)[/]")
+                        sys.exit(3)   # 与筛选失败 rc=1 区分: 快照已存, 只是没推出去
+                    console.print(f"[green]✓ Top-N 已推送飞书 ({fs.get('pushed')}/{fs.get('total')} 群)[/]")
         else:
             console.print(f"[red]✗ {result.get('error')}[/]")
             # 非零退出: 让 nightly_run.sh 的 run_step 能看见失败 (曾经 "✗ CoinGecko 无数据" 但 exit 0,
@@ -308,6 +344,11 @@ def main() -> None:
         console.print("[bold cyan]🩺 数据自愈 (快照缺口检测 + backfill + 核心源掉线告警)[/]")
         r = run_data_quality(push=not no_push, backfill=not no_backfill)
         console.print(f"快照缺口: {len(r['gaps_before'])} → {len(r['gaps_after'])} (backfill 后)")
+        rs = r.get("real_snapshot") or {}
+        if rs:
+            color = "red" if rs.get("stale") else "green"
+            console.print(f"[{color}]最新真实快照: {rs.get('newest') or '无'} "
+                          f"({rs.get('age_hours', '?')}h 前){' — 断更!' if rs.get('stale') else ''}[/]")
         if r["recent_gaps"]:
             console.print(f"[yellow]近 2 天缺口: {r['recent_gaps']} (云端可能漏跑)[/]")
         if r["dry_sources"]:
@@ -325,17 +366,27 @@ def main() -> None:
         console.print("[bold cyan]📈 因子池健康报告[/]")
         report = generate_factor_report()
         cfg = load_factor_config()
+        # regime 取自最新真实快照 (factor_config 不保存 regime)
         console.print(f"\nRegime: [bold]{report.get('regime', 'unknown').upper()}[/]")
-        console.print(f"因子数: {report.get('total_factors', 0)}")
-        console.print(f"配置更新: {cfg.get('updated', 'N/A')}\n")
-        console.print("[bold]因子状态:[/]")
+        console.print(f"因子数: {report.get('total_factors', 0)}  "
+                      f"(config v{report.get('config_version', 1)})")
+        console.print(f"配置更新: {cfg.get('updated', 'N/A')}  "
+                      f"上次调权: {report.get('last_weight_update') or 'N/A'}\n")
+        console.print("[bold]因子状态[/] (IC = 合格记录: schema 2 旧快照、30 天内、按天衰减):")
+        status_colors = {"strong": "green", "healthy": "blue", "noisy": "yellow",
+                         "weak_negative": "red", "disabled": "red", "locked": "red"}
         for fname, finfo in report.get("factors", {}).items():
-            status_colors = {"strong": "green", "healthy": "blue", "noisy": "yellow", "weak_negative": "red"}
             sc = status_colors.get(finfo["status"], "white")
+            status = finfo["status"]
+            if finfo.get("disabled_reason") and status in ("disabled", "locked"):
+                status = f"{status}:{finfo['disabled_reason']}"
+            if finfo.get("negative_ic_flag"):
+                status += " ⚠负IC(建议人工 locked)"
             console.print(f"  {fname:>20s}  权重={finfo['weight']:.1%}  "
-                          f"IC={finfo['avg_ic_10']:+.4f}  "
-                          f"记录={finfo['ic_records']:>2d}  "
-                          f"[{sc}]{finfo['status']}[/]")
+                          f"prior={finfo.get('prior_effective', 0):.1%}  "
+                          f"IC={finfo['avg_ic_10']:+.4f}  信号={finfo.get('signal', 0):+.4f}  "
+                          f"记录={finfo['ic_records']:>2d}/{finfo.get('ic_records_total', 0):<2d}  "
+                          f"[{sc}]{status}[/]")
     elif cmd == "ic-backtest":
         from .research.meta_learner import run_ic_backtest
         days = 7
@@ -354,6 +405,14 @@ def main() -> None:
                                      key=lambda x: abs(x[1]), reverse=True):
                 color = "green" if ic > 0.05 else "red" if ic < -0.05 else "yellow"
                 console.print(f"  {fname:>25s}  IC = [{color}]{ic:+.4f}[/]")
+            if result.get("constant_factors"):
+                console.print(f"[dim]截面常数 (IC 未定义): {', '.join(result['constant_factors'])}[/]")
+            if result.get("low_coverage_factors"):
+                cov = result.get("coverage", {})
+                console.print("[dim]低覆盖 (非零币数太少, 不参与学习): " + ", ".join(
+                    f"{f}({cov.get(f)})" for f in result["low_coverage_factors"]) + "[/]")
+            console.print(f"[dim]旧快照 {result.get('snapshot_file')} (schema {result.get('base_schema')}) "
+                          f"→ {result.get('latest_file')}, 实际跨度 {result.get('realized_days')}d[/]")
         else:
             console.print(f"[yellow]{result.get('error')}[/]")
     elif cmd == "update-weights":
@@ -382,18 +441,22 @@ def main() -> None:
                 return str(v)
 
             skip_reason = {
-                "already_updated_today": "今天已调过权重, 本次只刷新 IC 记录",
+                "already_updated_for_snapshot": "这个价格快照已调过权重, 本次只刷新 IC 记录",
                 "not_weight_writer": "本机不是权重写入方, 不改写权重 (云端 nightly 负责调权; "
                                      "本机需要调权时设置 CRYPTO_INTEL_WEIGHT_WRITER=1)",
             }
             if update_result.get("ok"):
                 console.print(f"[green]✓ {update_result.get('factors_updated', 0)} 个因子权重已更新[/]")
-                # skipped = 本次没有调权的原因; disabled = 权重为 0 的因子 (截面常数的死因子或人工锁定)
+                # skipped = 本次没有调权的原因; disabled = 权重为 0 的因子
+                # (原因: constant 截面常数 / low_coverage 覆盖不足 / negative_ic 持续负 IC / locked 人工)
                 if update_result.get("skipped"):
                     s = update_result["skipped"]
                     console.print(f"[yellow]⏭ 跳过: {skip_reason.get(s, _fmt_items(s))}[/]")
                 if update_result.get("disabled"):
-                    console.print(f"[red]⛔ 已关闭因子: {_fmt_items(update_result['disabled'])}[/]")
+                    reasons = update_result.get("disabled_reasons") or {}
+                    console.print("[red]⛔ 已关闭因子: " + ", ".join(
+                        f"{f}({reasons[f]})" if reasons.get(f) else str(f)
+                        for f in update_result["disabled"]) + "[/]")
                 console.print("\n[bold]新权重:[/]")
                 for fname, w in sorted(update_result.get("new_weights", {}).items(),
                                         key=lambda x: x[1], reverse=True):
@@ -931,14 +994,29 @@ def main() -> None:
         console.print(f"[bold cyan]🚨 Watchdog · {sub}[/]")
         if sub == "check":
             alerts = wd.run_check(push=not no_push)
+            run = wd.LAST_RUN
+            statuses = run.get("statuses", {})
+            skipped = run.get("skipped", [])
             if not alerts:
                 console.print("[green]✓ 当前无告警触发[/]")
-                console.print("[dim]  阈值: peg>50bps · funding>0.1% · F&G ≥80/≤20 · DEX TVL ±10%[/]")
             else:
                 for a in alerts:
                     color = {"critical": "red", "warning": "yellow", "info": "blue"}.get(a["severity"], "white")
                     console.print(f"  [{color}]{a['title']}[/]")
                     console.print(f"    {a['detail']}")
+            # 覆盖率: "无告警" 不能掩盖拿不到数据的检测器
+            coverage = f"{run.get('n_with_data', 0)}/{run.get('n_checks', 0)} 个检测器有数据"
+            if skipped:
+                console.print(f"[yellow]  {coverage}; 跳过(无数据): {', '.join(skipped)}[/]")
+            else:
+                console.print(f"[dim]  {coverage}[/]")
+            active = [n for n, st in statuses.items() if st.get("status") != "no_data"]
+            if active:
+                console.print("[dim]  阈值: " + " · ".join(wd.threshold_label(n) for n in active) + "[/]")
+            if run.get("push_failed"):
+                # 推送失败的告警没记去重, 下一轮会重试; 非零退出让 Actions 标红
+                console.print(f"[red]✗ 推送失败: {', '.join(run['push_failed'])} (下一轮重试)[/]")
+                sys.exit(1)
         elif sub == "loop":
             interval = 300
             if "--interval" in sys.argv:
