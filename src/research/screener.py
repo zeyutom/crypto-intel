@@ -612,6 +612,7 @@ def run_screen(top_n: int = 30) -> dict:
     from .meta_learner import (
         load_factor_config, get_current_weights, save_snapshot,
         detect_regime, apply_regime_adjustment, generate_factor_report,
+        cap_influence, influence_shares,
     )
     from .factor_bridge import (
         load_pipeline_signals, calc_market_overlay,
@@ -688,14 +689,29 @@ def run_screen(top_n: int = 30) -> dict:
     prior_prices = load_recent_snapshot_prices()
     excluded: dict[str, int] = {}
     excluded_rows: list[dict] = []
-    scored = score_coins(coins, tvl_proto, tvl_chain, bn_vol,
-                         onchain_data=onchain_data,
-                         funding_rates=funding_rates,
-                         weights=weights,
-                         real_onchain=real_onchain,
-                         prior_prices=prior_prices,
-                         exclusion_stats=excluded,
-                         excluded_rows=excluded_rows)
+    def _score(w: dict) -> list[dict]:
+        excluded.clear()
+        excluded_rows.clear()
+        return score_coins(coins, tvl_proto, tvl_chain, bn_vol,
+                           onchain_data=onchain_data,
+                           funding_rates=funding_rates,
+                           weights=w,
+                           real_onchain=real_onchain,
+                           prior_prices=prior_prices,
+                           exclusion_stats=excluded,
+                           excluded_rows=excluded_rows)
+
+    scored = _score(weights)
+
+    # ── Step 4b: 单因子影响力上限 (只改本次打分权重, 不写 factor_config) ──
+    # 曾经 tvl_mcap 名义权重 0.24, 却贡献了综合分 87% 的截面方差, Top-20 等于按 TVL 选
+    weights_pre_cap = weights
+    weights, cap_log = cap_influence(scored, weights)
+    if cap_log:
+        log.warning(f"  影响力上限触发, 按新权重重新打分: {cap_log}")
+        scored = _score(weights)
+    influence = {k: round(v, 4) for k, v in influence_shares(scored, weights).items()}
+    log.info(f"  因子影响力: {influence}")
 
     # ── Step 5: Pipeline 因子叠加 (市场级信号) ──
     log.info("加载 pipeline 市场级因子...")
@@ -728,6 +744,9 @@ def run_screen(top_n: int = 30) -> dict:
         "base_weights": base_weights,
         "regime": regime,
         "weights_in_force": weights,
+        "weights_pre_cap": weights_pre_cap,
+        "influence_cap_applied": cap_log,
+        "influence": influence,
         "sources": sources,
         # 冻结/陈旧报价被排除的币: 只供下次冻结判定延续历史, 不进 coins
         "excluded_rows": excluded_rows,
@@ -757,6 +776,8 @@ def run_screen(top_n: int = 30) -> dict:
         "data_sources": sources,
         "weights_used": weights,
         "base_weights": base_weights,
+        "influence": influence,
+        "influence_cap_applied": cap_log,
         "factor_report": factor_report,
         "anomalies": anomalies,
         "market_overlay": market_overlay,

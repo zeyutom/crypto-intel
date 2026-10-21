@@ -616,3 +616,83 @@ def test_frozen_coin_excluded_on_every_run_after_detection(monkeypatch, tmp_path
     # 前 3 次历史不足 → 打分; 第 4 次起每次都排除 (修复前第 5-7 次会漏回来)
     assert in_coins == [True, True, True, False, False, False, False]
     assert excluded_frozen == [0, 0, 0, 1, 1, 1, 1]
+
+
+# ────────────────────────────────────────────────────────────────────
+#  影响力上限: 单个因子不能独占排名 (2026-10-20 审计: tvl_mcap 影响力 0.87)
+# ────────────────────────────────────────────────────────────────────
+
+def _tvl_dominated_universe(n: int = 400) -> tuple[list[dict], dict]:
+    """n 个币: 动量连续分布; 一半的币 TVL = 市值 (f_tvl 封顶 1.0), 另一半没有 TVL."""
+    lu = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    coins, tvl = [], {}
+    for i in range(n):
+        sym = f"C{i:03d}"
+        coins.append(_coin(sym, price=1.0 + i * 0.01, chg_7d=(i % 37) - 18,
+                           chg_30d=(i * 7 % 61) - 30, cid=f"c-{i}",
+                           mcap=2e8 + i * 1e6, last_updated=lu))
+        if i % 2 == 0:
+            tvl[sym] = 2e8 + i * 1e6
+    return coins, tvl
+
+
+def test_run_screen_caps_dominant_factor_influence(monkeypatch, tmp_path, meta_dir):
+    """tvl_mcap 名义权重只有一半, 但二值分布让它独占综合分方差 → 上限触发,
+    按新权重重新打分; 快照/结果记录上限前后的权重和影响力。"""
+    from src.research import meta_learner as ml
+    _patch_run_screen_deps(monkeypatch, tmp_path, meta_dir)
+    coins, tvl = _tvl_dominated_universe()
+    coins.append(_coin("USDT", price=1.0, chg_7d=0.0, chg_30d=0.0, cid="tether", mcap=1e11))
+    w0 = {"momentum_30d": 0.5, "tvl_mcap": 0.5}
+    monkeypatch.setattr(ml, "get_current_weights", lambda cfg=None: dict(w0))
+    monkeypatch.setattr(screener, "fetch_coingecko_top500", lambda: coins)
+    monkeypatch.setattr(screener, "fetch_defillama_protocols", lambda: dict(tvl))
+
+    # 上限前: tvl 确实独占
+    pre = screener.score_coins(coins, tvl, {}, {}, weights=w0)
+    assert ml.influence_shares(pre, w0)["tvl_mcap"] > 0.7
+
+    res = screener.run_screen(top_n=10)
+    assert res["ok"]
+    assert res["influence_cap_applied"]
+    assert set(res["influence_cap_applied"]) == {"tvl_mcap"}
+    w = res["weights_used"]
+    assert w["tvl_mcap"] < 0.5 < w["momentum_30d"]
+    assert abs(sum(w.values()) - 1.0) < 1e-5          # 权重总和不变 → 综合分量级不变
+    assert max(res["influence"].values()) <= ml.INFLUENCE_CAP + 1e-3
+
+    snap = json.loads(pathlib.Path(res["snapshot_path"]).read_text())
+    m = snap["_meta"]
+    assert m["weights_pre_cap"] == w0
+    assert m["weights_in_force"] == w and snap["factor_weights"] == w
+    assert m["influence_cap_applied"] == res["influence_cap_applied"]
+    assert m["influence"] == res["influence"]
+    # 上限触发后重新打分了两次: 排除计数和排除明细不能被累加
+    assert res["data_sources"]["excluded"]["stable"] == 1
+    assert sum(res["data_sources"]["excluded"].values()) == 1
+    assert not any(c["symbol"] == "USDT" for c in snap["coins"])
+
+
+def test_run_screen_cap_not_applied_when_balanced(monkeypatch, tmp_path, meta_dir):
+    """没有因子越过上限时权重原样使用, 不重新打分, 记录空的 cap 日志."""
+    from src.research import meta_learner as ml
+    _patch_run_screen_deps(monkeypatch, tmp_path, meta_dir)
+    coins, _ = _tvl_dominated_universe()
+    w0 = {"momentum_30d": 0.53, "momentum_7d": 0.47}
+    # 前提: 这组权重下没有因子越线
+    pre = screener.score_coins(coins, {}, {}, {}, weights=w0)
+    assert max(ml.influence_shares(pre, w0).values()) < ml.INFLUENCE_CAP
+    monkeypatch.setattr(ml, "get_current_weights", lambda cfg=None: dict(w0))
+    monkeypatch.setattr(screener, "fetch_coingecko_top500", lambda: coins)
+    calls = {"n": 0}
+    real = screener.score_coins
+
+    def counting(*a, **kw):
+        calls["n"] += 1
+        return real(*a, **kw)
+    monkeypatch.setattr(screener, "score_coins", counting)
+
+    res = screener.run_screen(top_n=10)
+    assert res["ok"] and res["influence_cap_applied"] == {}
+    assert res["weights_used"] == w0 and calls["n"] == 1
+    assert max(res["influence"].values()) <= ml.INFLUENCE_CAP

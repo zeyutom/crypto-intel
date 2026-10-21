@@ -1006,3 +1006,50 @@ def test_factor_report_regime_from_latest_real_snapshot(meta_dir):
     assert rep["regime"] == "bear"
     assert generate_factor_report(regime="bull")["regime"] == "bull"
     assert rep["factors"]["momentum_30d"]["status"] == "insufficient_data"
+
+
+# ────────────────────────────────────────────────────────────────────
+#  影响力份额 / 影响力上限
+# ────────────────────────────────────────────────────────────────────
+
+def _binary_vs_continuous(n: int) -> list[dict]:
+    """f_tvl_mcap 一半 1.0 一半 0 (二值); f_momentum_30d 在 [0,1] 均匀铺开."""
+    return [{"f_tvl_mcap": 1.0 if i % 2 == 0 else 0.0,
+             "f_momentum_30d": ((i * 37) % n) / n} for i in range(n)]
+
+
+def test_influence_shares_sum_to_one_and_skip_zero_weight():
+    coins = _binary_vs_continuous(400)
+    s = ml.influence_shares(coins, {"momentum_30d": 0.5, "tvl_mcap": 0.5, "dev_activity": 0.0})
+    assert set(s) == {"momentum_30d", "tvl_mcap"}          # 权重 0 的因子不计
+    assert abs(sum(s.values()) - 1.0) < 1e-9
+    assert s["tvl_mcap"] > 0.7                              # 二值因子名义权重一半却占大头
+    assert ml.influence_shares([], {"tvl_mcap": 1.0}) == {"tvl_mcap": 0.0}
+    const = [{"f_tvl_mcap": 1.0} for _ in range(10)]
+    assert ml.influence_shares(const, {"tvl_mcap": 1.0}) == {"tvl_mcap": 0.0}
+
+
+def test_cap_influence_binds_and_keeps_total():
+    coins = _binary_vs_continuous(400)
+    w0 = {"momentum_30d": 0.5, "tvl_mcap": 0.5, "dev_activity": 0.0}
+    w, log_ = ml.cap_influence(coins, w0, cap=0.55)
+    assert set(log_) == {"tvl_mcap"} and log_["tvl_mcap"][0] == 0.5
+    assert w["tvl_mcap"] < 0.5 and w["dev_activity"] == 0.0
+    assert abs(sum(w.values()) - 1.0) < 1e-5
+    assert max(ml.influence_shares(coins, w).values()) <= 0.55 + 1e-3
+    # 原权重总和不是 1 时保持原总和 (只改相对比例, 综合分量级不变)
+    w2, _ = ml.cap_influence(coins, {"momentum_30d": 0.3, "tvl_mcap": 0.3}, cap=0.55)
+    assert abs(sum(w2.values()) - 0.6) < 1e-5
+
+
+def test_cap_influence_noop_small_universe_or_balanced():
+    coins = _binary_vs_continuous(400)
+    w0 = {"momentum_30d": 0.5, "tvl_mcap": 0.5}
+    # 小样本 (旧截断宇宙 / 测试) 不适用
+    w, log_ = ml.cap_influence(coins[:200], w0, cap=0.55)
+    assert w == w0 and log_ == {}
+    # 没越线: 原样返回
+    balanced = {"momentum_30d": 0.62, "tvl_mcap": 0.38}
+    assert max(ml.influence_shares(coins, balanced).values()) < 0.55
+    w, log_ = ml.cap_influence(coins, balanced, cap=0.55)
+    assert w == balanced and log_ == {}
