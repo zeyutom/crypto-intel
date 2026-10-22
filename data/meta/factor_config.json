@@ -1,7 +1,7 @@
 {
   "version": 2,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-10-21T20:19:32.155782+00:00",
+  "updated": "2026-10-22T20:18:49.070453+00:00",
   "factors": {
     "momentum_30d": {
       "weight": 0.086438,
@@ -16,6 +16,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.1845,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -37,6 +46,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.0893,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -58,6 +76,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.1173,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -79,6 +106,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.3764,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": false,
@@ -101,6 +137,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.0558,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -122,6 +167,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.054,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -136,7 +190,7 @@
       "max": 0.25,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 1,
+      "degenerate_runs": 2,
       "prior": 0.163113,
       "disabled_reason": "low_coverage"
     },
@@ -146,7 +200,7 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 10,
+      "degenerate_runs": 11,
       "prior": 0.07,
       "disabled_reason": "constant"
     },
@@ -163,6 +217,15 @@
           "base": "snapshot_20261014_2215.json",
           "base_schema": 2,
           "n": 383
+        },
+        {
+          "date": "2026-10-22",
+          "ic": -0.1428,
+          "lookback": 7,
+          "asof": "snapshot_20261022_2018.json",
+          "base": "snapshot_20261015_2207.json",
+          "base_schema": 2,
+          "n": 381
         }
       ],
       "enabled": true,
@@ -177,12 +240,12 @@
       "max": 0.2346,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 1,
+      "degenerate_runs": 2,
       "prior": 0.156369,
       "disabled_reason": "low_coverage"
     }
   },
-  "last_weight_update_date": "2026-10-21",
+  "last_weight_update_date": "2026-10-22",
   "ic_history_archive": {
     "momentum_30d": [
       {
@@ -1421,5 +1484,5 @@
       "note": "IC 记录加来源标签, 旧记录归档; 权重重置到 2026-10-12 的 prior; 学习规则改为目标权重平滑"
     }
   ],
-  "last_weight_update_asof": "snapshot_20261021_2019.json"
+  "last_weight_update_asof": "snapshot_20261022_2018.json"
 }
