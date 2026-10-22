@@ -1076,6 +1076,100 @@ def apply_regime_adjustment(weights: dict[str, float],
     return {k: round(v / total, 4) for k, v in adjusted.items()}
 
 
+# ====================================================================
+#  影响力上限: 防止单个因子独占排名
+# ====================================================================
+
+# 单因子影响力上限 (影响力 = 该因子对综合分截面方差的贡献份额, 全部因子合计 1)。
+# 2026-10-20 审计: 10-13..10-19 tvl_mcap 名义权重 0.24~0.26, 影响力却高达 0.87,
+# Top-20 中 19 个 f_tvl 封顶在 1.0 —— 名义权重完全反映不了它对排名的支配。
+# 按 PR #2 迁移后的权重回放 10-13..10-20 全量快照: 震荡/高波动下 tvl 影响力约 0.59~0.67,
+# 熊市 0.71~0.76, 上限每晚都会触发 (tvl 有效权重约 0.18 → 0.15); 牛市约 0.44~0.47 不触发。
+# 它压的是全市场的方差份额; Top-20 头部仍多为 TVL 封顶的币, 不能代替学习器下调 tvl 权重。
+INFLUENCE_CAP = 0.55
+# 只在全宇宙快照 (约 400 币) 上生效; 小样本 (测试 / 旧截断宇宙) 不适用
+INFLUENCE_MIN_UNIVERSE = 300
+
+
+def influence_shares(coins: list[dict], weights: dict) -> dict[str, float]:
+    """各因子对综合分截面方差的贡献份额 (影响力)。
+
+    C_k = w_k·f_k, comp = Σ_k C_k, share_k = cov(C_k, comp) / var(comp) (总体协方差),
+    Σ share_k = 1。只计 weight>0 的因子 (返回的 key 也只含这些), f 缺失记 0;
+    var(comp)=0 (或没有币) 时全部为 0。
+    """
+    active = [k for k, w in (weights or {}).items() if _is_num(w) and w > 0]
+    shares = {k: 0.0 for k in active}
+    n = len(coins)
+    if not active or n == 0:
+        return shares
+    cols = []
+    for k in active:
+        w = weights[k]
+        raw = f"f_{k}"
+        cols.append([w * c.get(raw) if _is_num(c.get(raw)) else 0.0 for c in coins])
+    comp = [sum(col[i] for col in cols) for i in range(n)]
+    mc = sum(comp) / n
+    dc = [x - mc for x in comp]
+    var = sum(x * x for x in dc) / n
+    if var <= 1e-18:
+        return shares
+    for k, col in zip(active, cols):
+        m = sum(col) / n
+        shares[k] = sum((col[i] - m) * dc[i] for i in range(n)) / n / var
+    return shares
+
+
+def cap_influence(coins: list[dict], weights: dict, cap: float = INFLUENCE_CAP,
+                  min_universe: int = INFLUENCE_MIN_UNIVERSE, shrink: float = 0.97,
+                  max_iter: int = 60) -> tuple[dict, dict]:
+    """影响力上限护栏: 任一因子影响力 > cap 时迭代压低它的权重。
+
+    len(coins) < min_universe 时原样返回。每轮: k* = argmax 影响力;
+    ≤ cap 就停; 否则 w[k*] *= shrink, 再按原来的权重总和缩放 (综合分量级不变)。
+    返回 (weights2, log): log = {因子: [w_before, w_after]}; 未触发时 log 为 {}
+    且 weights2 == weights。只改本次打分用的权重, 不写 factor_config。
+    """
+    w = dict(weights)
+    if len(coins) < min_universe:
+        log.info(f"影响力上限跳过: 只有 {len(coins)} 个币 (< {min_universe}, 可能是行情源缺页)")
+        return w, {}
+    orig_total = sum(v for v in weights.values() if _is_num(v))
+    if orig_total <= 0:
+        return w, {}
+    touched = []
+    shares = {}
+    prev_top = None
+    for _ in range(max_iter):
+        shares = influence_shares(coins, w)
+        if not shares:
+            break
+        top = max(shares, key=shares.get)
+        if shares[top] <= cap + 1e-4:
+            break
+        if prev_top is not None and shares[top] >= prev_top - 1e-9:
+            # 压权重降不下集中度 (例: 只有这一个因子有截面差异) → 放弃, 用原权重
+            log.warning(f"影响力上限无法生效 ({top}={shares[top]:.3f}): 其它因子没有截面差异, 保持原权重")
+            return dict(weights), {}
+        prev_top = shares[top]
+        if top not in touched:
+            touched.append(top)
+        w[top] *= shrink
+        total = sum(v for v in w.values() if _is_num(v))
+        w = {k: (v * orig_total / total if _is_num(v) else v) for k, v in w.items()}
+    else:
+        shares = influence_shares(coins, w)
+        if shares and max(shares.values()) > cap + 1e-4:
+            log.warning(f"影响力上限 {cap} 在 {max_iter} 轮内未达成: "
+                        f"{ {k: round(v, 3) for k, v in shares.items()} }")
+    if not touched:
+        return dict(weights), {}
+    w = {k: (round(v, 6) if _is_num(v) else v) for k, v in w.items()}
+    caplog = {k: [round(weights[k], 6), w[k]] for k in touched}
+    log.info(f"影响力上限 {cap} 触发: {caplog}")
+    return w, caplog
+
+
 
 # ====================================================================
 #  因子健康报告
