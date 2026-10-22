@@ -6,7 +6,8 @@
 
 - 一个永久 URL,例如 `https://crypto-intel-tom.streamlit.app`
 - 用密码保护(只有知道密码的人才能进)
-- 每天 UTC 00:30(北京时间 08:30)自动刷新数据
+- 每天自动刷新数据(cron 是 UTC 00:30,但 GitHub 定时任务常晚几小时,实际多在北京时间午后完成);夜间 nightly 跑筛选和元学习调权
+- 哨兵 `sentinel.yml` 每天 3 次检查 refresh / nightly 有没有真正提交产物:GitHub 漏触发或空跑时自动补跑一次并推飞书
 - 任何人有链接 + 密码就能在手机/电脑/平板上看
 
 ## 📋 准备工作 (5 分钟)
@@ -121,6 +122,7 @@ Streamlit Cloud 检测到 push 后自动重新部署(约 1–2 分钟)。
 ## 🐛 常见问题
 
 **Q: GitHub Actions 跑失败了?**
+- refresh / nightly / watchdog 失败都会推飞书;漏跑由哨兵自动补跑(想先看它会怎么判断:`Actions` → `Sentinel` → `Run workflow` 勾 dry_run)
 - 看 `Actions` → 失败的那次 → 看红色错误日志
 - 大概率是某个 API 被墙(例如沙箱/CI 环境的网络问题)— 把对应 source 在 `config.yaml` 里 `enabled: false` 即可
 - 推回去后重试

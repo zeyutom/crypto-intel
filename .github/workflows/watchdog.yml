@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: read
+  actions: read   # 失败告警去重: 查上一次 run 的结果
 
 concurrency:
   group: watchdog
@@ -62,3 +63,20 @@ jobs:
         with:
           path: data/watchdog_state.json
           key: watchdog-state-${{ github.run_id }}
+
+      # 以前 watchdog 失败只有 GitHub 邮件。连续失败只在第一次告警 (每天跑 4~12 次, 否则刷屏)。
+      - name: Alert on job failure or cancel
+        if: failure() || cancelled()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          PREV=$(gh run list -R "$GITHUB_REPOSITORY" --workflow watchdog.yml --limit 10 \
+                   --json databaseId,status,conclusion \
+                   --jq "[.[] | select(.databaseId != $GITHUB_RUN_ID and .status == \"completed\")][0].conclusion" || true)
+          case "$PREV" in
+            failure|cancelled|timed_out) echo "上一次 watchdog 也是 $PREV, 已告警过, 这次跳过"; exit 0 ;;
+          esac
+          python3 scripts/sentinel.py alert "🚨 Crypto Intel watchdog workflow 失败/超时/被取消" \
+            "盘中风险预警这一轮没跑完 (连续失败只提醒这一次)" \
+            "$RUN_URL" || echo "飞书告警发送失败"
