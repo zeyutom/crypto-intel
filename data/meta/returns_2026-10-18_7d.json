@@ -1,0 +1,265 @@
+{
+  "ok": true,
+  "snapshot_date": "2026-10-18",
+  "snapshot_file": "snapshot_20261018_2126.json",
+  "entry_ts": "2026-10-18T21:26:46.404631+00:00",
+  "synthetic": false,
+  "lookback_days": 7,
+  "graded": 30,
+  "matched_coins": 29,
+  "coverage": 0.9667,
+  "low_coverage": false,
+  "pages_missing": [],
+  "unmatched": [
+    "HUMA"
+  ],
+  "stats": {
+    "avg_return": 0.0202,
+    "median_return": 0.002,
+    "win_rate": 0.55,
+    "best_coin": "CAP",
+    "best_return": 0.5674,
+    "worst_coin": "MX",
+    "worst_return": -0.1917
+  },
+  "vs_btc": 0.0247,
+  "btc_entry_missing": false,
+  "btc_entry_source": "snapshot",
+  "vs_universe_ew": 0.0181,
+  "vs_universe_median": 0.002,
+  "universe_n": 381,
+  "coins": [
+    {
+      "symbol": "CAP",
+      "coin_id": "cap-4",
+      "old_price": 0.068562,
+      "new_price": 0.107465,
+      "return_pct": 0.5674,
+      "composite_score": 0.4722
+    },
+    {
+      "symbol": "KNTQ",
+      "coin_id": "kinetiq",
+      "old_price": 0.287577,
+      "new_price": 0.379815,
+      "return_pct": 0.3207,
+      "composite_score": 0.4536
+    },
+    {
+      "symbol": "CHIP",
+      "coin_id": "chip-2",
+      "old_price": 0.0390098,
+      "new_price": 0.04516833,
+      "return_pct": 0.1579,
+      "composite_score": 0.4313
+    },
+    {
+      "symbol": "KMNO",
+      "coin_id": "kamino",
+      "old_price": 0.037602,
+      "new_price": 0.043206,
+      "return_pct": 0.149,
+      "composite_score": 0.4922
+    },
+    {
+      "symbol": "RE",
+      "coin_id": "re",
+      "old_price": 0.36803,
+      "new_price": 0.387866,
+      "return_pct": 0.0539,
+      "composite_score": 0.4343
+    },
+    {
+      "symbol": "BNB",
+      "coin_id": "binancecoin",
+      "old_price": 707.95,
+      "new_price": 741.39,
+      "return_pct": 0.0472,
+      "composite_score": 0.4347
+    },
+    {
+      "symbol": "JST",
+      "coin_id": "just",
+      "old_price": 0.135178,
+      "new_price": 0.140994,
+      "return_pct": 0.043,
+      "composite_score": 0.4352
+    },
+    {
+      "symbol": "FLUID",
+      "coin_id": "instadapp",
+      "old_price": 2.15,
+      "new_price": 2.24,
+      "return_pct": 0.0419,
+      "composite_score": 0.4584
+    },
+    {
+      "symbol": "RAIL",
+      "coin_id": "railgun",
+      "old_price": 2.4,
+      "new_price": 2.5,
+      "return_pct": 0.0417,
+      "composite_score": 0.43
+    },
+    {
+      "symbol": "ZAMA",
+      "coin_id": "zama",
+      "old_price": 0.067509,
+      "new_price": 0.069645,
+      "return_pct": 0.0316,
+      "composite_score": 0.4597
+    },
+    {
+      "symbol": "PENDLE",
+      "coin_id": "pendle",
+      "old_price": 1.94,
+      "new_price": 1.98,
+      "return_pct": 0.0206,
+      "composite_score": 0.4342
+    },
+    {
+      "symbol": "ZRO",
+      "coin_id": "layerzero",
+      "old_price": 1.75,
+      "new_price": 1.78,
+      "return_pct": 0.0171,
+      "composite_score": 0.46
+    },
+    {
+      "symbol": "UNI",
+      "coin_id": "uniswap",
+      "old_price": 6.86,
+      "new_price": 6.95,
+      "return_pct": 0.0131,
+      "composite_score": 0.4266
+    },
+    {
+      "symbol": "GMX",
+      "coin_id": "gmx",
+      "old_price": 8.23,
+      "new_price": 8.32,
+      "return_pct": 0.0109,
+      "composite_score": 0.4228
+    },
+    {
+      "symbol": "GT",
+      "coin_id": "gatechain-token",
+      "old_price": 9.82,
+      "new_price": 9.84,
+      "return_pct": 0.002,
+      "composite_score": 0.4255
+    },
+    {
+      "symbol": "NXM",
+      "coin_id": "nxm",
+      "old_price": 60.23,
+      "new_price": 60.25,
+      "return_pct": 0.0003,
+      "composite_score": 0.4505
+    },
+    {
+      "symbol": "SN64",
+      "coin_id": "chutes",
+      "old_price": 17.23,
+      "new_price": 17.21,
+      "return_pct": -0.0012,
+      "composite_score": 0.4405
+    },
+    {
+      "symbol": "SOSO",
+      "coin_id": "sosovalue",
+      "old_price": 0.28923,
+      "new_price": 0.288767,
+      "return_pct": -0.0016,
+      "composite_score": 0.4592
+    },
+    {
+      "symbol": "DRV",
+      "coin_id": "derive",
+      "old_price": 0.364843,
+      "new_price": 0.359523,
+      "return_pct": -0.0146,
+      "composite_score": 0.4557
+    },
+    {
+      "symbol": "OKB",
+      "coin_id": "okb",
+      "old_price": 110.79,
+      "new_price": 108.04,
+      "return_pct": -0.0248,
+      "composite_score": 0.426
+    },
+    {
+      "symbol": "BP",
+      "coin_id": "backpack",
+      "old_price": 1.042,
+      "new_price": 0.992343,
+      "return_pct": -0.0477,
+      "composite_score": 0.4949
+    },
+    {
+      "symbol": "MET",
+      "coin_id": "meteora",
+      "old_price": 0.317609,
+      "new_price": 0.299049,
+      "return_pct": -0.0584,
+      "composite_score": 0.4639
+    },
+    {
+      "symbol": "AAVE",
+      "coin_id": "aave",
+      "old_price": 146.56,
+      "new_price": 137.45,
+      "return_pct": -0.0622,
+      "composite_score": 0.469
+    },
+    {
+      "symbol": "SYRUP",
+      "coin_id": "syrup",
+      "old_price": 0.187381,
+      "new_price": 0.174439,
+      "return_pct": -0.0691,
+      "composite_score": 0.4348
+    },
+    {
+      "symbol": "MORPHO",
+      "coin_id": "morpho",
+      "old_price": 2.28,
+      "new_price": 2.08,
+      "return_pct": -0.0877,
+      "composite_score": 0.4348
+    },
+    {
+      "symbol": "AERO",
+      "coin_id": "aerodrome-finance",
+      "old_price": 0.767536,
+      "new_price": 0.690694,
+      "return_pct": -0.1001,
+      "composite_score": 0.4318
+    },
+    {
+      "symbol": "AXL",
+      "coin_id": "axelar",
+      "old_price": 0.056508,
+      "new_price": 0.049246,
+      "return_pct": -0.1285,
+      "composite_score": 0.4366
+    },
+    {
+      "symbol": "BR",
+      "coin_id": "bedrock-token",
+      "old_price": 0.506245,
+      "new_price": 0.432263,
+      "return_pct": -0.1461,
+      "composite_score": 0.437
+    },
+    {
+      "symbol": "MX",
+      "coin_id": "mx-token",
+      "old_price": 1.93,
+      "new_price": 1.56,
+      "return_pct": -0.1917,
+      "composite_score": 0.4736
+    }
+  ]
+}
