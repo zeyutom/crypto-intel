@@ -1,10 +1,10 @@
 {
   "version": 2,
   "created": "2026-05-08T06:25:53.960573+00:00",
-  "updated": "2026-11-04T22:02:29.493490+00:00",
+  "updated": "2026-11-05T22:11:24.537472+00:00",
   "factors": {
     "momentum_30d": {
-      "weight": 0.082102,
+      "weight": 0.083261,
       "min": 0.0432,
       "max": 0.3,
       "ic_history": [
@@ -142,6 +142,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": 0.2554,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -151,7 +160,7 @@
       "negative_ic_flag": false
     },
     "momentum_7d": {
-      "weight": 0.060256,
+      "weight": 0.061357,
       "min": 0.0259,
       "max": 0.2,
       "ic_history": [
@@ -289,6 +298,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": 0.1925,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -298,7 +316,7 @@
       "negative_ic_flag": false
     },
     "ath_drawdown": {
-      "weight": 0.193989,
+      "weight": 0.194037,
       "min": 0.03,
       "max": 0.2793,
       "ic_history": [
@@ -436,6 +454,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": -0.062,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -583,6 +610,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": -0.2178,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": false,
@@ -593,7 +629,7 @@
       "disabled_reason": "locked"
     },
     "tvl_mcap": {
-      "weight": 0.158922,
+      "weight": 0.15863,
       "min": 0.05,
       "max": 0.3,
       "ic_history": [
@@ -731,6 +767,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": 0.0282,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -740,7 +785,7 @@
       "negative_ic_flag": false
     },
     "market_cap_size": {
-      "weight": 0.156286,
+      "weight": 0.154366,
       "min": 0.02,
       "max": 0.225,
       "ic_history": [
@@ -878,6 +923,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": -0.1177,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -892,7 +946,7 @@
       "max": 0.25,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 15,
+      "degenerate_runs": 16,
       "prior": 0.163113,
       "disabled_reason": "low_coverage"
     },
@@ -902,12 +956,12 @@
       "max": 0.2,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 24,
+      "degenerate_runs": 25,
       "prior": 0.07,
       "disabled_reason": "constant"
     },
     "funding_rate": {
-      "weight": 0.028963,
+      "weight": 0.028867,
       "min": 0.0177,
       "max": 0.15,
       "ic_history": [
@@ -1045,6 +1099,15 @@
           "base": "snapshot_20261028_2116.json",
           "base_schema": 2,
           "n": 377
+        },
+        {
+          "date": "2026-11-05",
+          "ic": -0.0231,
+          "lookback": 7,
+          "asof": "snapshot_20261105_2211.json",
+          "base": "snapshot_20261029_2118.json",
+          "base_schema": 2,
+          "n": 375
         }
       ],
       "enabled": true,
@@ -1059,12 +1122,12 @@
       "max": 0.2346,
       "ic_history": [],
       "enabled": false,
-      "degenerate_runs": 15,
+      "degenerate_runs": 16,
       "prior": 0.156369,
       "disabled_reason": "low_coverage"
     }
   },
-  "last_weight_update_date": "2026-11-04",
+  "last_weight_update_date": "2026-11-05",
   "ic_history_archive": {
     "momentum_30d": [
       {
@@ -2303,5 +2366,5 @@
       "note": "IC 记录加来源标签, 旧记录归档; 权重重置到 2026-10-12 的 prior; 学习规则改为目标权重平滑"
     }
   ],
-  "last_weight_update_asof": "snapshot_20261104_2202.json"
+  "last_weight_update_asof": "snapshot_20261105_2211.json"
 }
