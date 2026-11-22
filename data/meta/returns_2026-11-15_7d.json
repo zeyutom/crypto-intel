@@ -1,0 +1,265 @@
+{
+  "ok": true,
+  "snapshot_date": "2026-11-15",
+  "snapshot_file": "snapshot_20261115_2110.json",
+  "entry_ts": "2026-11-15T21:10:42.125404+00:00",
+  "synthetic": false,
+  "lookback_days": 7,
+  "graded": 30,
+  "matched_coins": 29,
+  "coverage": 0.9667,
+  "low_coverage": false,
+  "pages_missing": [],
+  "unmatched": [
+    "FLIP"
+  ],
+  "stats": {
+    "avg_return": -0.0478,
+    "median_return": -0.0816,
+    "win_rate": 0.34,
+    "best_coin": "DRV",
+    "best_return": 0.2675,
+    "worst_coin": "KNTQ",
+    "worst_return": -0.288
+  },
+  "vs_btc": 0.0174,
+  "btc_entry_missing": false,
+  "btc_entry_source": "snapshot",
+  "vs_universe_ew": 0.0012,
+  "vs_universe_median": -0.0235,
+  "universe_n": 377,
+  "coins": [
+    {
+      "symbol": "DRV",
+      "coin_id": "derive",
+      "old_price": 0.296081,
+      "new_price": 0.375294,
+      "return_pct": 0.2675,
+      "composite_score": 0.6576
+    },
+    {
+      "symbol": "ZAMA",
+      "coin_id": "zama",
+      "old_price": 0.054139,
+      "new_price": 0.061308,
+      "return_pct": 0.1324,
+      "composite_score": 0.6462
+    },
+    {
+      "symbol": "NES",
+      "coin_id": "nesa",
+      "old_price": 0.170387,
+      "new_price": 0.191382,
+      "return_pct": 0.1232,
+      "composite_score": 0.5523
+    },
+    {
+      "symbol": "GPS",
+      "coin_id": "goplus-security",
+      "old_price": 0.00811641,
+      "new_price": 0.00910637,
+      "return_pct": 0.122,
+      "composite_score": 0.5793
+    },
+    {
+      "symbol": "OZO",
+      "coin_id": "ozone-chain",
+      "old_price": 0.216075,
+      "new_price": 0.236424,
+      "return_pct": 0.0942,
+      "composite_score": 0.5805
+    },
+    {
+      "symbol": "BR",
+      "coin_id": "bedrock-token",
+      "old_price": 0.442192,
+      "new_price": 0.469516,
+      "return_pct": 0.0618,
+      "composite_score": 0.6857
+    },
+    {
+      "symbol": "FF",
+      "coin_id": "falcon-finance-ff",
+      "old_price": 0.098405,
+      "new_price": 0.103559,
+      "return_pct": 0.0524,
+      "composite_score": 0.5885
+    },
+    {
+      "symbol": "ARIA",
+      "coin_id": "aria-ai",
+      "old_price": 0.257313,
+      "new_price": 0.265953,
+      "return_pct": 0.0336,
+      "composite_score": 0.5994
+    },
+    {
+      "symbol": "JST",
+      "coin_id": "just",
+      "old_price": 0.144577,
+      "new_price": 0.146136,
+      "return_pct": 0.0108,
+      "composite_score": 0.5953
+    },
+    {
+      "symbol": "RNT",
+      "coin_id": "reental",
+      "old_price": 0.355872,
+      "new_price": 0.358535,
+      "return_pct": 0.0075,
+      "composite_score": 0.5426
+    },
+    {
+      "symbol": "SUN",
+      "coin_id": "sun-token",
+      "old_price": 0.01477554,
+      "new_price": 0.01462074,
+      "return_pct": -0.0105,
+      "composite_score": 0.5441
+    },
+    {
+      "symbol": "CHIP",
+      "coin_id": "chip-2",
+      "old_price": 0.02724602,
+      "new_price": 0.02670837,
+      "return_pct": -0.0197,
+      "composite_score": 0.5879
+    },
+    {
+      "symbol": "AERO",
+      "coin_id": "aero",
+      "old_price": 0.434956,
+      "new_price": 0.421235,
+      "return_pct": -0.0315,
+      "composite_score": 0.6544
+    },
+    {
+      "symbol": "NXM",
+      "coin_id": "nxm",
+      "old_price": 50.05,
+      "new_price": 47.89,
+      "return_pct": -0.0432,
+      "composite_score": 0.6228
+    },
+    {
+      "symbol": "SOSO",
+      "coin_id": "sosovalue",
+      "old_price": 0.285737,
+      "new_price": 0.262411,
+      "return_pct": -0.0816,
+      "composite_score": 0.6513
+    },
+    {
+      "symbol": "AAVE",
+      "coin_id": "aave",
+      "old_price": 108.64,
+      "new_price": 98.15,
+      "return_pct": -0.0966,
+      "composite_score": 0.5643
+    },
+    {
+      "symbol": "MORPHO",
+      "coin_id": "morpho",
+      "old_price": 1.75,
+      "new_price": 1.58,
+      "return_pct": -0.0971,
+      "composite_score": 0.5654
+    },
+    {
+      "symbol": "PENDLE",
+      "coin_id": "pendle",
+      "old_price": 1.45,
+      "new_price": 1.29,
+      "return_pct": -0.1103,
+      "composite_score": 0.6112
+    },
+    {
+      "symbol": "RAIL",
+      "coin_id": "railgun",
+      "old_price": 1.68,
+      "new_price": 1.48,
+      "return_pct": -0.119,
+      "composite_score": 0.588
+    },
+    {
+      "symbol": "BARD",
+      "coin_id": "lombard-protocol",
+      "old_price": 0.100457,
+      "new_price": 0.087844,
+      "return_pct": -0.1256,
+      "composite_score": 0.5467
+    },
+    {
+      "symbol": "CAP",
+      "coin_id": "cap-4",
+      "old_price": 0.105833,
+      "new_price": 0.092253,
+      "return_pct": -0.1283,
+      "composite_score": 0.5402
+    },
+    {
+      "symbol": "SYRUP",
+      "coin_id": "syrup",
+      "old_price": 0.104273,
+      "new_price": 0.089475,
+      "return_pct": -0.1419,
+      "composite_score": 0.5718
+    },
+    {
+      "symbol": "EDGE",
+      "coin_id": "edgex",
+      "old_price": 0.285612,
+      "new_price": 0.24501,
+      "return_pct": -0.1422,
+      "composite_score": 0.6445
+    },
+    {
+      "symbol": "MERL",
+      "coin_id": "merlin-chain",
+      "old_price": 0.03104331,
+      "new_price": 0.02659737,
+      "return_pct": -0.1432,
+      "composite_score": 0.5972
+    },
+    {
+      "symbol": "MET",
+      "coin_id": "meteora",
+      "old_price": 0.270719,
+      "new_price": 0.229055,
+      "return_pct": -0.1539,
+      "composite_score": 0.6151
+    },
+    {
+      "symbol": "ZRO",
+      "coin_id": "layerzero",
+      "old_price": 1.4,
+      "new_price": 1.18,
+      "return_pct": -0.1571,
+      "composite_score": 0.5638
+    },
+    {
+      "symbol": "LIT",
+      "coin_id": "lighter",
+      "old_price": 2.85,
+      "new_price": 2.36,
+      "return_pct": -0.1719,
+      "composite_score": 0.5989
+    },
+    {
+      "symbol": "SKY",
+      "coin_id": "sky",
+      "old_price": 0.054303,
+      "new_price": 0.04180453,
+      "return_pct": -0.2302,
+      "composite_score": 0.5988
+    },
+    {
+      "symbol": "KNTQ",
+      "coin_id": "kinetiq",
+      "old_price": 0.238088,
+      "new_price": 0.169516,
+      "return_pct": -0.288,
+      "composite_score": 0.5873
+    }
+  ]
+}
